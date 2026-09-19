@@ -22,6 +22,7 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "types": ["jest", "node"],
+    "rootDir": "./src",
     "outDir": "./dist"
   },
   "include": ["src"],
