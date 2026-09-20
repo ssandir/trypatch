@@ -3,6 +3,7 @@ export { handleError } from './handleError'
 export { Logger } from './logger'
 export { investigateError, buildInvestigationContext } from './investigation/investigate'
 export { resolveApiKey, defaultAuthVariable } from './investigation/resolveApiKey'
+export { Providers, type Provider } from './investigation/providers/types'
 export { Tool } from './tools'
 export type {
     ToolInput,
@@ -13,6 +14,7 @@ export type {
 export type {
     AiInvestigationOptions,
     ApiKeyAuth,
+    ClaudeInvestigationConfig,
     CursorInvestigationConfig,
     CursorRepositoryConfig,
     InferResult,

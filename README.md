@@ -8,7 +8,7 @@
 - 🛡️ **Schema-Based Guarantees**: All investigation results conform to a schema you define (Zod or JSON Schema)
 - 🔐 **Automatic Credential Censoring**: Sensitive data is redacted before leaving your instance; placeholders are restored in responses
 - 🔧 **Tool-Based Recovery**: Provide tools (e.g., `executeExternalApiCall`,`retryWithExponentialBackoff`, `fetchFromBackupService`) that trypatch can execute to resolve transient failures
-- 🤖 **Multiple Providers**: OpenAI or Cursor Cloud Agents for investigation logic
+- 🤖 **Multiple Providers**: OpenAI, Claude (Anthropic), or Cursor Cloud Agents for investigation logic
 
 ---
 
@@ -18,7 +18,7 @@ Define what a resolved error should look like, and `@trypatch` ensures you alway
 
 ```typescript
 import { z } from 'zod'
-import { trypatch } from 'ssandir/trypatch'
+import { trypatch, Providers } from 'ssandir/trypatch'
 
 const ResolutionSchema = z.object({
   rootCause: z.string().describe('Why the error occurred'),
@@ -30,7 +30,7 @@ class PaymentService {
   @trypatch({
     resultSchema: ResolutionSchema,
     investigationProvider: {
-      provider: 'openai',
+      provider: Providesr.OPENAI,
       auth: { kind: 'env', variable: 'OPENAI_API_KEY' },
     },
   })
@@ -59,13 +59,13 @@ When `processPayment` fails:
 Automatically redact API keys, tokens, and PII before they leave your instance:
 
 ```typescript
-import { trypatch } from 'ssandir/trypatch'
+import { trypatch, Providers } from 'ssandir/trypatch'
 
 class DatabaseService {
   @trypatch({
     resultSchema: ErrorResolutionSchema,
     investigationProvider: {
-      provider: 'openai',
+      provider: Providers.OPENAI,
       auth: { kind: 'env', variable: 'OPENAI_API_KEY' },
     },
     // Redact sensitive terms before sending to OpenAI
@@ -99,7 +99,7 @@ class DatabaseService {
 Provide tools that trypatch can invoke to retry or recover from transient failures:
 
 ```typescript
-import { Tool, trypatch } from 'ssandir/trypatch'
+import { Tool, trypatch, Providers } from 'ssandir/trypatch'
 import { z } from 'zod'
 
 const RetrySchema = z.object({
@@ -135,7 +135,7 @@ class ThirdPartyApiClient {
   @trypatch({
     resultSchema: RetrySchema,
     investigationProvider: {
-      provider: 'cursor',
+      provider: Providers.CURSOR,
       auth: { kind: 'env', variable: 'CURSOR_API_KEY' },
     },
     // Tools the AI can call during investigation
@@ -168,7 +168,7 @@ For JSON Schema, define the shape locally and cast in handlers:
 
 ```typescript
 import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
-import { Tool, trypatch } from 'ssandir/trypatch'
+import { Tool, trypatch, Providers } from 'ssandir/trypatch'
 
 const schema = {
   type: 'object',
@@ -193,7 +193,7 @@ new Tool({
 class Service {
   @trypatch({
     resultSchema: schema,
-    investigationProvider: { provider: 'openai', auth: { kind: 'env', variable: 'OPENAI_API_KEY' } },
+    investigationProvider: { provider: Providers.OPENAI, auth: { kind: 'env', variable: 'OPENAI_API_KEY' } },
     onInvestigationResult: (result) => console.warn((result as Result).rootCause),
   })
   async run (): Promise<Result> { /* ... */ }
@@ -201,3 +201,24 @@ class Service {
 ```
 
 Use `as const satisfies JSONSchema` so `FromSchema<typeof schema>` stays precise.
+
+---
+
+## Claude (Anthropic)
+
+`provider: Providers.CLAUDE` calls Anthropic's Messages API. Auth defaults to `ANTHROPIC_API_KEY`.
+
+```typescript
+class Service {
+  @trypatch({
+    resultSchema: ResolutionSchema,
+    investigationProvider: {
+      provider: Providers.CLAUDE,
+      auth: { kind: 'env', variable: 'ANTHROPIC_API_KEY' },
+    },
+  })
+  async run() { /* ... */ }
+}
+```
+
+Optional fields: `model` (default `claude-sonnet-4-6`), `baseURL`, and `apiVersion` (`anthropic-version` header, default `2023-06-01`).

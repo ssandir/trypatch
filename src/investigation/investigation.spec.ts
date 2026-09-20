@@ -8,8 +8,10 @@ import { buildInvestigationContext, investigateError } from './investigate'
 import { defaultAuthVariable, resolveApiKey } from './resolveApiKey'
 import { extractJsonFromText, toJsonSchemaObject } from '../schema/utils'
 import { parseInvestigationResult } from './providers/parseResult'
-import { investigateWithOpenAi } from './providers/openai'
-import { investigateWithCursor } from './providers/cursor'
+import { investigateWithOpenAi } from './providers/openai/investigate'
+import { investigateWithCursor } from './providers/cursor/investigate'
+import { investigateWithClaude } from './providers/claude/investigate'
+import { Providers } from './providers/types'
 
 describe('resolveApiKey', () => {
     it('should resolve inline auth', async () => {
@@ -31,8 +33,9 @@ describe('resolveApiKey', () => {
 
 describe('defaultAuthVariable', () => {
     it('should map providers to default env vars', () => {
-        expect(defaultAuthVariable('openai')).toBe('OPENAI_API_KEY')
-        expect(defaultAuthVariable('cursor')).toBe('CURSOR_API_KEY')
+        expect(defaultAuthVariable(Providers.OPENAI)).toBe('OPENAI_API_KEY')
+        expect(defaultAuthVariable(Providers.CURSOR)).toBe('CURSOR_API_KEY')
+        expect(defaultAuthVariable(Providers.CLAUDE)).toBe('ANTHROPIC_API_KEY')
     })
 })
 
@@ -120,7 +123,7 @@ describe('investigateWithOpenAi', () => {
     it('should call OpenAI and return parsed investigation results', async () => {
         const result = await investigateWithOpenAi(
             {
-                provider: 'openai',
+                provider: Providers.OPENAI,
                 auth: { kind: 'inline', apiKey: 'test-key' },
             },
             schema,
@@ -189,7 +192,7 @@ describe('investigateWithCursor', () => {
     it('should create a cursor agent and poll until finished', async () => {
         const result = await investigateWithCursor(
             {
-                provider: 'cursor',
+                provider: Providers.CURSOR,
                 auth: { kind: 'inline', apiKey: 'cursor-key' },
             },
             schema,
@@ -218,6 +221,132 @@ describe('investigateWithCursor', () => {
                 }),
             }),
         )
+    })
+})
+
+describe('investigateWithClaude', () => {
+    const schema = z.object({
+        rootCause: z.string(),
+        retryable: z.boolean(),
+    })
+
+    const fetchMock = jest.fn()
+
+    beforeAll(() => {
+        globalThis.fetch = fetchMock
+    })
+
+    beforeEach(() => {
+        fetchMock.mockResolvedValue({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify({ rootCause: 'rate limited', retryable: true }),
+                    },
+                ],
+            }),
+        })
+    })
+
+    afterEach(() => {
+        fetchMock.mockReset()
+    })
+
+    it('should call Claude and return parsed investigation results', async () => {
+        const result = await investigateWithClaude(
+            {
+                provider: Providers.CLAUDE,
+                auth: { kind: 'inline', apiKey: 'anthropic-key' },
+            },
+            schema,
+            {
+                systemPrompt: 'Investigate',
+                userPrompt: 'Something failed',
+            },
+            5_000,
+            undefined,
+            undefined,
+            undefined,
+        )
+
+        expect(result).toEqual({
+            kind: 'result',
+            result: { rootCause: 'rate limited', retryable: true },
+        })
+        expect(fetchMock).toHaveBeenCalledWith(
+            'https://api.anthropic.com/v1/messages',
+            expect.objectContaining({
+                method: 'POST',
+                headers: expect.objectContaining({
+                    'x-api-key': 'anthropic-key',
+                    'anthropic-version': '2023-06-01',
+                }),
+            }),
+        )
+
+        const fetchBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
+            model: string
+            max_tokens: number
+            output_config: { format: { type: string } }
+        }
+        expect(fetchBody.model).toBe('claude-sonnet-4-6')
+        expect(fetchBody.max_tokens).toBe(1024)
+        expect(fetchBody.output_config.format.type).toBe('json_schema')
+    })
+
+    it('should return a result-tool call when Claude uses a result tool', async () => {
+        fetchMock.mockResolvedValue({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({
+                content: [
+                    {
+                        type: 'tool_use',
+                        name: 'submit_investigation',
+                        input: { rootCause: 'timeout', retryable: true },
+                    },
+                ],
+            }),
+        })
+
+        const resultTool = new Tool({
+            name: 'submit_investigation',
+            description: 'Submit the final investigation result',
+            parameters: schema,
+            execute: (input: z.infer<typeof schema>): z.infer<typeof schema> => input,
+        })
+
+        const result = await investigateWithClaude(
+            {
+                provider: Providers.CLAUDE,
+                auth: { kind: 'inline', apiKey: 'anthropic-key' },
+            },
+            schema,
+            {
+                systemPrompt: 'Investigate',
+                userPrompt: 'Something failed',
+            },
+            5_000,
+            256,
+            undefined,
+            [resultTool],
+        )
+
+        expect(result).toEqual({
+            kind: 'result-tool',
+            toolName: 'submit_investigation',
+            input: JSON.stringify({ rootCause: 'timeout', retryable: true }),
+        })
+
+        const fetchBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
+            tool_choice: { type: string }
+            max_tokens: number
+        }
+        expect(fetchBody.tool_choice).toEqual({ type: 'any' })
+        expect(fetchBody.max_tokens).toBe(256)
     })
 })
 
@@ -274,7 +403,7 @@ describe('investigateError', () => {
         const result = await investigateError(ctx, {
             resultSchema: schema,
             investigationProvider: {
-                provider: 'openai',
+                provider: Providers.OPENAI,
                 auth: { kind: 'inline', apiKey: 'test-key' },
             },
             resultTools: [resultTool],
@@ -313,7 +442,7 @@ describe('investigateError', () => {
         await investigateError(ctx, {
             resultSchema: schema,
             investigationProvider: {
-                provider: 'openai',
+                provider: Providers.OPENAI,
                 auth: { kind: 'inline', apiKey: 'test-key' },
             },
             redactConfig: {},

@@ -3,8 +3,15 @@ import type { VaultOptions } from 'flare-redact'
 import type { output as ZodOutput, ZodType } from 'zod'
 import type { LoggingOptions } from './logger'
 import type { Tool } from './tools'
+import type { ClaudeInvestigationConfig } from './investigation/providers/claude/types'
+import type { CursorInvestigationConfig } from './investigation/providers/cursor/types'
+import type { OpenAiInvestigationConfig } from './investigation/providers/openai/types'
 
 export type { VaultOptions } from 'flare-redact'
+export type { ApiKeyAuth } from './investigation/auth'
+export type { ClaudeInvestigationConfig } from './investigation/providers/claude/types'
+export type { CursorInvestigationConfig, CursorRepositoryConfig } from './investigation/providers/cursor/types'
+export type { OpenAiInvestigationConfig } from './investigation/providers/openai/types'
 
 export type ResultSchema = JSONSchema | ZodType
 
@@ -14,38 +21,10 @@ export type InferResult<S extends ResultSchema>
         : S extends JSONSchema ? unknown
             : never
 
-export type ApiKeyAuth
-    = | { kind: 'inline', apiKey: string }
-        | { kind: 'env', variable: string }
-        | { kind: 'custom', resolve: () => string | Promise<string> }
-
-export type OpenAiInvestigationConfig = {
-    provider: 'openai'
-    auth: ApiKeyAuth
-    model?: string
-    baseURL?: string
-    organization?: string
-    project?: string
-}
-
-export type CursorRepositoryConfig = {
-    url: string
-    startingRef?: string
-    prUrl?: string
-}
-
-export type CursorInvestigationConfig = {
-    provider: 'cursor'
-    auth: ApiKeyAuth
-    baseURL?: string
-    model?: string | { id: string, params?: { id: string, value: string | boolean | number }[] }
-    repository?: CursorRepositoryConfig
-    pollIntervalMs?: number
-}
-
 export type InvestigationProviderConfig
     = | OpenAiInvestigationConfig
         | CursorInvestigationConfig
+        | ClaudeInvestigationConfig
 
 export type InvestigationContext = {
     error: unknown

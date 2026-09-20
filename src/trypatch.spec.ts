@@ -6,6 +6,7 @@ import { Logger } from './logger'
 import { Tool } from './tools'
 import type { InvestigationContext, TryPatchOptions } from './trypatchOptions'
 import { mockMethodDecoratorContext } from './test/mockMethodDecoratorContext'
+import { Providers } from './investigation/providers/types'
 
 const fetchMock = jest.fn()
 
@@ -15,7 +16,7 @@ type InvestigationResult = {
 }
 
 const investigationProvider = {
-    provider: 'openai',
+    provider: Providers.OPENAI,
     auth: { kind: 'inline', apiKey: 'test-key' },
 } as const
 
@@ -240,7 +241,7 @@ describe('handleError', () => {
             {
                 resultSchema: schema,
                 investigationProvider: {
-                    provider: 'openai',
+                    provider: Providers.OPENAI,
                     auth: { kind: 'inline', apiKey: 'test-key' },
                 },
             },
@@ -272,7 +273,7 @@ describe('handleError', () => {
             {
                 resultSchema: z.object({ rootCause: z.string() }),
                 investigationProvider: {
-                    provider: 'openai',
+                    provider: Providers.OPENAI,
                     auth: { kind: 'inline', apiKey: 'test-key' },
                 },
             },
@@ -369,7 +370,7 @@ describe('trypatch as decorator', () => {
             logging: { verbosity: 'high' as const },
             resultSchema,
             investigationProvider: {
-                provider: 'openai' as const,
+                provider: Providers.OPENAI,
                 auth: { kind: 'inline' as const, apiKey: 'test-key' },
                 model: 'gpt-5.5',
                 baseURL: 'https://api.openai.com/v1',

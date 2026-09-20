@@ -1,30 +1,12 @@
-import { getSchemaName, toJsonSchemaObject } from '../../schema/utils'
-import { parseInvestigationResult } from './parseResult'
-import { resolveApiKey } from '../resolveApiKey'
-import type { OpenAiInvestigationConfig, ResultSchema } from '../../trypatchOptions'
-import type { InvestigationProviderResult } from '../providerResult'
-import { type LooseTool, toolsToOpenAiDefinitions } from '../toolAdapter'
-
-type OpenAiToolCall = {
-    id?: string
-    type?: 'function'
-    function?: {
-        name?: string
-        arguments?: string
-    }
-}
-
-type OpenAiChatCompletionResponse = {
-    choices?: {
-        message?: {
-            content?: string | null
-            tool_calls?: OpenAiToolCall[]
-        }
-    }[]
-    error?: {
-        message?: string
-    }
-}
+import { getSchemaName, toJsonSchemaObject } from '../../../schema/utils'
+import { parseInvestigationResult } from '../parseResult'
+import { resolveApiKey } from '../../resolveApiKey'
+import type { ResultSchema } from '../../../trypatchOptions'
+import type { InvestigationProviderResult } from '../../providerResult'
+import { type LooseTool } from '../../toolAdapter'
+import { DEFAULT_BASE_URL, DEFAULT_MODEL } from './constants'
+import { toolsToOpenAiDefinitions } from './toolAdapter'
+import type { OpenAiChatCompletionResponse, OpenAiInvestigationConfig, OpenAiToolCall } from './types'
 
 function resultToolNames (
     resultTools: LooseTool[] | undefined,
@@ -66,7 +48,7 @@ export async function investigateWithOpenAi (
     resultTools: LooseTool[] | undefined,
 ): Promise<InvestigationProviderResult> {
     const apiKey = await resolveApiKey(config.auth)
-    const baseURL = (config.baseURL ?? 'https://api.openai.com/v1').replace(/\/$/, '')
+    const baseURL = (config.baseURL ?? DEFAULT_BASE_URL).replace(/\/$/, '')
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), timeoutMs)
     const resultToolNameSet = resultToolNames(resultTools)
@@ -87,7 +69,7 @@ export async function investigateWithOpenAi (
                 ...config.project ? { 'OpenAI-Project': config.project } : {},
             },
             body: JSON.stringify({
-                model: config.model ?? 'gpt-5.5',
+                model: config.model ?? DEFAULT_MODEL,
                 max_tokens: maxTokens,
                 messages: [
                     { role: 'system', content: prompts.systemPrompt },

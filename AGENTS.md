@@ -29,6 +29,7 @@ On method failure, `@trypatch(...)` can call an external provider to analyze the
 | -------- | ------------ | ----- |
 | `openai` | `OPENAI_API_KEY` | Uses Chat Completions with strict JSON Schema output |
 | `cursor` | `CURSOR_API_KEY` | Uses Cloud Agents API; polls run until finished |
+| `claude` | `ANTHROPIC_API_KEY` | Uses Anthropic Messages API with JSON Schema output |
 
 Optional `redactConfig` (`VaultOptions`) on AI investigation options redacts prompts with [flare-redact](https://www.npmjs.com/package/flare-redact) before they reach the provider and restores placeholders in the response.
 
@@ -36,7 +37,7 @@ Example:
 
 ```typescript
 import { z } from 'zod'
-import { trypatch } from 'ssandir/trypatch'
+import { trypatch, Providers } from 'ssandir/trypatch'
 
 const schema = z.object({
   rootCause: z.string(),
@@ -47,7 +48,7 @@ class Service {
   @trypatch({
     resultSchema: schema,
     investigationProvider: {
-      provider: 'openai',
+      provider: Providers.OPENAI,
       auth: { kind: 'env', variable: 'OPENAI_API_KEY' },
     },
     redactConfig: {

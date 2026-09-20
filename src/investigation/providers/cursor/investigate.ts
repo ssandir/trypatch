@@ -1,35 +1,11 @@
-import { extractJsonFromText } from '../../schema/utils'
-import { parseInvestigationResult } from './parseResult'
-import { resolveApiKey } from '../resolveApiKey'
-import type {
-    CursorInvestigationConfig,
-    ResultSchema,
-} from '../../trypatchOptions'
-import type { InvestigationProviderResult } from '../providerResult'
-import type { LooseTool } from '../toolAdapter'
-
-type CursorCreateAgentResponse = {
-    agent?: {
-        id?: string
-    }
-    run?: {
-        id?: string
-    }
-    error?: {
-        message?: string
-    }
-}
-
-type CursorRunResponse = {
-    id?: string
-    status?: string
-    result?: string
-    error?: {
-        message?: string
-    }
-}
-
-const TERMINAL_RUN_STATUSES = new Set(['FINISHED', 'ERROR', 'CANCELLED', 'EXPIRED'])
+import { extractJsonFromText } from '../../../schema/utils'
+import { parseInvestigationResult } from '../parseResult'
+import { resolveApiKey } from '../../resolveApiKey'
+import type { ResultSchema } from '../../../trypatchOptions'
+import type { InvestigationProviderResult } from '../../providerResult'
+import type { LooseTool } from '../../toolAdapter'
+import { DEFAULT_BASE_URL, DEFAULT_POLL_INTERVAL_MS, TERMINAL_RUN_STATUSES } from './constants'
+import type { CursorCreateAgentResponse, CursorInvestigationConfig, CursorRunResponse } from './types'
 
 function buildAuthorizationHeader (apiKey: string): string {
     if (apiKey.startsWith('Bearer ')) {
@@ -180,9 +156,9 @@ export async function investigateWithCursor (
     _resultTools?: LooseTool[],
 ): Promise<InvestigationProviderResult> {
     const apiKey = await resolveApiKey(config.auth)
-    const baseURL = (config.baseURL ?? 'https://api.cursor.com').replace(/\/$/, '')
+    const baseURL = (config.baseURL ?? DEFAULT_BASE_URL).replace(/\/$/, '')
     const authorization = buildAuthorizationHeader(apiKey)
-    const pollIntervalMs = config.pollIntervalMs ?? 2_000
+    const pollIntervalMs = config.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
     const deadline = Date.now() + timeoutMs
 
     const { agentId, runId } = await createCursorAgent(

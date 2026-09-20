@@ -6,8 +6,10 @@ import type {
 } from '../trypatchOptions'
 import { buildInvestigationPrompt } from './buildPrompt'
 import { redactInvestigationPrompts, restoreInvestigationResponse } from './redact/flareRedact'
-import { investigateWithCursor } from './providers/cursor'
-import { investigateWithOpenAi } from './providers/openai'
+import { Providers } from './providers/types'
+import { investigateWithClaude } from './providers/claude/investigate'
+import { investigateWithCursor } from './providers/cursor/investigate'
+import { investigateWithOpenAi } from './providers/openai/investigate'
 import { findToolByName } from './toolAdapter'
 
 const DEFAULT_TIMEOUT_MS = 60_000
@@ -45,24 +47,43 @@ export async function investigateError<
     const timeoutMs = investigationBehavior.timeoutMs ?? DEFAULT_TIMEOUT_MS
     const maxTokens = investigationBehavior.maxTokens
 
-    const providerResult = investigationProvider.provider === 'openai'
-        ? await investigateWithOpenAi(
-            investigationProvider,
-            resultSchema,
-            prompts,
-            timeoutMs,
-            maxTokens,
-            investigationTools,
-            resultTools,
-        )
-        : await investigateWithCursor(
-            investigationProvider,
-            resultSchema,
-            prompts,
-            timeoutMs,
-            investigationTools,
-            resultTools,
-        )
+    const providerResult = await (async () => {
+        switch (investigationProvider.provider) {
+            case Providers.OPENAI:
+                return await investigateWithOpenAi(
+                    investigationProvider,
+                    resultSchema,
+                    prompts,
+                    timeoutMs,
+                    maxTokens,
+                    investigationTools,
+                    resultTools,
+                )
+            case Providers.CURSOR:
+                return await investigateWithCursor(
+                    investigationProvider,
+                    resultSchema,
+                    prompts,
+                    timeoutMs,
+                    investigationTools,
+                    resultTools,
+                )
+            case Providers.CLAUDE:
+                return await investigateWithClaude(
+                    investigationProvider,
+                    resultSchema,
+                    prompts,
+                    timeoutMs,
+                    maxTokens,
+                    investigationTools,
+                    resultTools,
+                )
+            default: {
+                const exhaustiveCheck: never = investigationProvider
+                throw new Error(`Unsupported investigation provider: ${String(exhaustiveCheck)}`)
+            }
+        }
+    })()
 
     if (providerResult.kind === 'result-tool') {
         const tool = findToolByName(resultTools, providerResult.toolName)
