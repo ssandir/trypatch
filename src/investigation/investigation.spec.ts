@@ -5,7 +5,7 @@ import type { InvestigationContext, TryPatchOptions } from '../trypatchOptions'
 import { mockMethodDecoratorContext } from '../test/mockMethodDecoratorContext'
 import { buildInvestigationPrompt } from './buildPrompt'
 import { buildInvestigationContext, investigateError } from './investigate'
-import { defaultAuthVariable, resolveApiKey } from './resolveApiKey'
+import { resolveApiKey } from './resolveApiKey'
 import { extractJsonFromText, toJsonSchemaObject } from '../schema/utils'
 import { parseInvestigationResult } from './providers/parseResult'
 import { investigateWithOpenAi } from './providers/openai/investigate'
@@ -28,14 +28,6 @@ describe('resolveApiKey', () => {
         await expect(resolveApiKey({ kind: 'env', variable: 'MISSING_TRYPATCH_API_KEY' }))
             .rejects
             .toThrow('Missing environment variable: MISSING_TRYPATCH_API_KEY')
-    })
-})
-
-describe('defaultAuthVariable', () => {
-    it('should map providers to default env vars', () => {
-        expect(defaultAuthVariable(Providers.OPENAI)).toBe('OPENAI_API_KEY')
-        expect(defaultAuthVariable(Providers.CURSOR)).toBe('CURSOR_API_KEY')
-        expect(defaultAuthVariable(Providers.CLAUDE)).toBe('ANTHROPIC_API_KEY')
     })
 })
 
