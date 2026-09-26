@@ -1,4 +1,4 @@
-import type { JSONSchema } from 'json-schema-to-ts'
+import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
 import { z } from 'zod'
 import { trypatch } from './trypatch'
 import { handleError } from './handleError'
@@ -425,6 +425,7 @@ describe('trypatch as decorator', () => {
         mockOpenAiInvestigationResponse({ rootCause: 'provider root cause', retryable: false })
 
         class AiInvestigateService {
+            // TBD - investigate
             // @ts-expect-error - decorator type inference issue
             @trypatch(aiOptions)
             run (_value: string): DecoratorResult {
@@ -451,5 +452,72 @@ describe('trypatch as decorator', () => {
             'submit_summary',
             'submit_note',
         ])
+    })
+
+    it('should accept custom errors in AiInvestigationOptions', () => {
+        expect.assertions(0)
+
+        const customErrorSchema = z.object({
+            message: z.string(),
+            code: z.number(),
+        })
+
+        type CustomErrorParam = typeof customErrorSchema
+
+        class CustomRetryableError extends Error {
+            constructor (param: z.infer<CustomErrorParam>) {
+                super(`${param.message} (code: ${param.code})`)
+                this.name = 'CustomRetryableError'
+            }
+        }
+
+        // Type checking: verify customErrors option accepts Zod schema errors
+        void ({
+            resultSchema,
+            investigationProvider,
+            customErrors: [
+                {
+                    errorConstructor: CustomRetryableError,
+                    description: 'Thrown when the operation can be retried',
+                    errorParameterSchema: customErrorSchema,
+                },
+            ],
+        } as TryPatchOptions)
+    })
+
+    it('should accept custom errors with JSON Schema', () => {
+        expect.assertions(0)
+
+        const jsonSchemaErrorSchema = {
+            type: 'object',
+            properties: {
+                message: { type: 'string' },
+                severity: { type: 'string' },
+            },
+            required: ['message', 'severity'],
+            additionalProperties: false,
+        } as const satisfies JSONSchema
+
+        type JsonErrorParam = FromSchema<typeof jsonSchemaErrorSchema>
+
+        class JsonSchemaError extends Error {
+            constructor (param: JsonErrorParam) {
+                super(`${param.message} (severity: ${param.severity})`)
+                this.name = 'JsonSchemaError'
+            }
+        }
+
+        // Type checking: verify customErrors option accepts JSON Schema errors
+        void ({
+            resultSchema,
+            investigationProvider,
+            customErrors: [
+                {
+                    errorConstructor: JsonSchemaError,
+                    description: 'Error from JSON Schema definition',
+                    errorParameterSchema: jsonSchemaErrorSchema,
+                },
+            ],
+        } as TryPatchOptions)
     })
 })

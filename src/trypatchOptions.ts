@@ -17,8 +17,8 @@ export type ResultSchema = JSONSchema | ZodType
 
 export type InferResult<S extends ResultSchema>
     = S extends ZodType ? ZodOutput<S>
-        // FromSchema<S> triggers TS2589 for JSON Schema — infer locally with FromSchema<typeof schema>.
-        : S extends JSONSchema ? unknown
+         // FromSchema<S> triggers TS2589 for JSONSchema — infer locally with FromSchema<typeof schema>.
+        : S extends JSONSchema ? any
             : never
 
 export type InvestigationProviderConfig
@@ -64,6 +64,15 @@ type TryPatchOptionsBase = {
     logging?: LoggingOptions
 }
 
+export type CustomErrorDefinition<S extends ResultSchema = ResultSchema> = {
+    /** Will be called with a parameter matching the errorParameterSchema. */
+    errorConstructor: new (param: InferResult<S>) => Error
+    /** Optional description for the AI to understand when to return this error. */
+    description?: string
+    /** Zod or JSON Schema describing the error constructor parameter type. */
+    errorParameterSchema: S
+}
+
 export type AiInvestigationOptions<
     S extends ResultSchema = ResultSchema,
     C = unknown,
@@ -90,6 +99,8 @@ export type AiInvestigationOptions<
      * The return value of the invoked result tool is returned directly as the investigation result.
      */
     resultTools?: ResultTool<S, C>[]
+    /** Custom error classes the AI can throw during investigation. */
+    customErrors?: CustomErrorDefinition[]
     /** Callback invoked with the parsed investigation result before it is returned from the wrapped method. */
     onInvestigationResult?: (result: InferResult<S>) => void | Promise<void>
     investigate?: never

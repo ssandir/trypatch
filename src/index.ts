@@ -15,6 +15,7 @@ export type {
     AiInvestigationOptions,
     ApiKeyAuth,
     ClaudeInvestigationConfig,
+    CustomErrorDefinition,
     CursorInvestigationConfig,
     CursorRepositoryConfig,
     InferResult,
