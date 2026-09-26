@@ -92,9 +92,11 @@ describe('trypatch', () => {
         }
 
         trypatchMethod(ExampleService.prototype, 'run', {
-            resultSchema: zodSchema,
-            investigationProvider,
-            onInvestigationResult,
+            aiInvestigation: {
+                resultSchema: zodSchema,
+                investigationProvider,
+                onInvestigationResult,
+            },
         })
 
         const service = new ExampleService()
@@ -122,9 +124,11 @@ describe('trypatch', () => {
         }
 
         trypatchMethod(ExampleService.prototype, 'run', {
-            resultSchema: jsonSchema,
-            investigationProvider,
-            onInvestigationResult,
+            aiInvestigation: {
+                resultSchema: jsonSchema,
+                investigationProvider,
+                onInvestigationResult,
+            },
         })
 
         const service = new ExampleService()
@@ -152,8 +156,10 @@ describe('trypatch', () => {
         }
 
         trypatchMethod(ExampleService.prototype, 'run', {
-            resultSchema: zodSchema,
-            investigationProvider,
+            aiInvestigation: {
+                resultSchema: zodSchema,
+                investigationProvider,
+            },
         })
 
         const service = new ExampleService()
@@ -175,9 +181,11 @@ describe('trypatch', () => {
         }
 
         trypatchMethod(ExampleService.prototype, 'run', {
-            resultSchema: zodSchema,
-            investigationProvider,
-            onInvestigationResult,
+            aiInvestigation: {
+                resultSchema: zodSchema,
+                investigationProvider,
+                onInvestigationResult,
+            },
         })
 
         const service = new ExampleService()
@@ -207,7 +215,9 @@ describe('trypatch types', () => {
             }
         }
 
-        trypatch({ resultSchema: zodSchema, investigationProvider })(
+        trypatch({
+            aiInvestigation: { resultSchema: zodSchema, investigationProvider },
+        })(
             // @ts-expect-error - method return type must match resultSchema
             ExampleService.prototype.run,
             mockMethodDecoratorContext('run'),
@@ -239,10 +249,12 @@ describe('handleError', () => {
         const result = await handleError(
             new Error('original'),
             {
-                resultSchema: schema,
-                investigationProvider: {
-                    provider: Providers.OPENAI,
-                    auth: { kind: 'inline', apiKey: 'test-key' },
+                aiInvestigation: {
+                    resultSchema: schema,
+                    investigationProvider: {
+                        provider: Providers.OPENAI,
+                        auth: { kind: 'inline', apiKey: 'test-key' },
+                    },
                 },
             },
             new Logger(),
@@ -271,10 +283,12 @@ describe('handleError', () => {
         const result = await handleError(
             new Error('original'),
             {
-                resultSchema: z.object({ rootCause: z.string() }),
-                investigationProvider: {
-                    provider: Providers.OPENAI,
-                    auth: { kind: 'inline', apiKey: 'test-key' },
+                aiInvestigation: {
+                    resultSchema: z.object({ rootCause: z.string() }),
+                    investigationProvider: {
+                        provider: Providers.OPENAI,
+                        auth: { kind: 'inline', apiKey: 'test-key' },
+                    },
                 },
             },
             new Logger({
@@ -339,8 +353,10 @@ describe('trypatch as decorator', () => {
         }))
 
         const customOptions = {
-            logging: { verbosity: 'low' as const },
-            investigate,
+            customInvestigation: {
+                logging: { verbosity: 'low' as const },
+                investigate,
+            },
         } satisfies TryPatchOptions
 
         class CustomInvestigateService {
@@ -367,59 +383,61 @@ describe('trypatch as decorator', () => {
         const toolContext: ServiceToolContext = { serviceName: 'billing' }
 
         const aiOptions = {
-            logging: { verbosity: 'high' as const },
-            resultSchema,
-            investigationProvider: {
-                provider: Providers.OPENAI,
-                auth: { kind: 'inline' as const, apiKey: 'test-key' },
-                model: 'gpt-5.5',
-                baseURL: 'https://api.openai.com/v1',
-                organization: 'org-test',
-                project: 'proj-test',
-            },
-            investigationBehavior: {
-                systemPrompt: 'Investigate production errors.',
-                prompt: (ctx: InvestigationContext) => `Method ${ctx.methodName} failed with ${ctx.error}`,
-                timeoutMs: 30_000,
-                maxTokens: 512,
-                sanitizeArgs: (args: unknown[]) => args.map(String),
-            },
-            toolContext,
-            investigationTools: [
-                new Tool({
-                    name: 'search_logs',
-                    description: 'Search logs by query string',
-                    parameters: investigationQuerySchema,
-                    execute: (input, ctx?: ServiceToolContext) => `logs:${input.query}:${ctx?.serviceName ?? ''}`,
-                }),
-                new Tool({
-                    name: 'count_retries',
-                    description: 'Return retry limit from input',
-                    parameters: investigationLimitSchema,
-                    execute: (input: unknown) => (input as { limit: number }).limit,
-                }),
-            ],
-            resultTools: [
-                new Tool({
-                    name: 'submit_summary',
-                    description: 'Submit investigation summary as the result',
-                    parameters: resultSummarySchema,
-                    execute: (input) => ({
-                        rootCause: input.summary,
-                        retryable: true,
+            aiInvestigation: {
+                logging: { verbosity: 'high' as const },
+                resultSchema,
+                investigationProvider: {
+                    provider: Providers.OPENAI,
+                    auth: { kind: 'inline' as const, apiKey: 'test-key' },
+                    model: 'gpt-5.5',
+                    baseURL: 'https://api.openai.com/v1',
+                    organization: 'org-test',
+                    project: 'proj-test',
+                },
+                investigationBehavior: {
+                    systemPrompt: 'Investigate production errors.',
+                    prompt: (ctx: InvestigationContext) => `Method ${ctx.methodName} failed with ${ctx.error}`,
+                    timeoutMs: 30_000,
+                    maxTokens: 512,
+                    sanitizeArgs: (args: unknown[]) => args.map(String),
+                },
+                toolContext,
+                investigationTools: [
+                    new Tool({
+                        name: 'search_logs',
+                        description: 'Search logs by query string',
+                        parameters: investigationQuerySchema,
+                        execute: (input, ctx?: ServiceToolContext) => `logs:${input.query}:${ctx?.serviceName ?? ''}`,
                     }),
-                }),
-                new Tool({
-                    name: 'submit_note',
-                    description: 'Submit investigation note as the result',
-                    parameters: resultNoteSchema,
-                    execute: (input: unknown) => ({
-                        rootCause: (input as { note: string }).note,
-                        retryable: false,
+                    new Tool({
+                        name: 'count_retries',
+                        description: 'Return retry limit from input',
+                        parameters: investigationLimitSchema,
+                        execute: (input: unknown) => (input as { limit: number }).limit,
                     }),
-                }),
-            ],
-            onInvestigationResult,
+                ],
+                resultTools: [
+                    new Tool({
+                        name: 'submit_summary',
+                        description: 'Submit investigation summary as the result',
+                        parameters: resultSummarySchema,
+                        execute: (input) => ({
+                            rootCause: input.summary,
+                            retryable: true,
+                        }),
+                    }),
+                    new Tool({
+                        name: 'submit_note',
+                        description: 'Submit investigation note as the result',
+                        parameters: resultNoteSchema,
+                        execute: (input: unknown) => ({
+                            rootCause: (input as { note: string }).note,
+                            retryable: false,
+                        }),
+                    }),
+                ],
+                onInvestigationResult,
+            },
         } satisfies TryPatchOptions<typeof resultSchema, ServiceToolContext>
 
         mockOpenAiInvestigationResponse({ rootCause: 'provider root cause', retryable: false })
@@ -473,15 +491,17 @@ describe('trypatch as decorator', () => {
 
         // Type checking: verify customErrors option accepts Zod schema errors
         void ({
-            resultSchema,
-            investigationProvider,
-            customErrors: [
-                {
-                    errorConstructor: CustomRetryableError,
-                    description: 'Thrown when the operation can be retried',
-                    errorParameterSchema: customErrorSchema,
-                },
-            ],
+            aiInvestigation: {
+                resultSchema,
+                investigationProvider,
+                customErrors: [
+                    {
+                        errorConstructor: CustomRetryableError,
+                        description: 'Thrown when the operation can be retried',
+                        errorParameterSchema: customErrorSchema,
+                    },
+                ],
+            },
         } as TryPatchOptions)
     })
 
@@ -509,15 +529,17 @@ describe('trypatch as decorator', () => {
 
         // Type checking: verify customErrors option accepts JSON Schema errors
         void ({
-            resultSchema,
-            investigationProvider,
-            customErrors: [
-                {
-                    errorConstructor: JsonSchemaError,
-                    description: 'Error from JSON Schema definition',
-                    errorParameterSchema: jsonSchemaErrorSchema,
-                },
-            ],
+            aiInvestigation: {
+                resultSchema,
+                investigationProvider,
+                customErrors: [
+                    {
+                        errorConstructor: JsonSchemaError,
+                        description: 'Error from JSON Schema definition',
+                        errorParameterSchema: jsonSchemaErrorSchema,
+                    },
+                ],
+            },
         } as TryPatchOptions)
     })
 })

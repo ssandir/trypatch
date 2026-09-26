@@ -15,8 +15,8 @@ export async function handleError<
     _method: (...args: unknown[]) => unknown,
     args: unknown[],
 ): Promise<unknown> {
-    const sanitizeArgs = 'investigationProvider' in options
-        ? options.investigationBehavior?.sanitizeArgs
+    const sanitizeArgs = 'aiInvestigation' in options
+        ? options.aiInvestigation.investigationBehavior?.sanitizeArgs
         : undefined
 
     const investigationContext = buildInvestigationContext(
@@ -29,9 +29,8 @@ export async function handleError<
     try {
         const result = await investigateError(investigationContext, options)
 
-        if ('resultSchema' in options && options.onInvestigationResult) {
-            // To be adjusted once investigateError gets better return type
-            await Promise.resolve(options.onInvestigationResult(result as SchemaInfer<S>))
+        if ('aiInvestigation' in options && options.aiInvestigation.onInvestigationResult) {
+            await Promise.resolve(options.aiInvestigation.onInvestigationResult(result as SchemaInfer<S>))
         }
 
         return result

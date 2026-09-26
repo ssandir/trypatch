@@ -6,7 +6,10 @@ export function trypatch<
     S extends Schema,
     C = unknown,
 > (options: TryPatchOptions<S, C>) {
-    const logger = new Logger(options.logging)
+    const logging = 'aiInvestigation' in options
+        ? options.aiInvestigation.logging
+        : options.customInvestigation.logging
+    const logger = new Logger(logging)
 
     return function trypatchDecorator<
         This,

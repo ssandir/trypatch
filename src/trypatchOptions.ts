@@ -95,23 +95,16 @@ export type AiInvestigationOptions<
     customErrors?: CustomErrorDefinition[]
     /** Callback invoked with the parsed investigation result before it is returned from the wrapped method. */
     onInvestigationResult?: (result: SchemaInfer<S>) => void | Promise<void>
-    investigate?: never
 }
 
 type CustomInvestigateTryPatchOptions = TryPatchOptionsBase & {
     /** Custom investigation handler; replaces the built-in AI provider flow when provided. */
     investigate: (ctx: InvestigationContext) => Promise<unknown>
-    resultSchema?: never
-    investigationProvider?: never
-    investigationBehavior?: never
-    redactConfig?: never
-    toolContext?: never
-    investigationTools?: never
-    resultTools?: never
-    onInvestigationResult?: never
 }
 
 export type TryPatchOptions<
     S extends Schema = Schema,
     C = unknown,
-> = CustomInvestigateTryPatchOptions | AiInvestigationOptions<S, C>
+> =
+    | { aiInvestigation: AiInvestigationOptions<S, C>, customInvestigation?: never }
+    | { customInvestigation: CustomInvestigateTryPatchOptions, aiInvestigation?: never }

@@ -345,7 +345,9 @@ describe('investigateWithClaude', () => {
 describe('investigateError', () => {
     it('should use custom investigate override when provided', async () => {
         const options: TryPatchOptions = {
-            investigate: () => Promise.resolve({ rootCause: 'custom' }),
+            customInvestigation: {
+                investigate: () => Promise.resolve({ rootCause: 'custom' }),
+            },
         }
 
         const result = await investigateError(
@@ -393,12 +395,14 @@ describe('investigateError', () => {
         })
 
         const result = await investigateError(ctx, {
-            resultSchema: schema,
-            investigationProvider: {
-                provider: Providers.OPENAI,
-                auth: { kind: 'inline', apiKey: 'test-key' },
+            aiInvestigation: {
+                resultSchema: schema,
+                investigationProvider: {
+                    provider: Providers.OPENAI,
+                    auth: { kind: 'inline', apiKey: 'test-key' },
+                },
+                resultTools: [resultTool],
             },
-            resultTools: [resultTool],
         })
 
         expect(result).toEqual({ rootCause: 'network', retryable: true })
@@ -432,12 +436,14 @@ describe('investigateError', () => {
         globalThis.fetch = fetchMock
 
         await investigateError(ctx, {
-            resultSchema: schema,
-            investigationProvider: {
-                provider: Providers.OPENAI,
-                auth: { kind: 'inline', apiKey: 'test-key' },
+            aiInvestigation: {
+                resultSchema: schema,
+                investigationProvider: {
+                    provider: Providers.OPENAI,
+                    auth: { kind: 'inline', apiKey: 'test-key' },
+                },
+                redactConfig: {},
             },
-            redactConfig: {},
         })
 
         const fetchBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {

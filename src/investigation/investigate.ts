@@ -29,8 +29,8 @@ export async function investigateError<
     ctx: InvestigationContext,
     options: TryPatchOptions<S, C>,
 ): Promise<unknown> {
-    if ('investigate' in options) {
-        return await options.investigate(ctx)
+    if ('customInvestigation' in options) {
+        return await options.customInvestigation.investigate(ctx)
     }
 
     const {
@@ -41,7 +41,7 @@ export async function investigateError<
         toolContext,
         investigationTools,
         resultTools,
-    } = options
+    } = options.aiInvestigation
     const builtPrompts = buildInvestigationPrompt(ctx, resultSchema, investigationBehavior)
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)
     const timeoutMs = investigationBehavior.timeoutMs ?? DEFAULT_TIMEOUT_MS
