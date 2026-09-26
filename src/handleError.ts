@@ -1,11 +1,11 @@
 import { buildInvestigationContext, investigateError } from './investigation/investigate'
 import type { Logger } from './logger'
-import type { InferResult, ResultSchema, TryPatchOptions } from './trypatchOptions'
+import type { SchemaInfer, Schema, TryPatchOptions } from './trypatchOptions'
 
 type MethodContext = ClassMethodDecoratorContext<unknown, (...args: unknown[]) => unknown>
 
 export async function handleError<
-    S extends ResultSchema,
+    S extends Schema,
     C = unknown,
 > (
     error: unknown,
@@ -31,7 +31,7 @@ export async function handleError<
 
         if ('resultSchema' in options && options.onInvestigationResult) {
             // To be adjusted once investigateError gets better return type
-            await Promise.resolve(options.onInvestigationResult(result as InferResult<S>))
+            await Promise.resolve(options.onInvestigationResult(result as SchemaInfer<S>))
         }
 
         return result

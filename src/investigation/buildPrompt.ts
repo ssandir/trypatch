@@ -1,4 +1,4 @@
-import type { InvestigationContext, ResultSchema } from '../trypatchOptions'
+import type { InvestigationContext, Schema } from '../trypatchOptions'
 import { toJsonSchemaObject } from '../schema/utils'
 
 const DEFAULT_SYSTEM_PROMPT = [
@@ -9,7 +9,7 @@ const DEFAULT_SYSTEM_PROMPT = [
 
 export function buildInvestigationPrompt (
     ctx: InvestigationContext,
-    resultSchema: ResultSchema | undefined,
+    resultSchema: Schema | undefined,
     options: {
         prompt?: string | ((ctx: InvestigationContext) => string)
         systemPrompt?: string

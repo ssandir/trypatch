@@ -1,7 +1,7 @@
 import type {
     InvestigationContext,
     ResultTool,
-    ResultSchema,
+    Schema,
     TryPatchOptions,
 } from '../trypatchOptions'
 import { buildInvestigationPrompt } from './buildPrompt'
@@ -14,7 +14,7 @@ import { findToolByName } from './toolAdapter'
 
 const DEFAULT_TIMEOUT_MS = 60_000
 
-async function callResultTool<S extends ResultSchema, C> (
+async function callResultTool<S extends Schema, C> (
     tool: ResultTool<S, C>,
     input: string,
     toolContext: C | undefined,
@@ -23,7 +23,7 @@ async function callResultTool<S extends ResultSchema, C> (
 }
 
 export async function investigateError<
-    S extends ResultSchema,
+    S extends Schema,
     C = unknown,
 > (
     ctx: InvestigationContext,

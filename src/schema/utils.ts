@@ -3,7 +3,7 @@ import Ajv, { type AnySchema } from 'ajv'
 import type { JSONSchema } from 'json-schema-to-ts'
 import { toJSONSchema } from 'zod'
 import type { ZodObject, ZodType } from 'zod'
-import type { ResultSchema } from '../trypatchOptions'
+import type { Schema } from '../trypatchOptions'
 
 const ajv = new Ajv()
 
@@ -60,7 +60,7 @@ export function createJsonSchemaValidator (
     }
 }
 
-export function toJsonSchemaObject (schema: ResultSchema): Record<string, unknown> {
+export function toJsonSchemaObject (schema: Schema): Record<string, unknown> {
     if (isZodSchema(schema)) {
         return zodToJsonSchemaRecord(schema)
     }
@@ -88,7 +88,7 @@ export function extractJsonFromText (text: string): unknown {
     }
 }
 
-export function getSchemaName (schema: ResultSchema): string {
+export function getSchemaName (schema: Schema): string {
     if (isZodSchema(schema)) {
         return 'InvestigationResult'
     }

@@ -1,9 +1,9 @@
 import { handleError } from './handleError'
 import { Logger } from './logger'
-import type { InferResult, ResultSchema, TryPatchOptions } from './trypatchOptions'
+import type { SchemaInfer, Schema, TryPatchOptions } from './trypatchOptions'
 
 export function trypatch<
-    S extends ResultSchema,
+    S extends Schema,
     C = unknown,
 > (options: TryPatchOptions<S, C>) {
     const logger = new Logger(options.logging)
@@ -11,7 +11,7 @@ export function trypatch<
     return function trypatchDecorator<
         This,
         Args extends unknown[],
-        Return extends InferResult<S> | Promise<InferResult<S>>,
+        Return extends SchemaInfer<S> | Promise<SchemaInfer<S>>,
     > (
         originalMethod: (this: This, ...args: Args) => Return,
         context: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Return>,

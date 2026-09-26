@@ -1,7 +1,7 @@
 import { getSchemaName, toJsonSchemaObject } from '../../../schema/utils'
 import { parseInvestigationResult } from '../parseResult'
 import { resolveApiKey } from '../../resolveApiKey'
-import type { ResultSchema } from '../../../trypatchOptions'
+import type { Schema } from '../../../trypatchOptions'
 import type { InvestigationProviderResult } from '../../providerResult'
 import { type LooseTool } from '../../toolAdapter'
 import { DEFAULT_BASE_URL, DEFAULT_MODEL } from './constants'
@@ -40,7 +40,7 @@ function parseResultToolCall (
 
 export async function investigateWithOpenAi (
     config: OpenAiInvestigationConfig,
-    resultSchema: ResultSchema | undefined,
+    resultSchema: Schema | undefined,
     prompts: { systemPrompt: string, userPrompt: string },
     timeoutMs: number,
     maxTokens: number | undefined,

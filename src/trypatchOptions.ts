@@ -1,25 +1,17 @@
-import type { JSONSchema } from 'json-schema-to-ts'
 import type { VaultOptions } from 'flare-redact'
-import type { output as ZodOutput, ZodType } from 'zod'
 import type { LoggingOptions } from './logger'
 import type { Tool } from './tools'
 import type { ClaudeInvestigationConfig } from './investigation/providers/claude/types'
 import type { CursorInvestigationConfig } from './investigation/providers/cursor/types'
 import type { OpenAiInvestigationConfig } from './investigation/providers/openai/types'
+import type { Schema, SchemaInfer } from './schema/types'
 
 export type { VaultOptions } from 'flare-redact'
 export type { ApiKeyAuth } from './investigation/auth'
 export type { ClaudeInvestigationConfig } from './investigation/providers/claude/types'
 export type { CursorInvestigationConfig, CursorRepositoryConfig } from './investigation/providers/cursor/types'
 export type { OpenAiInvestigationConfig } from './investigation/providers/openai/types'
-
-export type ResultSchema = JSONSchema | ZodType
-
-export type InferResult<S extends ResultSchema>
-    = S extends ZodType ? ZodOutput<S>
-         // FromSchema<S> triggers TS2589 for JSONSchema — infer locally with FromSchema<typeof schema>.
-        : S extends JSONSchema ? any
-            : never
+export type { Schema, SchemaInfer } from './schema/types'
 
 export type InvestigationProviderConfig
     = | OpenAiInvestigationConfig
@@ -52,21 +44,21 @@ export type InvestigationTool<C = unknown> = Tool<any, C, unknown>
 
 /**
  * Final-step tool whose return value becomes the investigation result.
- * When {@link TryPatchOptions} includes {@link resultSchema}, execute must return {@link InferResult} for that schema.
+ * When {@link TryPatchOptions} includes {@link resultSchema}, execute must return {@link SchemaInfer} for that schema.
  *
  * `any` on the parameter schema erases {@link Tool}'s invariant `TSchema` generic so heterogeneous
- * `resultTools` arrays (different parameter shapes, same {@link InferResult}) assign without casts.
+ * `resultTools` arrays (different parameter shapes, same {@link SchemaInfer}) assign without casts.
  */
-export type ResultTool<S extends ResultSchema = ResultSchema, C = unknown>
-    = Tool<any, C, InferResult<S>>
+export type ResultTool<S extends Schema = Schema, C = unknown>
+    = Tool<any, C, SchemaInfer<S>>
 
 type TryPatchOptionsBase = {
     logging?: LoggingOptions
 }
 
-export type CustomErrorDefinition<S extends ResultSchema = ResultSchema> = {
+export type CustomErrorDefinition<S extends Schema = Schema> = {
     /** Will be called with a parameter matching the errorParameterSchema. */
-    errorConstructor: new (param: InferResult<S>) => Error
+    errorConstructor: new (param: SchemaInfer<S>) => Error
     /** Optional description for the AI to understand when to return this error. */
     description?: string
     /** Zod or JSON Schema describing the error constructor parameter type. */
@@ -74,7 +66,7 @@ export type CustomErrorDefinition<S extends ResultSchema = ResultSchema> = {
 }
 
 export type AiInvestigationOptions<
-    S extends ResultSchema = ResultSchema,
+    S extends Schema = Schema,
     C = unknown,
 > = TryPatchOptionsBase & {
     /** JSON Schema or Zod schema that structured investigation results must match. */
@@ -102,7 +94,7 @@ export type AiInvestigationOptions<
     /** Custom error classes the AI can throw during investigation. */
     customErrors?: CustomErrorDefinition[]
     /** Callback invoked with the parsed investigation result before it is returned from the wrapped method. */
-    onInvestigationResult?: (result: InferResult<S>) => void | Promise<void>
+    onInvestigationResult?: (result: SchemaInfer<S>) => void | Promise<void>
     investigate?: never
 }
 
@@ -120,6 +112,6 @@ type CustomInvestigateTryPatchOptions = TryPatchOptionsBase & {
 }
 
 export type TryPatchOptions<
-    S extends ResultSchema = ResultSchema,
+    S extends Schema = Schema,
     C = unknown,
 > = CustomInvestigateTryPatchOptions | AiInvestigationOptions<S, C>

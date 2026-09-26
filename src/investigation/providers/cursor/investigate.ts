@@ -1,7 +1,7 @@
 import { extractJsonFromText } from '../../../schema/utils'
 import { parseInvestigationResult } from '../parseResult'
 import { resolveApiKey } from '../../resolveApiKey'
-import type { ResultSchema } from '../../../trypatchOptions'
+import type { Schema } from '../../../trypatchOptions'
 import type { InvestigationProviderResult } from '../../providerResult'
 import type { LooseTool } from '../../toolAdapter'
 import { DEFAULT_BASE_URL, DEFAULT_POLL_INTERVAL_MS, TERMINAL_RUN_STATUSES } from './constants'
@@ -92,7 +92,7 @@ async function createCursorAgent (
 }
 
 function parseTerminalRunResult (
-    resultSchema: ResultSchema | undefined,
+    resultSchema: Schema | undefined,
     runPayload: CursorRunResponse,
 ): unknown {
     const status = runPayload.status?.toUpperCase()
@@ -118,7 +118,7 @@ async function pollCursorRun (
     authorization: string,
     agentId: string,
     runId: string,
-    resultSchema: ResultSchema | undefined,
+    resultSchema: Schema | undefined,
     pollIntervalMs: number,
     deadline: number,
     timeoutMs: number,
@@ -149,7 +149,7 @@ async function pollCursorRun (
 
 export async function investigateWithCursor (
     config: CursorInvestigationConfig,
-    resultSchema: ResultSchema | undefined,
+    resultSchema: Schema | undefined,
     prompts: { systemPrompt: string, userPrompt: string },
     timeoutMs: number,
     _investigationTools?: LooseTool[],

@@ -1,8 +1,8 @@
 import { createJsonSchemaValidator, isZodSchema } from '../../schema/utils'
-import type { ResultSchema } from '../../trypatchOptions'
+import type { Schema } from '../../trypatchOptions'
 
 export function parseInvestigationResult (
-    schema: ResultSchema | undefined,
+    schema: Schema | undefined,
     value: unknown,
 ): unknown {
     if (schema === undefined) {

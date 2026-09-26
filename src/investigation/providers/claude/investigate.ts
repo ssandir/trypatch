@@ -1,7 +1,7 @@
 import { toJsonSchemaObject } from '../../../schema/utils'
 import { parseInvestigationResult } from '../parseResult'
 import { resolveApiKey } from '../../resolveApiKey'
-import type { ResultSchema } from '../../../trypatchOptions'
+import type { Schema } from '../../../trypatchOptions'
 import type { InvestigationProviderResult } from '../../providerResult'
 import { type LooseTool } from '../../toolAdapter'
 import { DEFAULT_API_VERSION, DEFAULT_BASE_URL, DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from './constants'
@@ -59,7 +59,7 @@ function extractTextContent (content: ClaudeContentBlock[] | undefined): string 
 
 export async function investigateWithClaude (
     config: ClaudeInvestigationConfig,
-    resultSchema: ResultSchema | undefined,
+    resultSchema: Schema | undefined,
     prompts: { systemPrompt: string, userPrompt: string },
     timeoutMs: number,
     maxTokens: number | undefined,
