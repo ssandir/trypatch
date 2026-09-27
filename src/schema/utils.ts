@@ -27,12 +27,12 @@ export function isJsonSchema (value: unknown): value is JSONSchema {
     return typeof value === 'object' && value !== null
 }
 
-function zodToJsonSchemaRecord (schema: ZodType): Record<string, unknown> {
+function zodToJsonSchemaRecord (schema: ZodType): JSONSchema {
     const converted = toJSONSchema(schema)
     if ('schema' in converted && converted.schema && typeof converted.schema === 'object') {
-        return converted.schema as Record<string, unknown>
+        return converted.schema
     }
-    return converted
+    return converted as JSONSchema
 }
 
 export function zodToJsonSchemaPayload<TSchema extends ZodObject> (
@@ -60,12 +60,12 @@ export function createJsonSchemaValidator (
     }
 }
 
-export function toJsonSchemaObject (schema: Schema): Record<string, unknown> {
+export function toJsonSchemaObject (schema: Schema): JSONSchema {
     if (isZodSchema(schema)) {
         return zodToJsonSchemaRecord(schema)
     }
 
-    return schema as Record<string, unknown>
+    return schema
 }
 
 export function extractJsonFromText (text: string): unknown {

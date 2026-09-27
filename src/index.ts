@@ -2,6 +2,13 @@ export { trypatch } from './trypatch'
 export { handleError } from './handleError'
 export { Logger } from './logger'
 export { investigateError, buildInvestigationContext } from './investigation/investigate'
+export { buildInvestigationResultSchema } from './investigation/resultSchema'
+export type {
+    InvestigationErrorOutcome,
+    InvestigationExplicitResultOutcome,
+    InvestigationOutcome,
+    InvestigationResultToolOutcome,
+} from './investigation/resultSchema'
 export { resolveApiKey } from './investigation/resolveApiKey'
 export { Providers, type Provider } from './investigation/providers/types'
 export { Tool } from './tools'
