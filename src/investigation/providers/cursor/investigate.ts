@@ -1,3 +1,4 @@
+import type { JSONSchema } from 'json-schema-to-ts'
 import { extractJsonFromText } from '../../../schema/utils'
 import { parseProviderOutcome } from '../../providerResult'
 import type { InvestigationOutcome } from '../../resultSchema'
@@ -91,6 +92,7 @@ async function createCursorAgent (
 
 function parseTerminalRunResult (
     runPayload: CursorRunResponse,
+    outcomeSchema: JSONSchema,
 ): InvestigationOutcome | null {
     const status = runPayload.status?.toUpperCase()
 
@@ -106,7 +108,7 @@ function parseTerminalRunResult (
         throw new Error('Cursor investigation run finished without a result')
     }
 
-    return parseProviderOutcome(JSON.stringify(extractJsonFromText(runPayload.result)))
+    return parseProviderOutcome(JSON.stringify(extractJsonFromText(runPayload.result)), outcomeSchema)
 }
 
 async function pollCursorRun (
@@ -114,6 +116,7 @@ async function pollCursorRun (
     authorization: string,
     agentId: string,
     runId: string,
+    outcomeSchema: JSONSchema,
     pollIntervalMs: number,
     deadline: number,
     timeoutMs: number,
@@ -132,7 +135,7 @@ async function pollCursorRun (
             throw new Error(runPayload.error?.message ?? `Cursor run lookup failed with status ${runResponse.status}`)
         }
 
-        const result = parseTerminalRunResult(runPayload)
+        const result = parseTerminalRunResult(runPayload, outcomeSchema)
         if (result !== null) {
             return result
         }
@@ -145,6 +148,7 @@ async function pollCursorRun (
 
 export async function investigateWithCursor (
     config: CursorInvestigationConfig,
+    outcomeSchema: JSONSchema,
     prompts: { systemPrompt: string, userPrompt: string },
     timeoutMs: number,
 ): Promise<InvestigationOutcome> {
@@ -166,6 +170,7 @@ export async function investigateWithCursor (
         authorization,
         agentId,
         runId,
+        outcomeSchema,
         pollIntervalMs,
         deadline,
         timeoutMs,

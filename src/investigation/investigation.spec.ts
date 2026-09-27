@@ -169,6 +169,10 @@ describe('investigateWithOpenAi', () => {
 })
 
 describe('investigateWithCursor', () => {
+    const outcomeSchema = buildInvestigationResultSchema({
+        resultSchema: z.object({ rootCause: z.string(), retryable: z.boolean() }),
+    })
+
     const fetchMock = jest.fn()
 
     beforeAll(() => {
@@ -207,6 +211,7 @@ describe('investigateWithCursor', () => {
                 provider: Providers.CURSOR,
                 apiKey: 'cursor-key',
             },
+            outcomeSchema,
             {
                 systemPrompt: 'Investigate',
                 userPrompt: 'Something failed',
@@ -309,6 +314,14 @@ describe('investigateWithClaude', () => {
     })
 
     it('should return a resultTool outcome when Claude selects that outcome branch', async () => {
+        const resultTool = new Tool({
+            name: 'submit_investigation',
+            description: 'Submit the final investigation result',
+            parameters: schema,
+            execute: (input: z.infer<typeof schema>): z.infer<typeof schema> => input,
+        })
+        const outcomeSchemaWithResultTool = buildInvestigationResultSchema({ resultSchema: schema, resultTools: [resultTool] })
+
         fetchMock.mockResolvedValue({
             ok: true,
             status: 200,
@@ -333,7 +346,7 @@ describe('investigateWithClaude', () => {
                 provider: Providers.CLAUDE,
                 apiKey: 'anthropic-key',
             },
-            outcomeSchema,
+            outcomeSchemaWithResultTool,
             {
                 systemPrompt: 'Investigate',
                 userPrompt: 'Something failed',

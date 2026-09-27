@@ -14,7 +14,7 @@ import { parseInvestigationResult } from './providers/parseResult'
 import { buildInvestigationResultSchema } from './resultSchema'
 import { findToolByName } from './toolAdapter'
 
-const DEFAULT_TIMEOUT_MS = 60_000
+const DEFAULT_TIMEOUT_MS = 300_000
 
 async function callResultTool<S extends Schema, C> (
     tool: ResultTool<S, C>,
@@ -65,6 +65,7 @@ export async function investigateError<
             case Providers.CURSOR:
                 return await investigateWithCursor(
                     investigationProvider,
+                    outcomeSchema,
                     prompts,
                     timeoutMs,
                 )

@@ -66,7 +66,7 @@ export async function investigateWithClaude (
             throw new Error('Claude response did not include message content')
         }
 
-        return parseProviderOutcome(content)
+        return parseProviderOutcome(content, outcomeSchema)
     } finally {
         clearTimeout(timeout)
     }

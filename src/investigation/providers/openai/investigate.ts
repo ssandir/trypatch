@@ -60,7 +60,7 @@ export async function investigateWithOpenAi (
             throw new Error('OpenAI response did not include message content')
         }
 
-        return parseProviderOutcome(content)
+        return parseProviderOutcome(content, outcomeSchema)
     } finally {
         clearTimeout(timeout)
     }
