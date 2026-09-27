@@ -68,13 +68,14 @@ export function toJsonSchemaObject (schema: Schema): JSONSchema {
     return schema
 }
 
+/** With no schema, `value` is a JSON-encoded string (nothing else could constrain its shape) and gets parsed. */
 export function parseWithSchema (
     schema: Schema | undefined,
     value: unknown,
     label = 'value',
 ): unknown {
     if (schema === undefined) {
-        return value
+        return JSON.parse(value as string)
     }
 
     if (isZodSchema(schema)) {

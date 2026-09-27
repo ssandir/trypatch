@@ -37,7 +37,12 @@ function explicitResultOutcomeVariant (resultSchema: Schema | undefined) {
         type: 'object',
         properties: {
             type: { enum: ['result'] },
-            result: resultSchema !== undefined ? toJsonSchemaObject(resultSchema) : {}, // tbd - default to string with the description that it should satisfy result type if not defined
+            result: resultSchema !== undefined
+                ? toJsonSchemaObject(resultSchema)
+                : {
+                    type: 'string',
+                    description: 'A JSON-encoded string representing the investigation result. It will be parsed with JSON.parse.',
+                },
         },
         required: ['type', 'result'],
         additionalProperties: false,

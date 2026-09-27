@@ -117,6 +117,39 @@ describe('runInvestigation', () => {
             expect(result).toEqual({ rootCause: 'custom' })
         })
 
+        it('should parse a JSON-encoded result when no resultSchema is given', async () => {
+            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
+            fetchMock.mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: () => Promise.resolve({
+                    choices: [
+                        {
+                            message: {
+                                content: JSON.stringify({
+                                    outcome: {
+                                        type: 'result',
+                                        result: JSON.stringify({ rootCause: 'timeout', retryable: true }),
+                                    },
+                                }),
+                            },
+                        },
+                    ],
+                }),
+            })
+
+            const result = await investigateError(ctx, {
+                aiInvestigation: {
+                    investigationProvider: {
+                        provider: Providers.OPENAI,
+                        apiKey: 'test-key',
+                    },
+                },
+            })
+
+            expect(result).toEqual({ rootCause: 'timeout', retryable: true })
+        })
+
         it('should invoke result tools when the provider returns a resultTool outcome', async () => {
             const schema = z.object({
                 rootCause: z.string(),

@@ -25,6 +25,13 @@ describe('schemaUtils', () => {
         })
     })
 
+    it('should parse a JSON-encoded string when no schema is given', () => {
+        expect(parseWithSchema(undefined, '{"rootCause":"timeout","retryable":true}')).toEqual({
+            rootCause: 'timeout',
+            retryable: true,
+        })
+    })
+
     it('should extract json from fenced text', () => {
         expect(extractJsonFromText('```json\n{"rootCause":"x","retryable":false}\n```')).toEqual({
             rootCause: 'x',

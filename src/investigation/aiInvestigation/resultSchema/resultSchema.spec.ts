@@ -32,6 +32,12 @@ describe('buildInvestigationResultSchema', () => {
         expect(variantTypes(schema)).toEqual(['result'])
     })
 
+    it('should describe the result as a JSON-encoded string when no resultSchema is given', () => {
+        const schema = buildInvestigationResultSchema({})
+        const [variant] = outcomeVariants(schema) as { properties: { result: unknown } }[]
+        expect(variant!.properties.result).toMatchObject({ type: 'string' })
+    })
+
     it('should include the result variant when allowDirectResultCreation is explicitly true', () => {
         const schema = buildInvestigationResultSchema({ allowDirectResultCreation: true })
         expect(variantTypes(schema)).toEqual(['result'])
