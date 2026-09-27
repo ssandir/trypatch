@@ -1,9 +1,9 @@
 import type { VaultOptions } from 'flare-redact'
 import type { LoggingOptions } from './logger'
 import type { Tool } from './tools'
-import type { ClaudeInvestigationConfig } from './investigation/providers/claude/types'
-import type { CursorInvestigationConfig } from './investigation/providers/cursor/types'
-import type { OpenAiInvestigationConfig } from './investigation/providers/openai/types'
+import type { ClaudeInvestigationConfig } from './investigation/aiInvestigation/providers/claude/types'
+import type { CursorInvestigationConfig } from './investigation/aiInvestigation/providers/cursor/types'
+import type { OpenAiInvestigationConfig } from './investigation/aiInvestigation/providers/openai/types'
 import type { Schema, SchemaInfer } from './schema/types'
 
 export type AnyMethod = (this: unknown, ...args: unknown[]) => unknown

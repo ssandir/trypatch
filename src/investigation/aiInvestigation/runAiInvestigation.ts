@@ -5,11 +5,10 @@ import type {
     InvestigationContext,
     InvestigationProviderConfig,
     ResultTool,
-    TryPatchOptions,
-} from '../types'
+} from '../../types'
 import { buildInvestigationPrompt } from './buildPrompt'
-import type { Schema, SchemaInfer } from '../schema/types'
-import { parseWithSchema } from '../schema/utils'
+import type { Schema, SchemaInfer } from '../../schema/types'
+import { parseWithSchema } from '../../schema/utils'
 import { redactInvestigationPrompts, restoreInvestigationResponse } from './redact/flareRedact'
 import { Providers } from './providers/types'
 import { investigateWithClaude } from './providers/claude/investigate'
@@ -101,7 +100,7 @@ async function callInvestigationProvider (
     }
 }
 
-async function runAiInvestigation<S extends Schema, C> (
+export async function runAiInvestigation<S extends Schema, C> (
     ctx: InvestigationContext,
     {
         resultSchema,
@@ -142,18 +141,3 @@ async function runAiInvestigation<S extends Schema, C> (
 
     return result
 }
-
-export async function investigateError<
-    S extends Schema,
-    C = unknown,
-> (
-    ctx: InvestigationContext,
-    options: TryPatchOptions<S, C>,
-): Promise<unknown> {
-    if ('customInvestigation' in options) {
-        return await options.customInvestigation.investigate(ctx)
-    }
-
-    return await runAiInvestigation(ctx, options.aiInvestigation)
-}
-

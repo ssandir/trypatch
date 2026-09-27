@@ -1,4 +1,4 @@
-import type { Tool } from '../tools'
+import type { Tool } from '../../tools'
 
 /**
  * Loosened {@link Tool} for provider adapters — `any` on schema and context sidesteps

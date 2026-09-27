@@ -1,4 +1,4 @@
-import { handleError } from './handleError'
+import { runInvestigation } from './investigation/runInvestigation'
 import { Logger } from './logger'
 import type { SchemaInfer, Schema } from './schema/types'
 import type { AnyMethod, AnyMethodContext, MethodDescriptor, TryPatchOptions } from './types'
@@ -107,7 +107,7 @@ function wrapMethod<S extends Schema, C> (
     return function trypatchedMethod (this: unknown, ...args: unknown[]): unknown {
         return Promise.resolve()
             .then(() => originalMethod.apply(this, args))
-            .catch((error: unknown) => handleError(
+            .catch((error: unknown) => runInvestigation(
                 error,
                 options,
                 logger,

@@ -4,7 +4,7 @@ import { trypatch } from './trypatch'
 import { Tool } from './tools'
 import type { InvestigationContext, TryPatchOptions } from './types'
 import { mockMethodDecoratorContext } from './test/mockMethodDecoratorContext'
-import { Providers } from './investigation/providers/types'
+import { Providers } from './investigation/aiInvestigation/providers/types'
 
 describe('trypatch', () => {
     const fetchMock = jest.fn()
