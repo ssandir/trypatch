@@ -221,4 +221,4 @@ class Service {
 }
 ```
 
-Optional fields: `model` (default `claude-sonnet-4-6`), `baseURL`, and `apiVersion` (`anthropic-version` header, default `2023-06-01`).
+Optional fields: `model` (default `claude-sonnet-5`), `baseURL`, and `apiVersion` (`anthropic-version` header, default `2023-06-01`).

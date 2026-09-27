@@ -1,62 +1,25 @@
-import { getSchemaName, toJsonSchemaObject } from '../../../schema/utils'
-import { parseInvestigationResult } from '../parseResult'
+import type { JSONSchema } from 'json-schema-to-ts'
+import { parseProviderOutcome } from '../../providerResult'
 import { resolveApiKey } from '../../resolveApiKey'
-import type { Schema } from '../../../trypatchOptions'
-import type { InvestigationProviderResult } from '../../providerResult'
+import type { InvestigationOutcome } from '../../resultSchema'
 import { type LooseTool } from '../../toolAdapter'
 import { DEFAULT_BASE_URL, DEFAULT_MODEL } from './constants'
 import { toolsToOpenAiDefinitions } from './toolAdapter'
-import type { OpenAiChatCompletionResponse, OpenAiInvestigationConfig, OpenAiToolCall } from './types'
-
-function resultToolNames (
-    resultTools: LooseTool[] | undefined,
-): Set<string> {
-    return new Set(resultTools?.map(tool => tool.name) ?? [])
-}
-
-function parseResultToolCall (
-    toolCalls: OpenAiToolCall[] | undefined,
-    resultToolNameSet: Set<string>,
-): InvestigationProviderResult | null {
-    if (toolCalls === undefined || toolCalls.length === 0) {
-        return null
-    }
-
-    const call = toolCalls.find(
-        toolCall => toolCall.function?.name !== undefined
-            && resultToolNameSet.has(toolCall.function.name),
-    )
-
-    if (!call?.function?.name) {
-        return null
-    }
-
-    return {
-        kind: 'result-tool',
-        toolName: call.function.name,
-        input: call.function.arguments ?? '{}',
-    }
-}
+import type { OpenAiChatCompletionResponse, OpenAiInvestigationConfig } from './types'
 
 export async function investigateWithOpenAi (
     config: OpenAiInvestigationConfig,
-    resultSchema: Schema | undefined,
+    outcomeSchema: JSONSchema,
     prompts: { systemPrompt: string, userPrompt: string },
     timeoutMs: number,
     maxTokens: number | undefined,
     investigationTools: LooseTool[] | undefined,
-    resultTools: LooseTool[] | undefined,
-): Promise<InvestigationProviderResult> {
+): Promise<InvestigationOutcome> {
     const apiKey = await resolveApiKey(config.auth)
     const baseURL = (config.baseURL ?? DEFAULT_BASE_URL).replace(/\/$/, '')
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), timeoutMs)
-    const resultToolNameSet = resultToolNames(resultTools)
-    const hasResultTools = resultToolNameSet.size > 0
-    const openAiTools = toolsToOpenAiDefinitions([
-        ...(investigationTools ?? []),
-        ...(resultTools ?? []),
-    ])
+    const openAiTools = toolsToOpenAiDefinitions(investigationTools)
 
     try {
         const response = await fetch(`${baseURL}/chat/completions`, {
@@ -76,20 +39,14 @@ export async function investigateWithOpenAi (
                     { role: 'user', content: prompts.userPrompt },
                 ],
                 ...openAiTools ? { tools: openAiTools } : {},
-                ...hasResultTools
-                    ? { tool_choice: 'required' as const }
-                    : resultSchema !== undefined
-                        ? {
-                            response_format: {
-                                type: 'json_schema',
-                                json_schema: {
-                                    name: getSchemaName(resultSchema),
-                                    strict: true,
-                                    schema: toJsonSchemaObject(resultSchema),
-                                },
-                            },
-                        }
-                        : {},
+                response_format: {
+                    type: 'json_schema',
+                    json_schema: {
+                        name: 'InvestigationOutcome',
+                        strict: true,
+                        schema: outcomeSchema,
+                    },
+                },
             }),
         })
 
@@ -99,21 +56,12 @@ export async function investigateWithOpenAi (
             throw new Error(payload.error?.message ?? `OpenAI request failed with status ${response.status}`)
         }
 
-        const message = payload.choices?.[0]?.message
-        const resultToolResult = parseResultToolCall(message?.tool_calls, resultToolNameSet)
-        if (resultToolResult) {
-            return resultToolResult
-        }
-
-        const content = message?.content
+        const content = payload.choices?.[0]?.message?.content
         if (!content) {
-            throw new Error('OpenAI response did not include message content or result tool call')
+            throw new Error('OpenAI response did not include message content')
         }
 
-        return {
-            kind: 'result',
-            result: parseInvestigationResult(resultSchema, JSON.parse(content)),
-        }
+        return parseProviderOutcome(content)
     } finally {
         clearTimeout(timeout)
     }

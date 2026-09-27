@@ -1,9 +1,7 @@
 import { extractJsonFromText } from '../../../schema/utils'
-import { parseInvestigationResult } from '../parseResult'
+import { parseProviderOutcome } from '../../providerResult'
 import { resolveApiKey } from '../../resolveApiKey'
-import type { Schema } from '../../../trypatchOptions'
-import type { InvestigationProviderResult } from '../../providerResult'
-import type { LooseTool } from '../../toolAdapter'
+import type { InvestigationOutcome } from '../../resultSchema'
 import { DEFAULT_BASE_URL, DEFAULT_POLL_INTERVAL_MS, TERMINAL_RUN_STATUSES } from './constants'
 import type { CursorCreateAgentResponse, CursorInvestigationConfig, CursorRunResponse } from './types'
 
@@ -92,9 +90,8 @@ async function createCursorAgent (
 }
 
 function parseTerminalRunResult (
-    resultSchema: Schema | undefined,
     runPayload: CursorRunResponse,
-): unknown {
+): InvestigationOutcome | null {
     const status = runPayload.status?.toUpperCase()
 
     if (!status || !TERMINAL_RUN_STATUSES.has(status)) {
@@ -109,8 +106,7 @@ function parseTerminalRunResult (
         throw new Error('Cursor investigation run finished without a result')
     }
 
-    const parsed = extractJsonFromText(runPayload.result)
-    return parseInvestigationResult(resultSchema, parsed)
+    return parseProviderOutcome(JSON.stringify(extractJsonFromText(runPayload.result)))
 }
 
 async function pollCursorRun (
@@ -118,11 +114,10 @@ async function pollCursorRun (
     authorization: string,
     agentId: string,
     runId: string,
-    resultSchema: Schema | undefined,
     pollIntervalMs: number,
     deadline: number,
     timeoutMs: number,
-): Promise<unknown> {
+): Promise<InvestigationOutcome> {
     while (Date.now() < deadline) {
         const runResponse = await fetch(`${baseURL}/v1/agents/${agentId}/runs/${runId}`, {
             headers: {
@@ -136,7 +131,7 @@ async function pollCursorRun (
             throw new Error(runPayload.error?.message ?? `Cursor run lookup failed with status ${runResponse.status}`)
         }
 
-        const result = parseTerminalRunResult(resultSchema, runPayload)
+        const result = parseTerminalRunResult(runPayload)
         if (result !== null) {
             return result
         }
@@ -149,12 +144,9 @@ async function pollCursorRun (
 
 export async function investigateWithCursor (
     config: CursorInvestigationConfig,
-    resultSchema: Schema | undefined,
     prompts: { systemPrompt: string, userPrompt: string },
     timeoutMs: number,
-    _investigationTools?: LooseTool[],
-    _resultTools?: LooseTool[],
-): Promise<InvestigationProviderResult> {
+): Promise<InvestigationOutcome> {
     const apiKey = await resolveApiKey(config.auth)
     const baseURL = (config.baseURL ?? DEFAULT_BASE_URL).replace(/\/$/, '')
     const authorization = buildAuthorizationHeader(apiKey)
@@ -167,18 +159,15 @@ export async function investigateWithCursor (
         buildCreateAgentBody(config, prompts),
     )
 
-    const result = await pollCursorRun(
+    return await pollCursorRun(
         baseURL,
         authorization,
         agentId,
         runId,
-        resultSchema,
         pollIntervalMs,
         deadline,
         timeoutMs,
     )
-
-    return { kind: 'result', result }
 }
 
 function sleep (ms: number): Promise<void> {

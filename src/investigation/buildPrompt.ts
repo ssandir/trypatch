@@ -1,5 +1,5 @@
-import type { InvestigationContext, Schema } from '../trypatchOptions'
-import { toJsonSchemaObject } from '../schema/utils'
+import type { JSONSchema } from 'json-schema-to-ts'
+import type { InvestigationContext } from '../trypatchOptions'
 
 const DEFAULT_SYSTEM_PROMPT = [
     'You investigate runtime errors in application code.',
@@ -9,7 +9,7 @@ const DEFAULT_SYSTEM_PROMPT = [
 
 export function buildInvestigationPrompt (
     ctx: InvestigationContext,
-    resultSchema: Schema | undefined,
+    outcomeSchema: JSONSchema,
     options: {
         prompt?: string | ((ctx: InvestigationContext) => string)
         systemPrompt?: string
@@ -23,9 +23,7 @@ export function buildInvestigationPrompt (
         `Method: ${ctx.className ? `${ctx.className}.` : ''}${ctx.methodName}`,
         `Arguments: ${JSON.stringify(ctx.sanitizedArgs)}`,
         `Error:\n${errorMessage}`,
-        ...resultSchema !== undefined
-            ? [`Return JSON matching this schema:\n${JSON.stringify(toJsonSchemaObject(resultSchema), null, 2)}`]
-            : [],
+        `Return JSON matching this schema:\n${JSON.stringify(outcomeSchema, null, 2)}`,
     ].join('\n\n')
 
     const userPrompt = typeof options.prompt === 'function'

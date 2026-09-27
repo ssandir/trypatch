@@ -54,7 +54,7 @@ function mockOpenAiInvestigationResponse (result: InvestigationResult): void {
             choices: [
                 {
                     message: {
-                        content: JSON.stringify(result),
+                        content: JSON.stringify({ outcome: { type: 'result', result } }),
                     },
                 },
             ],
@@ -239,7 +239,9 @@ describe('handleError', () => {
                 choices: [
                     {
                         message: {
-                            content: JSON.stringify({ rootCause: 'timeout', retryable: true }),
+                            content: JSON.stringify({
+                                outcome: { type: 'result', result: { rootCause: 'timeout', retryable: true } },
+                            }),
                         },
                     },
                 ],
@@ -467,8 +469,6 @@ describe('trypatch as decorator', () => {
         expect(fetchBody.tools?.map(tool => tool.function.name)).toEqual([
             'search_logs',
             'count_retries',
-            'submit_summary',
-            'submit_note',
         ])
     })
 

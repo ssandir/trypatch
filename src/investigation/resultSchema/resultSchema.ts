@@ -49,9 +49,9 @@ function explicitResultOutcomeVariant (resultSchema: Schema | undefined) {
  * a provider's structured output must produce.
  */
 export function buildInvestigationResultSchema (options: {
-    resultSchema?: Schema
-    customErrors?: CustomErrorDefinition[]
-    resultTools?: LooseTool[]
+    resultSchema?: Schema | undefined
+    customErrors?: CustomErrorDefinition[] | undefined
+    resultTools?: LooseTool[] | undefined
 }) {
     const variants = [
         ...(options.customErrors ?? []).map(errorOutcomeVariant),

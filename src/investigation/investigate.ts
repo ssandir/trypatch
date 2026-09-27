@@ -10,16 +10,18 @@ import { Providers } from './providers/types'
 import { investigateWithClaude } from './providers/claude/investigate'
 import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithOpenAi } from './providers/openai/investigate'
+import { parseInvestigationResult } from './providers/parseResult'
+import { buildInvestigationResultSchema } from './resultSchema'
 import { findToolByName } from './toolAdapter'
 
 const DEFAULT_TIMEOUT_MS = 60_000
 
 async function callResultTool<S extends Schema, C> (
     tool: ResultTool<S, C>,
-    input: string,
+    input: unknown,
     toolContext: C | undefined,
 ): Promise<unknown> {
-    return await tool.call(input, toolContext)
+    return await tool.call(JSON.stringify(input ?? {}), toolContext)
 }
 
 export async function investigateError<
@@ -41,42 +43,39 @@ export async function investigateError<
         toolContext,
         investigationTools,
         resultTools,
+        customErrors,
     } = options.aiInvestigation
-    const builtPrompts = buildInvestigationPrompt(ctx, resultSchema, investigationBehavior)
+    const outcomeSchema = buildInvestigationResultSchema({ resultSchema, customErrors, resultTools })
+    const builtPrompts = buildInvestigationPrompt(ctx, outcomeSchema, investigationBehavior)
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)
     const timeoutMs = investigationBehavior.timeoutMs ?? DEFAULT_TIMEOUT_MS
     const maxTokens = investigationBehavior.maxTokens
 
-    const providerResult = await (async () => {
+    const rawOutcome = await (async () => {
         switch (investigationProvider.provider) {
             case Providers.OPENAI:
                 return await investigateWithOpenAi(
                     investigationProvider,
-                    resultSchema,
+                    outcomeSchema,
                     prompts,
                     timeoutMs,
                     maxTokens,
                     investigationTools,
-                    resultTools,
                 )
             case Providers.CURSOR:
                 return await investigateWithCursor(
                     investigationProvider,
-                    resultSchema,
                     prompts,
                     timeoutMs,
-                    investigationTools,
-                    resultTools,
                 )
             case Providers.CLAUDE:
                 return await investigateWithClaude(
                     investigationProvider,
-                    resultSchema,
+                    outcomeSchema,
                     prompts,
                     timeoutMs,
                     maxTokens,
                     investigationTools,
-                    resultTools,
                 )
             default: {
                 const exhaustiveCheck: never = investigationProvider
@@ -85,20 +84,28 @@ export async function investigateError<
         }
     })()
 
-    if (providerResult.kind === 'result-tool') {
-        const tool = findToolByName(resultTools, providerResult.toolName)
-        if (!tool) {
-            throw new Error(`Result tool ${providerResult.toolName} is not registered`)
+    const outcome = restoreInvestigationResponse(rawOutcome, vault)
+
+    switch (outcome.type) {
+        case 'error': {
+            const definition = customErrors?.find(candidate => candidate.errorConstructor.name === outcome.error)
+            if (!definition) {
+                throw new Error(`Investigation returned unregistered custom error: ${outcome.error}`)
+            }
+
+            throw new definition.errorConstructor(parseInvestigationResult(definition.errorParameterSchema, outcome.errorSchema))
         }
+        case 'resultTool': {
+            const tool = findToolByName(resultTools, outcome.toolName)
+            if (!tool) {
+                throw new Error(`Result tool ${outcome.toolName} is not registered`)
+            }
 
-        return await callResultTool(
-            tool,
-            restoreInvestigationResponse(providerResult.input, vault),
-            toolContext,
-        )
+            return await callResultTool(tool, outcome.input, toolContext)
+        }
+        case 'result':
+            return parseInvestigationResult(resultSchema, outcome.result)
     }
-
-    return restoreInvestigationResponse(providerResult.result, vault)
 }
 
 export function buildInvestigationContext (

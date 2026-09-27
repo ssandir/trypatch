@@ -1,7 +1,7 @@
 import process from 'node:process'
 import { z } from 'zod'
 import { Tool } from '../tools'
-import type { InvestigationContext, TryPatchOptions } from '../trypatchOptions'
+import type { CustomErrorDefinition, InvestigationContext, TryPatchOptions } from '../trypatchOptions'
 import { mockMethodDecoratorContext } from '../test/mockMethodDecoratorContext'
 import { buildInvestigationPrompt } from './buildPrompt'
 import { buildInvestigationContext, investigateError } from './investigate'
@@ -12,6 +12,7 @@ import { investigateWithOpenAi } from './providers/openai/investigate'
 import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithClaude } from './providers/claude/investigate'
 import { Providers } from './providers/types'
+import { buildInvestigationResultSchema } from './resultSchema'
 
 describe('resolveApiKey', () => {
     it('should resolve inline auth', async () => {
@@ -72,8 +73,9 @@ describe('buildInvestigationPrompt', () => {
         sanitizedArgs: ['card-1'],
     }
 
-    it('should include method and error details in the default prompt', () => {
-        const prompts = buildInvestigationPrompt(ctx, schema, {})
+    it('should include method, error, and outcome schema details in the default prompt', () => {
+        const outcomeSchema = buildInvestigationResultSchema({ resultSchema: schema })
+        const prompts = buildInvestigationPrompt(ctx, outcomeSchema, {})
         expect(prompts.userPrompt).toContain('Method: charge')
         expect(prompts.userPrompt).toContain('boom')
         expect(prompts.userPrompt).toContain('rootCause')
@@ -85,6 +87,7 @@ describe('investigateWithOpenAi', () => {
         rootCause: z.string(),
         retryable: z.boolean(),
     })
+    const outcomeSchema = buildInvestigationResultSchema({ resultSchema: schema })
 
     const fetchMock = jest.fn()
 
@@ -100,7 +103,9 @@ describe('investigateWithOpenAi', () => {
                 choices: [
                     {
                         message: {
-                            content: JSON.stringify({ rootCause: 'network timeout', retryable: true }),
+                            content: JSON.stringify({
+                                outcome: { type: 'result', result: { rootCause: 'network timeout', retryable: true } },
+                            }),
                         },
                     },
                 ],
@@ -112,13 +117,13 @@ describe('investigateWithOpenAi', () => {
         fetchMock.mockReset()
     })
 
-    it('should call OpenAI and return parsed investigation results', async () => {
+    it('should call OpenAI and return the parsed outcome', async () => {
         const result = await investigateWithOpenAi(
             {
                 provider: Providers.OPENAI,
                 auth: { kind: 'inline', apiKey: 'test-key' },
             },
-            schema,
+            outcomeSchema,
             {
                 systemPrompt: 'Investigate',
                 userPrompt: 'Something failed',
@@ -126,11 +131,10 @@ describe('investigateWithOpenAi', () => {
             5_000,
             undefined,
             undefined,
-            undefined,
         )
 
         expect(result).toEqual({
-            kind: 'result',
+            type: 'result',
             result: { rootCause: 'network timeout', retryable: true },
         })
         expect(fetchMock).toHaveBeenCalledWith(
@@ -142,15 +146,15 @@ describe('investigateWithOpenAi', () => {
                 }),
             }),
         )
+
+        const fetchBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
+            response_format: { type: string }
+        }
+        expect(fetchBody.response_format.type).toBe('json_schema')
     })
 })
 
 describe('investigateWithCursor', () => {
-    const schema = z.object({
-        rootCause: z.string(),
-        retryable: z.boolean(),
-    })
-
     const fetchMock = jest.fn()
 
     beforeAll(() => {
@@ -172,7 +176,9 @@ describe('investigateWithCursor', () => {
                 status: 200,
                 json: () => Promise.resolve({
                     status: 'FINISHED',
-                    result: '{"rootCause":"invalid payload","retryable":false}',
+                    result: JSON.stringify({
+                        outcome: { type: 'result', result: { rootCause: 'invalid payload', retryable: false } },
+                    }),
                 }),
             })
     })
@@ -187,7 +193,6 @@ describe('investigateWithCursor', () => {
                 provider: Providers.CURSOR,
                 auth: { kind: 'inline', apiKey: 'cursor-key' },
             },
-            schema,
             {
                 systemPrompt: 'Investigate',
                 userPrompt: 'Something failed',
@@ -196,7 +201,7 @@ describe('investigateWithCursor', () => {
         )
 
         expect(result).toEqual({
-            kind: 'result',
+            type: 'result',
             result: { rootCause: 'invalid payload', retryable: false },
         })
         expect(fetchMock).toHaveBeenNthCalledWith(
@@ -221,6 +226,7 @@ describe('investigateWithClaude', () => {
         rootCause: z.string(),
         retryable: z.boolean(),
     })
+    const outcomeSchema = buildInvestigationResultSchema({ resultSchema: schema })
 
     const fetchMock = jest.fn()
 
@@ -228,7 +234,11 @@ describe('investigateWithClaude', () => {
         globalThis.fetch = fetchMock
     })
 
-    beforeEach(() => {
+    afterEach(() => {
+        fetchMock.mockReset()
+    })
+
+    it('should call Claude and return the parsed outcome', async () => {
         fetchMock.mockResolvedValue({
             ok: true,
             status: 200,
@@ -236,24 +246,20 @@ describe('investigateWithClaude', () => {
                 content: [
                     {
                         type: 'text',
-                        text: JSON.stringify({ rootCause: 'rate limited', retryable: true }),
+                        text: JSON.stringify({
+                            outcome: { type: 'result', result: { rootCause: 'rate limited', retryable: true } },
+                        }),
                     },
                 ],
             }),
         })
-    })
 
-    afterEach(() => {
-        fetchMock.mockReset()
-    })
-
-    it('should call Claude and return parsed investigation results', async () => {
         const result = await investigateWithClaude(
             {
                 provider: Providers.CLAUDE,
                 auth: { kind: 'inline', apiKey: 'anthropic-key' },
             },
-            schema,
+            outcomeSchema,
             {
                 systemPrompt: 'Investigate',
                 userPrompt: 'Something failed',
@@ -261,11 +267,10 @@ describe('investigateWithClaude', () => {
             5_000,
             undefined,
             undefined,
-            undefined,
         )
 
         expect(result).toEqual({
-            kind: 'result',
+            type: 'result',
             result: { rootCause: 'rate limited', retryable: true },
         })
         expect(fetchMock).toHaveBeenCalledWith(
@@ -284,31 +289,29 @@ describe('investigateWithClaude', () => {
             max_tokens: number
             output_config: { format: { type: string } }
         }
-        expect(fetchBody.model).toBe('claude-sonnet-4-6')
-        expect(fetchBody.max_tokens).toBe(1024)
+        expect(fetchBody.model).toBe('claude-sonnet-5')
+        expect(fetchBody.max_tokens).toBe(16_000)
         expect(fetchBody.output_config.format.type).toBe('json_schema')
     })
 
-    it('should return a result-tool call when Claude uses a result tool', async () => {
+    it('should return a resultTool outcome when Claude selects that outcome branch', async () => {
         fetchMock.mockResolvedValue({
             ok: true,
             status: 200,
             json: () => Promise.resolve({
                 content: [
                     {
-                        type: 'tool_use',
-                        name: 'submit_investigation',
-                        input: { rootCause: 'timeout', retryable: true },
+                        type: 'text',
+                        text: JSON.stringify({
+                            outcome: {
+                                type: 'resultTool',
+                                toolName: 'submit_investigation',
+                                input: { rootCause: 'timeout', retryable: true },
+                            },
+                        }),
                     },
                 ],
             }),
-        })
-
-        const resultTool = new Tool({
-            name: 'submit_investigation',
-            description: 'Submit the final investigation result',
-            parameters: schema,
-            execute: (input: z.infer<typeof schema>): z.infer<typeof schema> => input,
         })
 
         const result = await investigateWithClaude(
@@ -316,7 +319,7 @@ describe('investigateWithClaude', () => {
                 provider: Providers.CLAUDE,
                 auth: { kind: 'inline', apiKey: 'anthropic-key' },
             },
-            schema,
+            outcomeSchema,
             {
                 systemPrompt: 'Investigate',
                 userPrompt: 'Something failed',
@@ -324,21 +327,13 @@ describe('investigateWithClaude', () => {
             5_000,
             256,
             undefined,
-            [resultTool],
         )
 
         expect(result).toEqual({
-            kind: 'result-tool',
+            type: 'resultTool',
             toolName: 'submit_investigation',
-            input: JSON.stringify({ rootCause: 'timeout', retryable: true }),
+            input: { rootCause: 'timeout', retryable: true },
         })
-
-        const fetchBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
-            tool_choice: { type: string }
-            max_tokens: number
-        }
-        expect(fetchBody.tool_choice).toEqual({ type: 'any' })
-        expect(fetchBody.max_tokens).toBe(256)
     })
 })
 
@@ -358,7 +353,7 @@ describe('investigateError', () => {
         expect(result).toEqual({ rootCause: 'custom' })
     })
 
-    it('should invoke result tools when the provider returns a result-tool result', async () => {
+    it('should invoke result tools when the provider returns a resultTool outcome', async () => {
         const schema = z.object({
             rootCause: z.string(),
             retryable: z.boolean(),
@@ -371,14 +366,13 @@ describe('investigateError', () => {
                 choices: [
                     {
                         message: {
-                            tool_calls: [
-                                {
-                                    function: {
-                                        name: 'submit_investigation',
-                                        arguments: JSON.stringify({ rootCause: 'network', retryable: true }),
-                                    },
+                            content: JSON.stringify({
+                                outcome: {
+                                    type: 'resultTool',
+                                    toolName: 'submit_investigation',
+                                    input: { rootCause: 'network', retryable: true },
                                 },
-                            ],
+                            }),
                         },
                     },
                 ],
@@ -408,6 +402,54 @@ describe('investigateError', () => {
         expect(result).toEqual({ rootCause: 'network', retryable: true })
     })
 
+    it('should throw the matching custom error when the provider returns an error outcome', async () => {
+        class RetryableError extends Error {
+            constructor (public readonly param: { reason: string }) {
+                super(param.reason)
+            }
+        }
+
+        const ctx = buildInvestigationContext(new Error('boom'), mockMethodDecoratorContext(), [])
+        const fetchMock = jest.fn().mockResolvedValue({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({
+                choices: [
+                    {
+                        message: {
+                            content: JSON.stringify({
+                                outcome: {
+                                    type: 'error',
+                                    error: 'RetryableError',
+                                    errorSchema: { reason: 'network blip' },
+                                },
+                            }),
+                        },
+                    },
+                ],
+            }),
+        })
+
+        globalThis.fetch = fetchMock
+
+        const customErrors: CustomErrorDefinition[] = [
+            {
+                errorConstructor: RetryableError,
+                errorParameterSchema: z.object({ reason: z.string() }),
+            },
+        ]
+
+        await expect(investigateError(ctx, {
+            aiInvestigation: {
+                investigationProvider: {
+                    provider: Providers.OPENAI,
+                    auth: { kind: 'inline', apiKey: 'test-key' },
+                },
+                customErrors,
+            },
+        })).rejects.toThrow(RetryableError)
+    })
+
     it('should redact investigation prompts before calling the provider', async () => {
         const schema = z.object({
             rootCause: z.string(),
@@ -426,7 +468,9 @@ describe('investigateError', () => {
                 choices: [
                     {
                         message: {
-                            content: JSON.stringify({ rootCause: 'invalid token', retryable: false }),
+                            content: JSON.stringify({
+                                outcome: { type: 'result', result: { rootCause: 'invalid token', retryable: false } },
+                            }),
                         },
                     },
                 ],

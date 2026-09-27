@@ -87,12 +87,3 @@ export function extractJsonFromText (text: string): unknown {
         throw new SyntaxError('Could not parse investigation result as JSON')
     }
 }
-
-export function getSchemaName (schema: Schema): string {
-    if (isZodSchema(schema)) {
-        return 'InvestigationResult'
-    }
-
-    const jsonSchema = schema as JSONSchema & { title?: string }
-    return jsonSchema.title ?? 'InvestigationResult'
-}
