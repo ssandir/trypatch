@@ -247,3 +247,12 @@ class Service {
 ```
 
 Cursor's provider calls this for both the agent-creation and run-polling requests.
+
+---
+
+<details>
+<summary>Decorator dialect compatibility</summary>
+
+`@trypatch` works whether your project compiles with TypeScript's legacy `experimentalDecorators` (the default for NestJS, TypeORM, and similar frameworks) or with the standard stage-3 decorators TS 5 uses by default. No configuration needed — it detects which dialect is calling it at runtime.
+
+</details>

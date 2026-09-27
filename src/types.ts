@@ -6,6 +6,9 @@ import type { CursorInvestigationConfig } from './investigation/providers/cursor
 import type { OpenAiInvestigationConfig } from './investigation/providers/openai/types'
 import type { Schema, SchemaInfer } from './schema/types'
 
+export type AnyMethod = (this: unknown, ...args: unknown[]) => unknown
+export type AnyMethodContext = ClassMethodDecoratorContext<unknown, AnyMethod>
+
 export type InvestigationProviderConfig
     = | OpenAiInvestigationConfig
         | CursorInvestigationConfig
@@ -44,10 +47,6 @@ export type InvestigationTool<C = unknown> = Tool<any, C, unknown>
 export type ResultTool<S extends Schema = Schema, C = unknown>
     = Tool<any, C, SchemaInfer<S>>
 
-type TryPatchOptionsBase = {
-    logging?: LoggingOptions
-}
-
 export type CustomErrorDefinition<S extends Schema = Schema> = {
     /** Will be called with a parameter matching the errorParameterSchema. */
     errorConstructor: new (param: SchemaInfer<S>) => Error
@@ -60,7 +59,7 @@ export type CustomErrorDefinition<S extends Schema = Schema> = {
 export type AiInvestigationOptions<
     S extends Schema = Schema,
     C = unknown,
-> = TryPatchOptionsBase & {
+> = {
     /** JSON Schema or Zod schema that structured investigation results must match. */
     resultSchema?: S
     /** External AI provider that runs the investigation. */
@@ -89,14 +88,19 @@ export type AiInvestigationOptions<
     onInvestigationResult?: (result: SchemaInfer<S>) => void | Promise<void>
 }
 
-type CustomInvestigateTryPatchOptions = TryPatchOptionsBase & {
+type CustomInvestigateTryPatchOptions = {
     /** Custom investigation handler; replaces the built-in AI provider flow when provided. */
     investigate: (ctx: InvestigationContext) => Promise<unknown>
+}
+
+type TryPatchOptionsBase = {
+    logging?: LoggingOptions
 }
 
 export type TryPatchOptions<
     S extends Schema = Schema,
     C = unknown,
-> =
+> = TryPatchOptionsBase & (
     | { aiInvestigation: AiInvestigationOptions<S, C>, customInvestigation?: never }
     | { customInvestigation: CustomInvestigateTryPatchOptions, aiInvestigation?: never }
+)

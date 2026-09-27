@@ -19,8 +19,6 @@
     "declaration": true,
     "sourceMap": true,
     "skipLibCheck": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
     "types": ["jest", "node"],
     "rootDir": "./src",
     "outDir": "./dist"

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { Tool } from '../tools'
-import type { CustomErrorDefinition, InvestigationContext, TryPatchOptions } from '../trypatchOptions'
+import type { CustomErrorDefinition, InvestigationContext, TryPatchOptions } from '../types'
 import { mockMethodDecoratorContext } from '../test/mockMethodDecoratorContext'
 import { buildInvestigationPrompt } from './buildPrompt'
 import { buildInvestigationContext, investigateError } from './investigate'

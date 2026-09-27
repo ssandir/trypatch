@@ -26,7 +26,7 @@ export type {
     InvestigationTool,
     ResultTool,
     TryPatchOptions,
-} from './trypatchOptions'
+} from './types'
 export type { VaultOptions } from 'flare-redact'
 export type { ClaudeInvestigationConfig } from './investigation/providers/claude/types'
 export type { CursorInvestigationConfig, CursorRepositoryConfig } from './investigation/providers/cursor/types'

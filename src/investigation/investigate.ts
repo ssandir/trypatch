@@ -1,12 +1,13 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import type {
     AiInvestigationOptions,
+    AnyMethodContext,
     CustomErrorDefinition,
     InvestigationContext,
     InvestigationProviderConfig,
     ResultTool,
     TryPatchOptions,
-} from '../trypatchOptions'
+} from '../types'
 import { buildInvestigationPrompt } from './buildPrompt'
 import type { Schema, SchemaInfer } from '../schema/types'
 import { parseWithSchema } from '../schema/utils'
@@ -159,7 +160,7 @@ export async function investigateError<
 
 export function buildInvestigationContext (
     error: unknown,
-    context: ClassMethodDecoratorContext<unknown, (...args: unknown[]) => unknown>,
+    context: AnyMethodContext, // TBD expand and extract more info from this one
     args: unknown[],
 ): InvestigationContext {
     return {

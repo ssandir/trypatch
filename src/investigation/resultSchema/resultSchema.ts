@@ -1,5 +1,5 @@
 import type { JSONSchema } from 'json-schema-to-ts'
-import type { CustomErrorDefinition } from '../../trypatchOptions'
+import type { CustomErrorDefinition } from '../../types'
 import type { Schema } from '../../schema/types'
 import { parseWithSchema, toJsonSchemaObject } from '../../schema/utils'
 import type { LooseTool } from '../toolAdapter'

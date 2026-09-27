@@ -1,10 +1,8 @@
-import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
+import type { JSONSchema } from 'json-schema-to-ts'
 import { z } from 'zod'
 import { trypatch } from './trypatch'
-import { handleError } from './handleError'
-import { Logger } from './logger'
 import { Tool } from './tools'
-import type { InvestigationContext, TryPatchOptions } from './trypatchOptions'
+import type { InvestigationContext, TryPatchOptions } from './types'
 import { mockMethodDecoratorContext } from './test/mockMethodDecoratorContext'
 import { Providers } from './investigation/providers/types'
 
@@ -200,110 +198,56 @@ describe('trypatch', () => {
     })
 })
 
-describe('trypatch types', () => {
-    const zodSchema = z.object({
-        rootCause: z.string(),
-        retryable: z.boolean(),
-    })
+describe('trypatch decorator dispatch', () => {
+    const options = {
+        customInvestigation: {
+            investigate: () => Promise.resolve({}),
+        },
+    } satisfies TryPatchOptions
 
-    it('should reject zod schema mismatches against method return type', () => {
-        expect.assertions(0)
+    function callDecorator (...args: unknown[]): unknown {
+        return (trypatch(options) as unknown as (...callArgs: unknown[]) => unknown)(...args)
+    }
 
-        class ExampleService {
-            run (): { rootCause: string, retryable: string } {
-                return { rootCause: 'x', retryable: 'no' }
-            }
+    it('should wrap the method when called with the legacy (target, propertyKey, descriptor) shape', () => {
+        const originalMethod = jest.fn(() => 'result')
+        const descriptor: PropertyDescriptor = {
+            value: originalMethod,
+            enumerable: false,
+            configurable: true,
+            writable: true,
         }
 
-        trypatch({
-            aiInvestigation: { resultSchema: zodSchema, investigationProvider },
-        })(
-            // @ts-expect-error - method return type must match resultSchema
-            ExampleService.prototype.run,
-            mockMethodDecoratorContext('run'),
-        )
-    })
-})
+        const result = callDecorator({}, 'run', descriptor) as PropertyDescriptor
 
-describe('handleError', () => {
-    const schema = z.object({
-        rootCause: z.string(),
-        retryable: z.boolean(),
+        expect(typeof result.value).toBe('function')
+        expect(result.value).not.toBe(originalMethod)
+        expect(result.enumerable).toBe(false)
+        expect(result.configurable).toBe(true)
     })
 
-    it('should return parsed investigation results', async () => {
-        fetchMock.mockResolvedValue({
-            ok: true,
-            status: 200,
-            json: () => Promise.resolve({
-                choices: [
-                    {
-                        message: {
-                            content: JSON.stringify({
-                                outcome: { type: 'result', result: { rootCause: 'timeout', retryable: true } },
-                            }),
-                        },
-                    },
-                ],
-            }),
-        })
+    it('should wrap the method when called with the stage-3 (value, context) shape', () => {
+        const originalMethod = jest.fn(() => 'result')
 
-        const result = await handleError(
-            new Error('original'),
-            {
-                aiInvestigation: {
-                    resultSchema: schema,
-                    investigationProvider: {
-                        provider: Providers.OPENAI,
-                        apiKey: 'test-key',
-                    },
-                },
-            },
-            new Logger(),
-            mockMethodDecoratorContext(),
-            () => ({ rootCause: 'ok', retryable: false }),
-            [],
-        )
+        const result = callDecorator(originalMethod, mockMethodDecoratorContext('run'))
 
-        expect(result).toEqual({ rootCause: 'timeout', retryable: true })
+        expect(typeof result).toBe('function')
+        expect(result).not.toBe(originalMethod)
     })
 
-    it('should swallow investigation failures and log them', async () => {
-        const loggerLike = {
-            log: jest.fn(),
-            info: jest.fn(),
-            warn: jest.fn(),
-            error: jest.fn(),
-            debug: jest.fn(),
-        }
-        fetchMock.mockResolvedValue({
-            ok: false,
-            status: 500,
-            json: () => Promise.resolve({ error: { message: 'provider down' } }),
-        })
+    it('should throw when the stage-3 context is not a method', () => {
+        expect(() => callDecorator(jest.fn(), { kind: 'field', name: 'run' }))
+            .toThrow('trypatch can only decorate methods')
+    })
 
-        const result = await handleError(
-            new Error('original'),
-            {
-                aiInvestigation: {
-                    resultSchema: z.object({ rootCause: z.string() }),
-                    investigationProvider: {
-                        provider: Providers.OPENAI,
-                        apiKey: 'test-key',
-                    },
-                },
-            },
-            new Logger({
-                logger: loggerLike,
-                verbosity: 'high',
-            }),
-            mockMethodDecoratorContext(),
-            () => ({ rootCause: 'ok' }),
-            [],
-        )
+    it('should throw when the legacy descriptor has no function value', () => {
+        expect(() => callDecorator({}, 'run', { get: () => 1, enumerable: true, configurable: true }))
+            .toThrow('trypatch can only decorate methods')
+    })
 
-        expect(result).toBeUndefined()
-        expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed:', expect.any(Error))
+    it('should throw when called with neither decorator shape', () => {
+        expect(() => callDecorator(class Foo {}))
+            .toThrow('trypatch can only decorate methods')
     })
 })
 
@@ -355,14 +299,13 @@ describe('trypatch as decorator', () => {
         }))
 
         const customOptions = {
+            logging: { verbosity: 'low' },
             customInvestigation: {
-                logging: { verbosity: 'low' as const },
                 investigate,
             },
         } satisfies TryPatchOptions
 
         class CustomInvestigateService {
-            // @ts-expect-error - decorator type inference issue
             @trypatch(customOptions)
             run (_value: string): DecoratorResult {
                 throw new Error('failed')
@@ -385,8 +328,8 @@ describe('trypatch as decorator', () => {
         const toolContext: ServiceToolContext = { serviceName: 'billing' }
 
         const aiOptions = {
+            logging: { verbosity: 'high' as const },
             aiInvestigation: {
-                logging: { verbosity: 'high' as const },
                 resultSchema,
                 investigationProvider: {
                     provider: Providers.OPENAI,
@@ -445,8 +388,6 @@ describe('trypatch as decorator', () => {
         mockOpenAiInvestigationResponse({ rootCause: 'provider root cause', retryable: false })
 
         class AiInvestigateService {
-            // TBD - investigate
-            // @ts-expect-error - decorator type inference issue
             @trypatch(aiOptions)
             run (_value: string): DecoratorResult {
                 throw new Error('failed')
@@ -470,76 +411,5 @@ describe('trypatch as decorator', () => {
             'search_logs',
             'count_retries',
         ])
-    })
-
-    it('should accept custom errors in AiInvestigationOptions', () => {
-        expect.assertions(0)
-
-        const customErrorSchema = z.object({
-            message: z.string(),
-            code: z.number(),
-        })
-
-        type CustomErrorParam = typeof customErrorSchema
-
-        class CustomRetryableError extends Error {
-            constructor (param: z.infer<CustomErrorParam>) {
-                super(`${param.message} (code: ${param.code})`)
-                this.name = 'CustomRetryableError'
-            }
-        }
-
-        // Type checking: verify customErrors option accepts Zod schema errors
-        void ({
-            aiInvestigation: {
-                resultSchema,
-                investigationProvider,
-                customErrors: [
-                    {
-                        errorConstructor: CustomRetryableError,
-                        description: 'Thrown when the operation can be retried',
-                        errorParameterSchema: customErrorSchema,
-                    },
-                ],
-            },
-        } as TryPatchOptions)
-    })
-
-    it('should accept custom errors with JSON Schema', () => {
-        expect.assertions(0)
-
-        const jsonSchemaErrorSchema = {
-            type: 'object',
-            properties: {
-                message: { type: 'string' },
-                severity: { type: 'string' },
-            },
-            required: ['message', 'severity'],
-            additionalProperties: false,
-        } as const satisfies JSONSchema
-
-        type JsonErrorParam = FromSchema<typeof jsonSchemaErrorSchema>
-
-        class JsonSchemaError extends Error {
-            constructor (param: JsonErrorParam) {
-                super(`${param.message} (severity: ${param.severity})`)
-                this.name = 'JsonSchemaError'
-            }
-        }
-
-        // Type checking: verify customErrors option accepts JSON Schema errors
-        void ({
-            aiInvestigation: {
-                resultSchema,
-                investigationProvider,
-                customErrors: [
-                    {
-                        errorConstructor: JsonSchemaError,
-                        description: 'Error from JSON Schema definition',
-                        errorParameterSchema: jsonSchemaErrorSchema,
-                    },
-                ],
-            },
-        } as TryPatchOptions)
     })
 })

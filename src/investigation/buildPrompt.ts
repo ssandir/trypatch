@@ -1,5 +1,5 @@
 import type { JSONSchema } from 'json-schema-to-ts'
-import type { InvestigationContext } from '../trypatchOptions'
+import type { InvestigationContext } from '../types'
 
 const DEFAULT_SYSTEM_PROMPT = [
     'You investigate runtime errors in application code.',

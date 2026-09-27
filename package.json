@@ -1,6 +1,6 @@
 {
     "name": "ssandir/trypatch",
-    "version": "0.0.2",
+    "version": "0.1.0",
     "description": "Production error investigation and automatic resolution with AI-powered diagnostics",
     "type": "module",
     "private": true,

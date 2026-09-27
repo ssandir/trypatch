@@ -23,6 +23,10 @@ Consumers can depend on it via a `file:` reference in their `package.json`:
 
 `tsc` does not reject `await` on non-Promise values. The `type-check` script runs both `tsc` and type-aware ESLint (`@typescript-eslint/await-thenable`) on `src/`.
 
+## Decorator dialects
+
+`@trypatch` supports both TC39 stage-3 decorators (TS 5 default) and TypeScript's legacy `experimentalDecorators` (NestJS/TypeORM's default), since a lot of real-world consumers are still on legacy. `trypatch.ts` detects which dialect called it at runtime by argument shape and dispatches to a matching implementation; see the comment on `trypatch()` there for details. `jest.config.cjs` runs `trypatch.spec.ts` twice — once compiled per dialect — to cover both runtime paths; this project's own `tsconfig.json` intentionally omits `experimentalDecorators` since the source is authored against stage-3.
+
 On method failure, `@trypatch(...)` can call an external provider to analyze the error. The provider's structured output must match one of three outcomes, described to it as a JSON Schema built from `resultSchema`/`customErrors`/`resultTools`: an explicit `result` matching `resultSchema`, a call into one of `resultTools`, or a thrown `customErrors` entry.
 
 | Provider | Notes |
