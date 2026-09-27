@@ -1,6 +1,5 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import { parseProviderOutcome } from '../../providerResult'
-import { resolveApiKey } from '../../resolveApiKey'
 import type { InvestigationOutcome } from '../../resultSchema'
 import { type LooseTool } from '../../toolAdapter'
 import { DEFAULT_API_VERSION, DEFAULT_BASE_URL, DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from './constants'
@@ -24,19 +23,19 @@ export async function investigateWithClaude (
     maxTokens: number | undefined,
     investigationTools: LooseTool[] | undefined,
 ): Promise<InvestigationOutcome> {
-    const apiKey = await resolveApiKey(config.auth)
     const baseURL = (config.baseURL ?? DEFAULT_BASE_URL).replace(/\/$/, '')
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), timeoutMs)
     const claudeTools = toolsToClaudeDefinitions(investigationTools)
+    const doFetch = config.fetch ?? fetch
 
     try {
-        const response = await fetch(`${baseURL}/v1/messages`, {
+        const response = await doFetch(`${baseURL}/v1/messages`, {
             method: 'POST',
             signal: controller.signal,
             headers: {
                 'Content-Type': 'application/json',
-                'x-api-key': apiKey,
+                'x-api-key': config.apiKey,
                 'anthropic-version': config.apiVersion ?? DEFAULT_API_VERSION,
             },
             body: JSON.stringify({

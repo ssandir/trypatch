@@ -31,7 +31,7 @@ class PaymentService {
     resultSchema: ResolutionSchema,
     investigationProvider: {
       provider: Providesr.OPENAI,
-      auth: { kind: 'env', variable: 'OPENAI_API_KEY' },
+      apiKey: process.env.OPENAI_API_KEY!,
     },
   })
   async processPayment(cardToken: string): Promise<z.infer<typeof ResolutionSchema>> {
@@ -66,7 +66,7 @@ class DatabaseService {
     resultSchema: ErrorResolutionSchema,
     investigationProvider: {
       provider: Providers.OPENAI,
-      auth: { kind: 'env', variable: 'OPENAI_API_KEY' },
+      apiKey: process.env.OPENAI_API_KEY!,
     },
     // Redact sensitive terms before sending to OpenAI
     redactConfig: {
@@ -136,7 +136,7 @@ class ThirdPartyApiClient {
     resultSchema: RetrySchema,
     investigationProvider: {
       provider: Providers.CURSOR,
-      auth: { kind: 'env', variable: 'CURSOR_API_KEY' },
+      apiKey: process.env.CURSOR_API_KEY!,
     },
     // Tools the AI can call during investigation
     investigationTools: [retryTool],
@@ -193,7 +193,7 @@ new Tool({
 class Service {
   @trypatch({
     resultSchema: schema,
-    investigationProvider: { provider: Providers.OPENAI, auth: { kind: 'env', variable: 'OPENAI_API_KEY' } },
+    investigationProvider: { provider: Providers.OPENAI, apiKey: process.env.OPENAI_API_KEY! },
     onInvestigationResult: (result) => console.warn((result as Result).rootCause),
   })
   async run (): Promise<Result> { /* ... */ }
@@ -206,7 +206,7 @@ Use `as const satisfies JSONSchema` so `FromSchema<typeof schema>` stays precise
 
 ## Claude (Anthropic)
 
-`provider: Providers.CLAUDE` calls Anthropic's Messages API. Auth defaults to `ANTHROPIC_API_KEY`.
+`provider: Providers.CLAUDE` calls Anthropic's Messages API. `apiKey` is required; resolve it however you like (env var, secret manager, etc.) before passing it in.
 
 ```typescript
 class Service {
@@ -214,7 +214,7 @@ class Service {
     resultSchema: ResolutionSchema,
     investigationProvider: {
       provider: Providers.CLAUDE,
-      auth: { kind: 'env', variable: 'ANTHROPIC_API_KEY' },
+      apiKey: process.env.ANTHROPIC_API_KEY!,
     },
   })
   async run() { /* ... */ }
@@ -222,3 +222,28 @@ class Service {
 ```
 
 Optional fields: `model` (default `claude-sonnet-5`), `baseURL`, and `apiVersion` (`anthropic-version` header, default `2023-06-01`).
+
+---
+
+## Custom `fetch`: Proxying, Custom Auth, Retries
+
+Every provider config accepts an optional `fetch`, used instead of the global one for every HTTP call that provider makes. It's the same pattern the Anthropic and OpenAI SDKs use — supply a function with `fetch`'s signature and do whatever you need before (or instead of) calling through to a real `fetch`: route through a proxy, inject a freshly refreshed token, add retries, log requests, etc.
+
+```typescript
+class Service {
+  @trypatch({
+    resultSchema: ResolutionSchema,
+    investigationProvider: {
+      provider: Providers.OPENAI,
+      apiKey: process.env.OPENAI_API_KEY!,
+      fetch: async (url, init) => fetch(`https://my-proxy.internal/openai?target=${encodeURIComponent(String(url))}`, {
+        ...init,
+        headers: { ...init?.headers, 'X-Proxy-Token': await getProxyToken() },
+      }),
+    },
+  })
+  async run() { /* ... */ }
+}
+```
+
+Cursor's provider calls this for both the agent-creation and run-polling requests.

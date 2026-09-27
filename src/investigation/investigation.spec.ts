@@ -1,11 +1,9 @@
-import process from 'node:process'
 import { z } from 'zod'
 import { Tool } from '../tools'
 import type { CustomErrorDefinition, InvestigationContext, TryPatchOptions } from '../trypatchOptions'
 import { mockMethodDecoratorContext } from '../test/mockMethodDecoratorContext'
 import { buildInvestigationPrompt } from './buildPrompt'
 import { buildInvestigationContext, investigateError } from './investigate'
-import { resolveApiKey } from './resolveApiKey'
 import { extractJsonFromText, toJsonSchemaObject } from '../schema/utils'
 import { parseInvestigationResult } from './providers/parseResult'
 import { investigateWithOpenAi } from './providers/openai/investigate'
@@ -13,24 +11,6 @@ import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithClaude } from './providers/claude/investigate'
 import { Providers } from './providers/types'
 import { buildInvestigationResultSchema } from './resultSchema'
-
-describe('resolveApiKey', () => {
-    it('should resolve inline auth', async () => {
-        await expect(resolveApiKey({ kind: 'inline', apiKey: 'test-key' })).resolves.toBe('test-key')
-    })
-
-    it('should resolve env auth', async () => {
-        process.env.TEST_TRYPATCH_API_KEY = 'env-key'
-        await expect(resolveApiKey({ kind: 'env', variable: 'TEST_TRYPATCH_API_KEY' })).resolves.toBe('env-key')
-        delete process.env.TEST_TRYPATCH_API_KEY
-    })
-
-    it('should throw when env auth is missing', async () => {
-        await expect(resolveApiKey({ kind: 'env', variable: 'MISSING_TRYPATCH_API_KEY' }))
-            .rejects
-            .toThrow('Missing environment variable: MISSING_TRYPATCH_API_KEY')
-    })
-})
 
 describe('schemaUtils', () => {
     const schema = z.object({
@@ -121,7 +101,7 @@ describe('investigateWithOpenAi', () => {
         const result = await investigateWithOpenAi(
             {
                 provider: Providers.OPENAI,
-                auth: { kind: 'inline', apiKey: 'test-key' },
+                apiKey: 'test-key',
             },
             outcomeSchema,
             {
@@ -151,6 +131,40 @@ describe('investigateWithOpenAi', () => {
             response_format: { type: string }
         }
         expect(fetchBody.response_format.type).toBe('json_schema')
+    })
+
+    it('should use a custom fetch implementation instead of the global one', async () => {
+        const customFetch = jest.fn((url: string, init?: RequestInit) => fetchMock(
+            `https://proxy.internal/relay?target=${encodeURIComponent(url)}`,
+            { ...init, headers: { ...init?.headers, 'X-Proxy-Token': 'proxy-secret' } },
+        )) as unknown as typeof fetch
+
+        await investigateWithOpenAi(
+            {
+                provider: Providers.OPENAI,
+                apiKey: 'test-key',
+                fetch: customFetch,
+            },
+            outcomeSchema,
+            {
+                systemPrompt: 'Investigate',
+                userPrompt: 'Something failed',
+            },
+            5_000,
+            undefined,
+            undefined,
+        )
+
+        expect(customFetch).toHaveBeenCalled()
+        expect(fetchMock).toHaveBeenCalledWith(
+            'https://proxy.internal/relay?target=https%3A%2F%2Fapi.openai.com%2Fv1%2Fchat%2Fcompletions',
+            expect.objectContaining({
+                headers: expect.objectContaining({
+                    Authorization: 'Bearer test-key',
+                    'X-Proxy-Token': 'proxy-secret',
+                }),
+            }),
+        )
     })
 })
 
@@ -191,7 +205,7 @@ describe('investigateWithCursor', () => {
         const result = await investigateWithCursor(
             {
                 provider: Providers.CURSOR,
-                auth: { kind: 'inline', apiKey: 'cursor-key' },
+                apiKey: 'cursor-key',
             },
             {
                 systemPrompt: 'Investigate',
@@ -257,7 +271,7 @@ describe('investigateWithClaude', () => {
         const result = await investigateWithClaude(
             {
                 provider: Providers.CLAUDE,
-                auth: { kind: 'inline', apiKey: 'anthropic-key' },
+                apiKey: 'anthropic-key',
             },
             outcomeSchema,
             {
@@ -317,7 +331,7 @@ describe('investigateWithClaude', () => {
         const result = await investigateWithClaude(
             {
                 provider: Providers.CLAUDE,
-                auth: { kind: 'inline', apiKey: 'anthropic-key' },
+                apiKey: 'anthropic-key',
             },
             outcomeSchema,
             {
@@ -393,7 +407,7 @@ describe('investigateError', () => {
                 resultSchema: schema,
                 investigationProvider: {
                     provider: Providers.OPENAI,
-                    auth: { kind: 'inline', apiKey: 'test-key' },
+                    apiKey: 'test-key',
                 },
                 resultTools: [resultTool],
             },
@@ -443,7 +457,7 @@ describe('investigateError', () => {
             aiInvestigation: {
                 investigationProvider: {
                     provider: Providers.OPENAI,
-                    auth: { kind: 'inline', apiKey: 'test-key' },
+                    apiKey: 'test-key',
                 },
                 customErrors,
             },
@@ -484,7 +498,7 @@ describe('investigateError', () => {
                 resultSchema: schema,
                 investigationProvider: {
                     provider: Providers.OPENAI,
-                    auth: { kind: 'inline', apiKey: 'test-key' },
+                    apiKey: 'test-key',
                 },
                 redactConfig: {},
             },

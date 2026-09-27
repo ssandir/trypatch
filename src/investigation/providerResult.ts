@@ -9,3 +9,4 @@ export function parseProviderOutcome (content: string): InvestigationOutcome {
     const parsed = JSON.parse(content) as { outcome: InvestigationOutcome }
     return parsed.outcome
 }
+// TBD validate

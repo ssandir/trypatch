@@ -1,4 +1,3 @@
-export const DEFAULT_AUTH_VARIABLE = 'ANTHROPIC_API_KEY'
 export const DEFAULT_BASE_URL = 'https://api.anthropic.com'
 export const DEFAULT_MODEL = 'claude-sonnet-5'
 export const DEFAULT_MAX_TOKENS = 16_000

@@ -9,7 +9,6 @@ export type {
     InvestigationOutcome,
     InvestigationResultToolOutcome,
 } from './investigation/resultSchema'
-export { resolveApiKey } from './investigation/resolveApiKey'
 export { Providers, type Provider } from './investigation/providers/types'
 export { Tool } from './tools'
 export type {
@@ -20,7 +19,6 @@ export type {
 } from './tools'
 export type {
     AiInvestigationOptions,
-    ApiKeyAuth,
     ClaudeInvestigationConfig,
     CustomErrorDefinition,
     CursorInvestigationConfig,

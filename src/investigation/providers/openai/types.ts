@@ -1,13 +1,14 @@
-import type { ApiKeyAuth } from '../../auth'
 import { Providers } from '../types'
 
 export type OpenAiInvestigationConfig = {
     provider: typeof Providers.OPENAI
-    auth: ApiKeyAuth
+    apiKey: string
     model?: string
     baseURL?: string
     organization?: string
     project?: string
+    /** Custom `fetch` implementation, used instead of the global one (proxying, custom auth, logging, retries, ...). */
+    fetch?: typeof fetch
 }
 
 export type OpenAiToolCall = {

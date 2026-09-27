@@ -7,7 +7,6 @@ import type { OpenAiInvestigationConfig } from './investigation/providers/openai
 import type { Schema, SchemaInfer } from './schema/types'
 
 export type { VaultOptions } from 'flare-redact'
-export type { ApiKeyAuth } from './investigation/auth'
 export type { ClaudeInvestigationConfig } from './investigation/providers/claude/types'
 export type { CursorInvestigationConfig, CursorRepositoryConfig } from './investigation/providers/cursor/types'
 export type { OpenAiInvestigationConfig } from './investigation/providers/openai/types'

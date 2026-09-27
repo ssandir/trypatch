@@ -1,6 +1,5 @@
 import { extractJsonFromText } from '../../../schema/utils'
 import { parseProviderOutcome } from '../../providerResult'
-import { resolveApiKey } from '../../resolveApiKey'
 import type { InvestigationOutcome } from '../../resultSchema'
 import { DEFAULT_BASE_URL, DEFAULT_POLL_INTERVAL_MS, TERMINAL_RUN_STATUSES } from './constants'
 import type { CursorCreateAgentResponse, CursorInvestigationConfig, CursorRunResponse } from './types'
@@ -63,8 +62,9 @@ async function createCursorAgent (
     baseURL: string,
     authorization: string,
     body: Record<string, unknown>,
+    doFetch: typeof fetch,
 ): Promise<{ agentId: string, runId: string }> {
-    const createResponse = await fetch(`${baseURL}/v1/agents`, {
+    const createResponse = await doFetch(`${baseURL}/v1/agents`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -117,9 +117,10 @@ async function pollCursorRun (
     pollIntervalMs: number,
     deadline: number,
     timeoutMs: number,
+    doFetch: typeof fetch,
 ): Promise<InvestigationOutcome> {
     while (Date.now() < deadline) {
-        const runResponse = await fetch(`${baseURL}/v1/agents/${agentId}/runs/${runId}`, {
+        const runResponse = await doFetch(`${baseURL}/v1/agents/${agentId}/runs/${runId}`, {
             headers: {
                 Authorization: authorization,
             },
@@ -147,16 +148,17 @@ export async function investigateWithCursor (
     prompts: { systemPrompt: string, userPrompt: string },
     timeoutMs: number,
 ): Promise<InvestigationOutcome> {
-    const apiKey = await resolveApiKey(config.auth)
     const baseURL = (config.baseURL ?? DEFAULT_BASE_URL).replace(/\/$/, '')
-    const authorization = buildAuthorizationHeader(apiKey)
+    const authorization = buildAuthorizationHeader(config.apiKey)
     const pollIntervalMs = config.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
     const deadline = Date.now() + timeoutMs
+    const doFetch = config.fetch ?? fetch
 
     const { agentId, runId } = await createCursorAgent(
         baseURL,
         authorization,
         buildCreateAgentBody(config, prompts),
+        doFetch,
     )
 
     return await pollCursorRun(
@@ -167,6 +169,7 @@ export async function investigateWithCursor (
         pollIntervalMs,
         deadline,
         timeoutMs,
+        doFetch,
     )
 }
 

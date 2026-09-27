@@ -1,12 +1,13 @@
-import type { ApiKeyAuth } from '../../auth'
 import { Providers } from '../types'
 
 export type ClaudeInvestigationConfig = {
     provider: typeof Providers.CLAUDE
-    auth: ApiKeyAuth
+    apiKey: string
     model?: string
     baseURL?: string
     apiVersion?: string
+    /** Custom `fetch` implementation, used instead of the global one (proxying, custom auth, logging, retries, ...). */
+    fetch?: typeof fetch
 }
 
 export type ClaudeContentBlock

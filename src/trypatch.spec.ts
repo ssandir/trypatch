@@ -17,7 +17,7 @@ type InvestigationResult = {
 
 const investigationProvider = {
     provider: Providers.OPENAI,
-    auth: { kind: 'inline', apiKey: 'test-key' },
+    apiKey: 'test-key',
 } as const
 
 beforeAll(() => {
@@ -255,7 +255,7 @@ describe('handleError', () => {
                     resultSchema: schema,
                     investigationProvider: {
                         provider: Providers.OPENAI,
-                        auth: { kind: 'inline', apiKey: 'test-key' },
+                        apiKey: 'test-key',
                     },
                 },
             },
@@ -289,7 +289,7 @@ describe('handleError', () => {
                     resultSchema: z.object({ rootCause: z.string() }),
                     investigationProvider: {
                         provider: Providers.OPENAI,
-                        auth: { kind: 'inline', apiKey: 'test-key' },
+                        apiKey: 'test-key',
                     },
                 },
             },
@@ -390,7 +390,7 @@ describe('trypatch as decorator', () => {
                 resultSchema,
                 investigationProvider: {
                     provider: Providers.OPENAI,
-                    auth: { kind: 'inline' as const, apiKey: 'test-key' },
+                    apiKey: 'test-key',
                     model: 'gpt-5.5',
                     baseURL: 'https://api.openai.com/v1',
                     organization: 'org-test',

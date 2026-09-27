@@ -1,6 +1,5 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import { parseProviderOutcome } from '../../providerResult'
-import { resolveApiKey } from '../../resolveApiKey'
 import type { InvestigationOutcome } from '../../resultSchema'
 import { type LooseTool } from '../../toolAdapter'
 import { DEFAULT_BASE_URL, DEFAULT_MODEL } from './constants'
@@ -15,19 +14,19 @@ export async function investigateWithOpenAi (
     maxTokens: number | undefined,
     investigationTools: LooseTool[] | undefined,
 ): Promise<InvestigationOutcome> {
-    const apiKey = await resolveApiKey(config.auth)
     const baseURL = (config.baseURL ?? DEFAULT_BASE_URL).replace(/\/$/, '')
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), timeoutMs)
     const openAiTools = toolsToOpenAiDefinitions(investigationTools)
+    const doFetch = config.fetch ?? fetch
 
     try {
-        const response = await fetch(`${baseURL}/chat/completions`, {
+        const response = await doFetch(`${baseURL}/chat/completions`, {
             method: 'POST',
             signal: controller.signal,
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${apiKey}`,
+                Authorization: `Bearer ${config.apiKey}`,
                 ...config.organization ? { 'OpenAI-Organization': config.organization } : {},
                 ...config.project ? { 'OpenAI-Project': config.project } : {},
             },

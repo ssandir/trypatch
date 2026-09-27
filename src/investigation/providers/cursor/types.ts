@@ -1,4 +1,3 @@
-import type { ApiKeyAuth } from '../../auth'
 import { Providers } from '../types'
 
 export type CursorRepositoryConfig = {
@@ -9,11 +8,13 @@ export type CursorRepositoryConfig = {
 
 export type CursorInvestigationConfig = {
     provider: typeof Providers.CURSOR
-    auth: ApiKeyAuth
+    apiKey: string
     baseURL?: string
     model?: string | { id: string, params?: { id: string, value: string | boolean | number }[] }
     repository?: CursorRepositoryConfig
     pollIntervalMs?: number
+    /** Custom `fetch` implementation, used instead of the global one (proxying, custom auth, logging, retries, ...). */
+    fetch?: typeof fetch
 }
 
 export type CursorCreateAgentResponse = {
