@@ -1,7 +1,6 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import type {
     AiInvestigationOptions,
-    AnyMethodContext,
     CustomErrorDefinition,
     InvestigationContext,
     InvestigationProviderConfig,
@@ -158,14 +157,3 @@ export async function investigateError<
     return await runAiInvestigation(ctx, options.aiInvestigation)
 }
 
-export function buildInvestigationContext (
-    error: unknown,
-    context: AnyMethodContext, // TBD expand and extract more info from this one
-    args: unknown[],
-): InvestigationContext {
-    return {
-        error,
-        methodName: String(context.name),
-        args,
-    }
-}

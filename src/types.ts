@@ -9,6 +9,31 @@ import type { Schema, SchemaInfer } from './schema/types'
 export type AnyMethod = (this: unknown, ...args: unknown[]) => unknown
 export type AnyMethodContext = ClassMethodDecoratorContext<unknown, AnyMethod>
 
+/**
+ * What trypatch knows about the decorated member, sourced honestly per decorator dialect rather
+ * than coerced into one pretend-universal shape. `name`/`static`/`private` are real for both
+ * dialects; the dialect-specific fields (`context` vs. `target`/`descriptor`) are kept around
+ * for anything else worth extracting later (e.g. legacy's `descriptor` still carries
+ * `enumerable`/`configurable`/`writable`).
+ */
+export type MethodDescriptor =
+    | {
+        dialect: 'stage3'
+        name: string | symbol
+        static: boolean
+        private: boolean
+        context: AnyMethodContext
+    }
+    | {
+        dialect: 'legacy'
+        name: string | symbol
+        static: boolean
+        /** Legacy decorators cannot be applied to true `#private` methods, so this is always false. */
+        private: false
+        target: object
+        descriptor: PropertyDescriptor
+    }
+
 export type InvestigationProviderConfig
     = | OpenAiInvestigationConfig
         | CursorInvestigationConfig
@@ -17,8 +42,12 @@ export type InvestigationProviderConfig
 export type InvestigationContext = {
     error: unknown
     methodName: string
-    className?: string
     args: unknown[]
+    methodMetadata: {
+        className?: string
+        static: boolean
+        private: boolean
+    }
 }
 
 export type InvestigationBehavior = {

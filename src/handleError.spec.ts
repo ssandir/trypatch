@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { handleError } from './handleError'
 import { Logger } from './logger'
-import { mockMethodDecoratorContext } from './test/mockMethodDecoratorContext'
+import { mockMethodDescriptor } from './test/mockMethodDecoratorContext'
 import { Providers } from './investigation/providers/types'
 
 const fetchMock = jest.fn()
@@ -50,8 +50,8 @@ describe('handleError', () => {
                 },
             },
             new Logger(),
-            mockMethodDecoratorContext(),
-            () => ({ rootCause: 'ok', retryable: false }),
+            mockMethodDescriptor(),
+            undefined,
             [],
         )
 
@@ -87,8 +87,8 @@ describe('handleError', () => {
                 logger: loggerLike,
                 verbosity: 'high',
             }),
-            mockMethodDecoratorContext(),
-            () => ({ rootCause: 'ok' }),
+            mockMethodDescriptor(),
+            undefined,
             [],
         )
 

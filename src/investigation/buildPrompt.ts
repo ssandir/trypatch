@@ -21,7 +21,8 @@ export function buildInvestigationPrompt (
         : String(ctx.error)
 
     const defaultUserPrompt = [
-        `Method: ${ctx.className ? `${ctx.className}.` : ''}${ctx.methodName}`,
+        `Method: ${ctx.methodMetadata.className ? `${ctx.methodMetadata.className}.` : ''}${ctx.methodName}`,
+        `Method metadata: ${JSON.stringify(ctx.methodMetadata)}`,
         `Arguments: ${JSON.stringify(sanitizedArgs)}`,
         `Error:\n${errorMessage}`,
         `Return JSON matching this schema:\n${JSON.stringify(outcomeSchema, null, 2)}`,

@@ -323,6 +323,41 @@ describe('trypatch as decorator', () => {
         }))
     })
 
+    it('should resolve className and static from the real receiver at call time', async () => {
+        const investigate = jest.fn((ctx: InvestigationContext): Promise<DecoratorResult> => Promise.resolve({
+            rootCause: `custom:${ctx.methodName}`,
+            retryable: true,
+        }))
+
+        const customOptions = {
+            customInvestigation: { investigate },
+        } satisfies TryPatchOptions
+
+        class BillingService {
+            @trypatch(customOptions)
+            run (_value: string): DecoratorResult {
+                throw new Error('failed')
+            }
+
+            @trypatch(customOptions)
+            static runStatic (_value: string): DecoratorResult {
+                throw new Error('failed')
+            }
+        }
+
+        await expect(new BillingService().run('fail')).resolves.toBeDefined()
+        expect(investigate).toHaveBeenCalledWith(expect.objectContaining({
+            methodMetadata: { className: 'BillingService', static: false, private: false },
+        }))
+
+        investigate.mockClear()
+
+        await expect(BillingService.runStatic('fail')).resolves.toBeDefined()
+        expect(investigate).toHaveBeenCalledWith(expect.objectContaining({
+            methodMetadata: { className: 'BillingService', static: true, private: false },
+        }))
+    })
+
     it('should apply AiInvestigationOptions via @trypatch with heterogeneous tools when the method throws', async () => {
         const onInvestigationResult = jest.fn()
         const toolContext: ServiceToolContext = { serviceName: 'billing' }

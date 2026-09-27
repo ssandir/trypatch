@@ -1,9 +1,10 @@
 import { z } from 'zod'
 import { Tool } from '../tools'
 import type { CustomErrorDefinition, InvestigationContext, TryPatchOptions } from '../types'
-import { mockMethodDecoratorContext } from '../test/mockMethodDecoratorContext'
+import { mockMethodDescriptor } from '../test/mockMethodDecoratorContext'
 import { buildInvestigationPrompt } from './buildPrompt'
-import { buildInvestigationContext, investigateError } from './investigate'
+import { investigateError } from './investigate'
+import { buildInvestigationContext } from './investigationContext'
 import { extractJsonFromText, parseWithSchema, toJsonSchemaObject } from '../schema/utils'
 import { investigateWithOpenAi } from './providers/openai/investigate'
 import { investigateWithCursor } from './providers/cursor/investigate'
@@ -49,6 +50,7 @@ describe('buildInvestigationPrompt', () => {
         error: new Error('boom'),
         methodName: 'charge',
         args: ['card-1'],
+        methodMetadata: { static: false, private: false },
     }
 
     it('should include method, error, and outcome schema details in the default prompt', () => {
@@ -57,6 +59,16 @@ describe('buildInvestigationPrompt', () => {
         expect(prompts.userPrompt).toContain('Method: charge')
         expect(prompts.userPrompt).toContain('boom')
         expect(prompts.userPrompt).toContain('rootCause')
+    })
+
+    it('should include class name and method metadata in the default prompt', () => {
+        const outcomeSchema = buildInvestigationResultSchema({ resultSchema: schema })
+        const prompts = buildInvestigationPrompt({
+            ...ctx,
+            methodMetadata: { className: 'BillingService', static: true, private: true },
+        }, ctx.args, outcomeSchema, {})
+        expect(prompts.userPrompt).toContain('Method: BillingService.charge')
+        expect(prompts.userPrompt).toContain('Method metadata: {"className":"BillingService","static":true,"private":true}')
     })
 })
 
@@ -371,7 +383,7 @@ describe('investigateError', () => {
         }
 
         const result = await investigateError(
-            buildInvestigationContext(new Error('x'), mockMethodDecoratorContext(), []),
+            buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, []),
             options,
         )
 
@@ -383,7 +395,7 @@ describe('investigateError', () => {
             rootCause: z.string(),
             retryable: z.boolean(),
         })
-        const ctx = buildInvestigationContext(new Error('boom'), mockMethodDecoratorContext(), [])
+        const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
         const fetchMock = jest.fn().mockResolvedValue({
             ok: true,
             status: 200,
@@ -434,7 +446,7 @@ describe('investigateError', () => {
             }
         }
 
-        const ctx = buildInvestigationContext(new Error('boom'), mockMethodDecoratorContext(), [])
+        const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
         const fetchMock = jest.fn().mockResolvedValue({
             ok: true,
             status: 200,
@@ -483,7 +495,8 @@ describe('investigateError', () => {
         const secret = 'sk-live-abcdefghijklmnopqrstuvwx'
         const ctx = buildInvestigationContext(
             new Error(`request failed with ${secret}`),
-            mockMethodDecoratorContext('charge'),
+            mockMethodDescriptor('charge'),
+            undefined,
             [{ authorization: secret }],
         )
         const fetchMock = jest.fn().mockResolvedValue({

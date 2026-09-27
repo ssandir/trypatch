@@ -1,7 +1,8 @@
 export { trypatch } from './trypatch'
 export { handleError } from './handleError'
 export { Logger } from './logger'
-export { investigateError, buildInvestigationContext } from './investigation/investigate'
+export { investigateError } from './investigation/investigate'
+export { buildInvestigationContext } from './investigation/investigationContext'
 export { buildInvestigationResultSchema } from './investigation/resultSchema'
 export type {
     InvestigationErrorOutcome,

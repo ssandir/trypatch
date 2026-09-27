@@ -1,7 +1,7 @@
 import { handleError } from './handleError'
 import { Logger } from './logger'
 import type { SchemaInfer, Schema } from './schema/types'
-import type { AnyMethod, AnyMethodContext, TryPatchOptions } from './types'
+import type { AnyMethod, AnyMethodContext, MethodDescriptor, TryPatchOptions } from './types'
 
 type LegacyMethodDecorator = (
     target: object,
@@ -35,7 +35,7 @@ export function trypatch<
         const [first, second, third] = args
 
         if (args.length === 3 && (typeof second === 'string' || typeof second === 'symbol')) {
-            return applyLegacyDecorator(options, logger, second, third as PropertyDescriptor)
+            return applyLegacyDecorator(options, logger, first as object, second, third as PropertyDescriptor)
         }
 
         if (args.length === 2 && isStage3MethodContext(second)) {
@@ -60,12 +60,21 @@ function applyStage3Decorator<S extends Schema, C> (
         throw new TypeError('trypatch can only decorate methods')
     }
 
-    return wrapMethod(originalMethod, options, logger, context)
+    const methodDescriptor = {
+        dialect: 'stage3',
+        name: context.name,
+        static: context.static,
+        private: context.private,
+        context,
+    } as const satisfies MethodDescriptor
+
+    return wrapMethod(originalMethod, options, logger, methodDescriptor)
 }
 
 function applyLegacyDecorator<S extends Schema, C> (
     options: TryPatchOptions<S, C>,
     logger: Logger,
+    target: object,
     propertyKey: string | symbol,
     descriptor: PropertyDescriptor,
 ): PropertyDescriptor {
@@ -74,11 +83,18 @@ function applyLegacyDecorator<S extends Schema, C> (
         throw new TypeError('trypatch can only decorate methods')
     }
 
-    const methodContext = { name: propertyKey } as AnyMethodContext
+    const methodDescriptor = {
+        dialect: 'legacy',
+        name: propertyKey,
+        static: typeof target === 'function',
+        private: false,
+        target,
+        descriptor,
+    } as const satisfies MethodDescriptor
 
     return {
         ...descriptor,
-        value: wrapMethod(originalMethod as AnyMethod, options, logger, methodContext),
+        value: wrapMethod(originalMethod as AnyMethod, options, logger, methodDescriptor),
     }
 }
 
@@ -86,7 +102,7 @@ function wrapMethod<S extends Schema, C> (
     originalMethod: AnyMethod,
     options: TryPatchOptions<S, C>,
     logger: Logger,
-    methodContext: AnyMethodContext,
+    methodDescriptor: MethodDescriptor,
 ): AnyMethod {
     return function trypatchedMethod (this: unknown, ...args: unknown[]): unknown {
         return Promise.resolve()
@@ -95,8 +111,8 @@ function wrapMethod<S extends Schema, C> (
                 error,
                 options,
                 logger,
-                methodContext,
-                originalMethod,
+                methodDescriptor,
+                this,
                 args,
             ))
     }

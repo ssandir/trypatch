@@ -1,3 +1,5 @@
+import type { MethodDescriptor } from '../types'
+
 export function mockMethodDecoratorContext (
     name = 'run',
 ): ClassMethodDecoratorContext<unknown, (...args: unknown[]) => unknown> {
@@ -12,5 +14,16 @@ export function mockMethodDecoratorContext (
         },
         metadata: {},
         addInitializer: (): void => {},
+    }
+}
+
+export function mockMethodDescriptor (name = 'run'): MethodDescriptor {
+    const context = mockMethodDecoratorContext(name)
+    return {
+        dialect: 'stage3',
+        name: context.name,
+        static: context.static,
+        private: context.private,
+        context,
     }
 }

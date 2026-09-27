@@ -1,7 +1,8 @@
-import { buildInvestigationContext, investigateError } from './investigation/investigate'
+import { investigateError } from './investigation/investigate'
+import { buildInvestigationContext } from './investigation/investigationContext'
 import type { Logger } from './logger'
 import type { Schema } from './schema/types'
-import type { AnyMethod, AnyMethodContext, TryPatchOptions } from './types'
+import type { MethodDescriptor, TryPatchOptions } from './types'
 
 export async function handleError<
     S extends Schema,
@@ -10,11 +11,11 @@ export async function handleError<
     error: unknown,
     options: TryPatchOptions<S, C>,
     logger: Logger,
-    context: AnyMethodContext,
-    _method: AnyMethod,
+    methodDescriptor: MethodDescriptor,
+    receiver: unknown,
     args: unknown[],
 ): Promise<unknown> {
-    const investigationContext = buildInvestigationContext(error, context, args)
+    const investigationContext = buildInvestigationContext(error, methodDescriptor, receiver, args)
 
     try {
         return await investigateError(investigationContext, options)
