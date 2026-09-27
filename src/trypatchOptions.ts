@@ -16,7 +16,6 @@ export type InvestigationContext = {
     methodName: string
     className?: string
     args: unknown[]
-    sanitizedArgs: unknown[]
 }
 
 export type InvestigationBehavior = {

@@ -49,12 +49,11 @@ describe('buildInvestigationPrompt', () => {
         error: new Error('boom'),
         methodName: 'charge',
         args: ['card-1'],
-        sanitizedArgs: ['card-1'],
     }
 
     it('should include method, error, and outcome schema details in the default prompt', () => {
         const outcomeSchema = buildInvestigationResultSchema({ resultSchema: schema })
-        const prompts = buildInvestigationPrompt(ctx, outcomeSchema, {})
+        const prompts = buildInvestigationPrompt(ctx, ctx.args, outcomeSchema, {})
         expect(prompts.userPrompt).toContain('Method: charge')
         expect(prompts.userPrompt).toContain('boom')
         expect(prompts.userPrompt).toContain('rootCause')

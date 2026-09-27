@@ -9,6 +9,7 @@ const DEFAULT_SYSTEM_PROMPT = [
 
 export function buildInvestigationPrompt (
     ctx: InvestigationContext,
+    sanitizedArgs: unknown[],
     outcomeSchema: JSONSchema,
     options: {
         prompt?: string | ((ctx: InvestigationContext) => string)
@@ -21,7 +22,7 @@ export function buildInvestigationPrompt (
 
     const defaultUserPrompt = [
         `Method: ${ctx.className ? `${ctx.className}.` : ''}${ctx.methodName}`,
-        `Arguments: ${JSON.stringify(ctx.sanitizedArgs)}`,
+        `Arguments: ${JSON.stringify(sanitizedArgs)}`,
         `Error:\n${errorMessage}`,
         `Return JSON matching this schema:\n${JSON.stringify(outcomeSchema, null, 2)}`,
     ].join('\n\n')
