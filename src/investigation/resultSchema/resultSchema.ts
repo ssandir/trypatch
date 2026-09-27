@@ -1,7 +1,9 @@
 import type { JSONSchema } from 'json-schema-to-ts'
-import type { CustomErrorDefinition, Schema } from '../../trypatchOptions'
-import { toJsonSchemaObject } from '../../schema/utils'
+import type { CustomErrorDefinition } from '../../trypatchOptions'
+import type { Schema } from '../../schema/types'
+import { parseWithSchema, toJsonSchemaObject } from '../../schema/utils'
 import type { LooseTool } from '../toolAdapter'
+import type { InvestigationOutcome } from './types'
 
 function errorOutcomeVariant (definition: CustomErrorDefinition) {
     return {
@@ -67,4 +69,14 @@ export function buildInvestigationResultSchema (options: {
         required: ['outcome'],
         additionalProperties: false,
     } as const satisfies JSONSchema
+}
+
+/**
+ * Parses a provider's raw response text into its {@link InvestigationOutcome}, validating it against
+ * `outcomeSchema`. The nested `result`/`errorSchema`/`input` payloads are validated against the caller's
+ * actual schemas separately, in {@link investigateError}.
+ */
+export function parseProviderOutcome (content: string, outcomeSchema: JSONSchema): InvestigationOutcome {
+    const parsed = parseWithSchema(outcomeSchema, JSON.parse(content), 'investigation outcome') as { outcome: InvestigationOutcome }
+    return parsed.outcome
 }

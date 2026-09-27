@@ -4,8 +4,7 @@ import type { CustomErrorDefinition, InvestigationContext, TryPatchOptions } fro
 import { mockMethodDecoratorContext } from '../test/mockMethodDecoratorContext'
 import { buildInvestigationPrompt } from './buildPrompt'
 import { buildInvestigationContext, investigateError } from './investigate'
-import { extractJsonFromText, toJsonSchemaObject } from '../schema/utils'
-import { parseInvestigationResult } from './providers/parseResult'
+import { extractJsonFromText, parseWithSchema, toJsonSchemaObject } from '../schema/utils'
 import { investigateWithOpenAi } from './providers/openai/investigate'
 import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithClaude } from './providers/claude/investigate'
@@ -30,7 +29,7 @@ describe('schemaUtils', () => {
     })
 
     it('should parse zod investigation results', () => {
-        expect(parseInvestigationResult(schema, { rootCause: 'timeout', retryable: true })).toEqual({
+        expect(parseWithSchema(schema, { rootCause: 'timeout', retryable: true })).toEqual({
             rootCause: 'timeout',
             retryable: true,
         })

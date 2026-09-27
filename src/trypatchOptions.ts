@@ -6,12 +6,6 @@ import type { CursorInvestigationConfig } from './investigation/providers/cursor
 import type { OpenAiInvestigationConfig } from './investigation/providers/openai/types'
 import type { Schema, SchemaInfer } from './schema/types'
 
-export type { VaultOptions } from 'flare-redact'
-export type { ClaudeInvestigationConfig } from './investigation/providers/claude/types'
-export type { CursorInvestigationConfig, CursorRepositoryConfig } from './investigation/providers/cursor/types'
-export type { OpenAiInvestigationConfig } from './investigation/providers/openai/types'
-export type { Schema, SchemaInfer } from './schema/types'
-
 export type InvestigationProviderConfig
     = | OpenAiInvestigationConfig
         | CursorInvestigationConfig

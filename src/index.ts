@@ -19,21 +19,19 @@ export type {
 } from './tools'
 export type {
     AiInvestigationOptions,
-    ClaudeInvestigationConfig,
     CustomErrorDefinition,
-    CursorInvestigationConfig,
-    CursorRepositoryConfig,
     InvestigationBehavior,
     InvestigationContext,
     InvestigationProviderConfig,
     InvestigationTool,
-    OpenAiInvestigationConfig,
     ResultTool,
-    Schema,
-    SchemaInfer,
-    VaultOptions,
     TryPatchOptions,
 } from './trypatchOptions'
+export type { VaultOptions } from 'flare-redact'
+export type { ClaudeInvestigationConfig } from './investigation/providers/claude/types'
+export type { CursorInvestigationConfig, CursorRepositoryConfig } from './investigation/providers/cursor/types'
+export type { OpenAiInvestigationConfig } from './investigation/providers/openai/types'
+export type { Schema, SchemaInfer } from './schema/types'
 export {
     redactInvestigationPrompts,
     restoreInvestigationResponse,

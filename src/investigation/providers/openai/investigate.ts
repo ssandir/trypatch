@@ -1,6 +1,5 @@
 import type { JSONSchema } from 'json-schema-to-ts'
-import { parseProviderOutcome } from '../../providerResult'
-import type { InvestigationOutcome } from '../../resultSchema'
+import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
 import { type LooseTool } from '../../toolAdapter'
 import { DEFAULT_BASE_URL, DEFAULT_MODEL } from './constants'
 import { toolsToOpenAiDefinitions } from './toolAdapter'

@@ -1,18 +1,21 @@
+import type { JSONSchema } from 'json-schema-to-ts'
 import type {
     InvestigationContext,
+    InvestigationProviderConfig,
     ResultTool,
-    Schema,
     TryPatchOptions,
 } from '../trypatchOptions'
 import { buildInvestigationPrompt } from './buildPrompt'
+import type { Schema } from '../schema/types'
+import { parseWithSchema } from '../schema/utils'
 import { redactInvestigationPrompts, restoreInvestigationResponse } from './redact/flareRedact'
 import { Providers } from './providers/types'
 import { investigateWithClaude } from './providers/claude/investigate'
 import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithOpenAi } from './providers/openai/investigate'
-import { parseInvestigationResult } from './providers/parseResult'
+import type { InvestigationOutcome } from './resultSchema'
 import { buildInvestigationResultSchema } from './resultSchema'
-import { findToolByName } from './toolAdapter'
+import { findToolByName, type LooseTool } from './toolAdapter'
 
 const DEFAULT_TIMEOUT_MS = 300_000
 
@@ -22,6 +25,47 @@ async function callResultTool<S extends Schema, C> (
     toolContext: C | undefined,
 ): Promise<unknown> {
     return await tool.call(JSON.stringify(input ?? {}), toolContext)
+}
+
+async function callInvestigationProvider (
+    investigationProvider: InvestigationProviderConfig,
+    outcomeSchema: JSONSchema,
+    prompts: { systemPrompt: string, userPrompt: string },
+    timeoutMs: number,
+    maxTokens: number | undefined,
+    investigationTools: LooseTool[] | undefined,
+): Promise<InvestigationOutcome> {
+    switch (investigationProvider.provider) {
+        case Providers.OPENAI:
+            return await investigateWithOpenAi(
+                investigationProvider,
+                outcomeSchema,
+                prompts,
+                timeoutMs,
+                maxTokens,
+                investigationTools,
+            )
+        case Providers.CURSOR:
+            return await investigateWithCursor(
+                investigationProvider,
+                outcomeSchema,
+                prompts,
+                timeoutMs,
+            )
+        case Providers.CLAUDE:
+            return await investigateWithClaude(
+                investigationProvider,
+                outcomeSchema,
+                prompts,
+                timeoutMs,
+                maxTokens,
+                investigationTools,
+            )
+        default: {
+            const exhaustiveCheck: never = investigationProvider
+            throw new Error(`Unsupported investigation provider: ${String(exhaustiveCheck)}`)
+        }
+    }
 }
 
 export async function investigateError<
@@ -51,39 +95,14 @@ export async function investigateError<
     const timeoutMs = investigationBehavior.timeoutMs ?? DEFAULT_TIMEOUT_MS
     const maxTokens = investigationBehavior.maxTokens
 
-    const rawOutcome = await (async () => {
-        switch (investigationProvider.provider) {
-            case Providers.OPENAI:
-                return await investigateWithOpenAi(
-                    investigationProvider,
-                    outcomeSchema,
-                    prompts,
-                    timeoutMs,
-                    maxTokens,
-                    investigationTools,
-                )
-            case Providers.CURSOR:
-                return await investigateWithCursor(
-                    investigationProvider,
-                    outcomeSchema,
-                    prompts,
-                    timeoutMs,
-                )
-            case Providers.CLAUDE:
-                return await investigateWithClaude(
-                    investigationProvider,
-                    outcomeSchema,
-                    prompts,
-                    timeoutMs,
-                    maxTokens,
-                    investigationTools,
-                )
-            default: {
-                const exhaustiveCheck: never = investigationProvider
-                throw new Error(`Unsupported investigation provider: ${String(exhaustiveCheck)}`)
-            }
-        }
-    })()
+    const rawOutcome = await callInvestigationProvider(
+        investigationProvider,
+        outcomeSchema,
+        prompts,
+        timeoutMs,
+        maxTokens,
+        investigationTools,
+    )
 
     const outcome = restoreInvestigationResponse(rawOutcome, vault)
 
@@ -94,7 +113,9 @@ export async function investigateError<
                 throw new Error(`Investigation returned unregistered custom error: ${outcome.error}`)
             }
 
-            throw new definition.errorConstructor(parseInvestigationResult(definition.errorParameterSchema, outcome.errorSchema))
+            throw new definition.errorConstructor(
+                parseWithSchema(definition.errorParameterSchema, outcome.errorSchema, `${outcome.error} parameters`),
+            )
         }
         case 'resultTool': {
             const tool = findToolByName(resultTools, outcome.toolName)
@@ -105,7 +126,7 @@ export async function investigateError<
             return await callResultTool(tool, outcome.input, toolContext)
         }
         case 'result':
-            return parseInvestigationResult(resultSchema, outcome.result)
+            return parseWithSchema(resultSchema, outcome.result, 'investigation result')
     }
 }
 

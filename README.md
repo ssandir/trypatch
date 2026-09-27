@@ -30,7 +30,7 @@ class PaymentService {
   @trypatch({
     resultSchema: ResolutionSchema,
     investigationProvider: {
-      provider: Providesr.OPENAI,
+      provider: Providers.OPENAI,
       apiKey: process.env.OPENAI_API_KEY!,
     },
   })

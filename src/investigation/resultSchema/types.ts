@@ -1,4 +1,4 @@
-import type { Schema, SchemaInfer } from '../../trypatchOptions'
+import type { Schema, SchemaInfer } from '../../schema/types'
 
 export type InvestigationErrorOutcome = {
     type: 'error'

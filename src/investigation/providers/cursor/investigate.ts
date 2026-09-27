@@ -1,7 +1,6 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import { extractJsonFromText } from '../../../schema/utils'
-import { parseProviderOutcome } from '../../providerResult'
-import type { InvestigationOutcome } from '../../resultSchema'
+import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
 import { DEFAULT_BASE_URL, DEFAULT_POLL_INTERVAL_MS, TERMINAL_RUN_STATUSES } from './constants'
 import type { CursorCreateAgentResponse, CursorInvestigationConfig, CursorRunResponse } from './types'
 

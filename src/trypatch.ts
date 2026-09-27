@@ -1,6 +1,7 @@
 import { handleError } from './handleError'
 import { Logger } from './logger'
-import type { SchemaInfer, Schema, TryPatchOptions } from './trypatchOptions'
+import type { SchemaInfer, Schema } from './schema/types'
+import type { TryPatchOptions } from './trypatchOptions'
 
 export function trypatch<
     S extends Schema,

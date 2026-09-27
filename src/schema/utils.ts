@@ -3,7 +3,7 @@ import Ajv, { type AnySchema } from 'ajv'
 import type { JSONSchema } from 'json-schema-to-ts'
 import { toJSONSchema } from 'zod'
 import type { ZodObject, ZodType } from 'zod'
-import type { Schema } from '../trypatchOptions'
+import type { Schema } from './types'
 
 const ajv = new Ajv()
 
@@ -66,6 +66,23 @@ export function toJsonSchemaObject (schema: Schema): JSONSchema {
     }
 
     return schema
+}
+
+export function parseWithSchema (
+    schema: Schema | undefined,
+    value: unknown,
+    label = 'value',
+): unknown {
+    if (schema === undefined) {
+        return value
+    }
+
+    if (isZodSchema(schema)) {
+        return schema.parse(value)
+    }
+
+    createJsonSchemaValidator(schema, label)(value)
+    return value
 }
 
 export function extractJsonFromText (text: string): unknown {

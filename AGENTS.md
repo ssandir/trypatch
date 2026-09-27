@@ -23,13 +23,15 @@ Consumers can depend on it via a `file:` reference in their `package.json`:
 
 `tsc` does not reject `await` on non-Promise values. The `type-check` script runs both `tsc` and type-aware ESLint (`@typescript-eslint/await-thenable`) on `src/`.
 
-On method failure, `@trypatch(...)` can call an external provider to analyze the error and return JSON matching `resultSchema`.
+On method failure, `@trypatch(...)` can call an external provider to analyze the error. The provider's structured output must match one of three outcomes, described to it as a JSON Schema built from `resultSchema`/`customErrors`/`resultTools`: an explicit `result` matching `resultSchema`, a call into one of `resultTools`, or a thrown `customErrors` entry.
 
-| Provider | Auth env var | Notes |
-| -------- | ------------ | ----- |
-| `openai` | `OPENAI_API_KEY` | Uses Chat Completions with strict JSON Schema output |
-| `cursor` | `CURSOR_API_KEY` | Uses Cloud Agents API; polls run until finished |
-| `claude` | `ANTHROPIC_API_KEY` | Uses Anthropic Messages API with JSON Schema output |
+| Provider | Notes |
+| -------- | ----- |
+| `openai` | Uses Chat Completions with strict JSON Schema output |
+| `cursor` | Uses Cloud Agents API; polls run until finished |
+| `claude` | Uses Anthropic Messages API with JSON Schema output |
+
+Each provider config takes `apiKey: string` directly — resolving it (env var, secret manager, etc.) is the consumer's job — plus an optional `fetch` override (same pattern as the Anthropic/OpenAI SDKs) used instead of the global one for every HTTP call that provider makes.
 
 Optional `redactConfig` (`VaultOptions`) on AI investigation options redacts prompts with [flare-redact](https://www.npmjs.com/package/flare-redact) before they reach the provider and restores placeholders in the response.
 
@@ -49,7 +51,7 @@ class Service {
     resultSchema: schema,
     investigationProvider: {
       provider: Providers.OPENAI,
-      auth: { kind: 'env', variable: 'OPENAI_API_KEY' },
+      apiKey: process.env.OPENAI_API_KEY!,
     },
     redactConfig: {
       terms: ['super-secret-value-from-env'],
