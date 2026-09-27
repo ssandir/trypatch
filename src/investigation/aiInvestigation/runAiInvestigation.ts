@@ -111,13 +111,14 @@ export async function runAiInvestigation<S extends Schema, C> (
         investigationTools,
         resultTools,
         customErrors,
+        allowDirectResultCreation,
         onInvestigationResult,
     }: AiInvestigationOptions<S, C>,
 ): Promise<unknown> {
     const sanitizedArgs = investigationBehavior.sanitizeArgs
         ? investigationBehavior.sanitizeArgs(ctx.args)
         : ctx.args
-    const outcomeSchema = buildInvestigationResultSchema({ resultSchema, customErrors, resultTools })
+    const outcomeSchema = buildInvestigationResultSchema({ resultSchema, customErrors, resultTools, allowDirectResultCreation })
     const builtPrompts = buildInvestigationPrompt(ctx, sanitizedArgs, outcomeSchema, investigationBehavior)
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)
     const timeoutMs = investigationBehavior.timeoutMs ?? DEFAULT_TIMEOUT_MS

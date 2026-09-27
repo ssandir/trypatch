@@ -113,6 +113,11 @@ export type AiInvestigationOptions<
     resultTools?: ResultTool<S, C>[]
     /** Custom error classes the AI can throw during investigation. */
     customErrors?: CustomErrorDefinition[]
+    /**
+     * Whether the AI may return a `result` directly, versus only via {@link resultTools}/{@link customErrors}.
+     * Defaults to `true`. 
+     */
+    allowDirectResultCreation?: boolean
     /** Callback invoked with the parsed investigation result before it is returned from the wrapped method. */
     onInvestigationResult?: (result: SchemaInfer<S>) => void | Promise<void>
 }

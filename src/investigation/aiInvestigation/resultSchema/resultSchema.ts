@@ -37,7 +37,7 @@ function explicitResultOutcomeVariant (resultSchema: Schema | undefined) {
         type: 'object',
         properties: {
             type: { enum: ['result'] },
-            result: resultSchema !== undefined ? toJsonSchemaObject(resultSchema) : {},
+            result: resultSchema !== undefined ? toJsonSchemaObject(resultSchema) : {}, // tbd - default to string with the description that it should satisfy result type if not defined
         },
         required: ['type', 'result'],
         additionalProperties: false,
@@ -50,16 +50,26 @@ function explicitResultOutcomeVariant (resultSchema: Schema | undefined) {
  * under a property rather than at the schema root) describing the {@link InvestigationOutcome}
  * a provider's structured output must produce.
  */
-export function buildInvestigationResultSchema (options: {
+export function buildInvestigationResultSchema ({
+    resultSchema,
+    customErrors,
+    resultTools,
+    allowDirectResultCreation = true,
+}: {
     resultSchema?: Schema | undefined
     customErrors?: CustomErrorDefinition[] | undefined
     resultTools?: LooseTool[] | undefined
+    allowDirectResultCreation?: boolean | undefined
 }) {
     const variants = [
-        ...(options.customErrors ?? []).map(errorOutcomeVariant),
-        ...(options.resultTools ?? []).map(resultToolOutcomeVariant),
-        explicitResultOutcomeVariant(options.resultSchema),
+        ...(customErrors ?? []).map(errorOutcomeVariant),
+        ...(resultTools ?? []).map(resultToolOutcomeVariant),
+        ...allowDirectResultCreation ? [explicitResultOutcomeVariant(resultSchema)] : [],
     ]
+
+    if (variants.length === 0) {
+        throw new Error('AI investigation has no possible outcome: allowDirectResultCreation is false and no resultTools or customErrors were provided.')
+    }
 
     return {
         type: 'object',
