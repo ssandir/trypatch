@@ -20,6 +20,7 @@ export type {
 export type {
     AiInvestigationOptions,
     CustomErrorDefinition,
+    CustomInvestigationErrorDefinition,
     InvestigationBehavior,
     InvestigationContext,
     InvestigationProviderConfig,

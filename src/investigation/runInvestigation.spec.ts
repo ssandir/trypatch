@@ -116,6 +116,159 @@ describe('runInvestigation', () => {
                 [],
             )).rejects.toThrow(TrypatchFatalError)
         })
+
+        it('should let a registered custom investigation error propagate instead of swallowing it', async () => {
+            class RetryableError extends Error {}
+
+            await expect(runInvestigation(
+                new Error('original'),
+                {
+                    customInvestigation: {
+                        investigate: () => {
+                            throw new RetryableError('flaky')
+                        },
+                        customErrors: [{ errorConstructor: RetryableError }],
+                    },
+                },
+                new Logger(),
+                mockMethodDescriptor(),
+                undefined,
+                [],
+            )).rejects.toThrow(RetryableError)
+        })
+
+        it('should swallow an unregistered error thrown from a custom investigation', async () => {
+            const loggerLike = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+            }
+
+            const result = await runInvestigation(
+                new Error('original'),
+                {
+                    customInvestigation: {
+                        investigate: () => {
+                            throw new Error('unregistered')
+                        },
+                    },
+                },
+                new Logger({
+                    logger: loggerLike,
+                    verbosity: 'high',
+                }),
+                mockMethodDescriptor(),
+                undefined,
+                [],
+            )
+
+            expect(result).toBeUndefined()
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed:', expect.any(Error))
+        })
+
+        it('should let an AI investigation custom error propagate when propagate is true', async () => {
+            class RetryableError extends Error {
+                constructor (public readonly param: { reason: string }) {
+                    super(param.reason)
+                }
+            }
+
+            fetchMock.mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: () => Promise.resolve({
+                    choices: [
+                        {
+                            message: {
+                                content: JSON.stringify({
+                                    outcome: { type: 'error', error: 'RetryableError', errorSchema: { reason: 'network blip' } },
+                                }),
+                            },
+                        },
+                    ],
+                }),
+            })
+
+            await expect(runInvestigation(
+                new Error('original'),
+                {
+                    aiInvestigation: {
+                        investigationProvider: {
+                            provider: 'openai',
+                            apiKey: 'test-key',
+                        },
+                        customErrors: [{
+                            errorConstructor: RetryableError,
+                            errorParameterSchema: z.object({ reason: z.string() }),
+                            propagate: true,
+                        }],
+                    },
+                },
+                new Logger(),
+                mockMethodDescriptor(),
+                undefined,
+                [],
+            )).rejects.toThrow(RetryableError)
+        })
+
+        it('should swallow an AI investigation custom error when propagate is not set', async () => {
+            class RetryableError extends Error {
+                constructor (public readonly param: { reason: string }) {
+                    super(param.reason)
+                }
+            }
+
+            const loggerLike = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+            }
+            fetchMock.mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: () => Promise.resolve({
+                    choices: [
+                        {
+                            message: {
+                                content: JSON.stringify({
+                                    outcome: { type: 'error', error: 'RetryableError', errorSchema: { reason: 'network blip' } },
+                                }),
+                            },
+                        },
+                    ],
+                }),
+            })
+
+            const result = await runInvestigation(
+                new Error('original'),
+                {
+                    aiInvestigation: {
+                        investigationProvider: {
+                            provider: 'openai',
+                            apiKey: 'test-key',
+                        },
+                        customErrors: [{
+                            errorConstructor: RetryableError,
+                            errorParameterSchema: z.object({ reason: z.string() }),
+                        }],
+                    },
+                },
+                new Logger({
+                    logger: loggerLike,
+                    verbosity: 'high',
+                }),
+                mockMethodDescriptor(),
+                undefined,
+                [],
+            )
+
+            expect(result).toBeUndefined()
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed:', expect.any(Error))
+        })
     })
 
     describe('investigateError', () => {

@@ -19,6 +19,12 @@ export async function investigateError<
     return await runAiInvestigation(ctx, options.aiInvestigation)
 }
 
+function shouldPropagateCustomError (investigationError: unknown, options: TryPatchOptions<any, any>): boolean {
+    return 'customInvestigation' in options
+        ? options.customInvestigation.customErrors?.some(definition => investigationError instanceof definition.errorConstructor) ?? false
+        : options.aiInvestigation.customErrors?.some(definition => definition.propagate && investigationError instanceof definition.errorConstructor) ?? false
+}
+
 export async function runInvestigation<
     S extends Schema,
     C = unknown,
@@ -36,6 +42,10 @@ export async function runInvestigation<
         return await investigateError(investigationContext, options)
     } catch (investigationError) {
         if (investigationError instanceof TrypatchFatalError) {
+            throw investigationError
+        }
+
+        if (shouldPropagateCustomError(investigationError, options)) {
             throw investigationError
         }
 
