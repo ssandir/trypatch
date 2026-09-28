@@ -1,5 +1,6 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import { ZodStandardJSONSchemaPayload } from 'zod/v4/core'
+import { TrypatchFatalError } from '../errors'
 import {
     createJsonSchemaValidator,
     isJsonSchema,
@@ -43,7 +44,7 @@ export function toFunctionToolName (name: string): string {
         .replace(/[^a-zA-Z0-9]/g, '_')
 
     if (normalized.length === 0) {
-        throw new Error('Tool name cannot be empty')
+        throw new TrypatchFatalError('Tool name cannot be empty')
     }
 
     return normalized
@@ -64,7 +65,7 @@ export function getSchema<TSchema extends ToolInput> (
         return parameters as ToolParametersSchema<TSchema>
     }
 
-    throw new Error('Invalid parameters schema')
+    throw new TrypatchFatalError('Invalid parameters schema')
 }
 
 export function getParser<TSchema extends ToolInput> (
@@ -87,5 +88,5 @@ export function getParser<TSchema extends ToolInput> (
         ) => ToolInputValue<TSchema>
     }
 
-    throw new Error(`Invalid parameters for tool ${toolName}`)
+    throw new TrypatchFatalError(`Invalid parameters for tool ${toolName}`)
 }

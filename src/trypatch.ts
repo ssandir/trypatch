@@ -1,3 +1,4 @@
+import { TrypatchFatalError } from './errors'
 import { runInvestigation } from './investigation/runInvestigation'
 import { Logger } from './logger'
 import type { SchemaInfer, Schema } from './schema/types'
@@ -42,7 +43,7 @@ export function trypatch<
             return applyStage3Decorator(options, logger, first as AnyMethod, second)
         }
 
-        throw new TypeError('trypatch can only decorate methods')
+        throw new TrypatchFatalError('trypatch can only decorate methods')
     }) as LegacyMethodDecorator & Stage3MethodDecorator<S>
 }
 
@@ -57,7 +58,7 @@ function applyStage3Decorator<S extends Schema, C> (
     context: AnyMethodContext,
 ): AnyMethod {
     if (context.kind !== 'method') {
-        throw new TypeError('trypatch can only decorate methods')
+        throw new TrypatchFatalError('trypatch can only decorate methods')
     }
 
     const methodDescriptor = {
@@ -80,7 +81,7 @@ function applyLegacyDecorator<S extends Schema, C> (
 ): PropertyDescriptor {
     const originalMethod = descriptor.value as unknown
     if (typeof originalMethod !== 'function') {
-        throw new TypeError('trypatch can only decorate methods')
+        throw new TrypatchFatalError('trypatch can only decorate methods')
     }
 
     const methodDescriptor = {

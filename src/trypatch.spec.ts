@@ -1,6 +1,7 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import { z } from 'zod'
 import { trypatch } from './trypatch'
+import { TrypatchFatalError } from './errors'
 import { Tool } from './tools'
 import type { InvestigationContext, TryPatchOptions } from './types'
 import { mockMethodDecoratorContext } from './test/mockMethodDecoratorContext'
@@ -238,15 +239,21 @@ describe('trypatch', () => {
 
         it('should throw when the stage-3 context is not a method', () => {
             expect(() => callDecorator(jest.fn(), { kind: 'field', name: 'run' }))
+                .toThrow(TrypatchFatalError)
+            expect(() => callDecorator(jest.fn(), { kind: 'field', name: 'run' }))
                 .toThrow('trypatch can only decorate methods')
         })
 
         it('should throw when the legacy descriptor has no function value', () => {
             expect(() => callDecorator({}, 'run', { get: () => 1, enumerable: true, configurable: true }))
+                .toThrow(TrypatchFatalError)
+            expect(() => callDecorator({}, 'run', { get: () => 1, enumerable: true, configurable: true }))
                 .toThrow('trypatch can only decorate methods')
         })
 
         it('should throw when called with neither decorator shape', () => {
+            expect(() => callDecorator(class Foo {}))
+                .toThrow(TrypatchFatalError)
             expect(() => callDecorator(class Foo {}))
                 .toThrow('trypatch can only decorate methods')
         })

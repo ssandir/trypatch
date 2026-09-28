@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { investigateError, runInvestigation } from './runInvestigation'
 import { buildInvestigationContext } from './investigationContext'
+import { TrypatchFatalError } from '../errors'
 import { Logger } from '../logger'
 import { Tool } from '../tools'
 import type { CustomErrorDefinition, TryPatchOptions } from '../types'
@@ -98,6 +99,23 @@ describe('runInvestigation', () => {
 
             expect(result).toBeUndefined()
             expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed:', expect.any(Error))
+        })
+
+        it('should let a TrypatchFatalError propagate instead of swallowing it', async () => {
+            await expect(runInvestigation(
+                new Error('original'),
+                {
+                    customInvestigation: {
+                        investigate: () => {
+                            throw new TrypatchFatalError('misconfigured')
+                        },
+                    },
+                },
+                new Logger(),
+                mockMethodDescriptor(),
+                undefined,
+                [],
+            )).rejects.toThrow(TrypatchFatalError)
         })
     })
 

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { buildInvestigationResultSchema } from './resultSchema'
+import { TrypatchConfigError } from '../../../errors'
 import { Tool } from '../../../tools'
 import type { CustomErrorDefinition } from '../../../types'
 
@@ -54,6 +55,8 @@ describe('buildInvestigationResultSchema', () => {
     })
 
     it('should throw when allowDirectResultCreation is false with no result tools or custom errors', () => {
+        expect(() => buildInvestigationResultSchema({ allowDirectResultCreation: false }))
+            .toThrow(TrypatchConfigError)
         expect(() => buildInvestigationResultSchema({ allowDirectResultCreation: false }))
             .toThrow('AI investigation has no possible outcome')
     })

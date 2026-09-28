@@ -1,5 +1,6 @@
 import { runAiInvestigation } from './aiInvestigation/runAiInvestigation'
 import { buildInvestigationContext } from './investigationContext'
+import { TrypatchFatalError } from '../errors'
 import type { Logger } from '../logger'
 import type { Schema } from '../schema/types'
 import type { InvestigationContext, MethodDescriptor, TryPatchOptions } from '../types'
@@ -34,6 +35,10 @@ export async function runInvestigation<
     try {
         return await investigateError(investigationContext, options)
     } catch (investigationError) {
+        if (investigationError instanceof TrypatchFatalError) {
+            throw investigationError
+        }
+
         logger.error('[ssandir/trypatch] Investigation failed:', investigationError)
         return undefined
     }

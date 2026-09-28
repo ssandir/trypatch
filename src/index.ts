@@ -1,4 +1,5 @@
 export { trypatch } from './trypatch'
+export { TrypatchFatalError, TrypatchConfigError } from './errors'
 export { runInvestigation, investigateError } from './investigation/runInvestigation'
 export { Logger } from './logger'
 export { buildInvestigationContext } from './investigation/investigationContext'

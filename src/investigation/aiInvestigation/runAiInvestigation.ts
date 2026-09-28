@@ -93,10 +93,6 @@ async function callInvestigationProvider (
                 maxTokens,
                 investigationTools,
             )
-        default: {
-            const exhaustiveCheck: never = investigationProvider
-            throw new Error(`Unsupported investigation provider: ${String(exhaustiveCheck)}`)
-        }
     }
 }
 

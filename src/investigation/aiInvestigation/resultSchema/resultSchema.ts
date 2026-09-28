@@ -1,4 +1,5 @@
 import type { JSONSchema } from 'json-schema-to-ts'
+import { TrypatchConfigError } from '../../../errors'
 import type { CustomErrorDefinition } from '../../../types'
 import type { Schema } from '../../../schema/types'
 import { parseWithSchema, toJsonSchemaObject } from '../../../schema/utils'
@@ -73,7 +74,7 @@ export function buildInvestigationResultSchema ({
     ]
 
     if (variants.length === 0) {
-        throw new Error('AI investigation has no possible outcome: allowDirectResultCreation is false and no resultTools or customErrors were provided.')
+        throw new TrypatchConfigError('AI investigation has no possible outcome: allowDirectResultCreation is false and no resultTools or customErrors were provided.')
     }
 
     return {
