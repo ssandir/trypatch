@@ -18,7 +18,7 @@ Define what a resolved error should look like, and `@trypatch` ensures you alway
 
 ```typescript
 import { z } from 'zod'
-import { trypatch, Providers } from 'ssandir/trypatch'
+import { trypatch } from 'ssandir/trypatch'
 
 const ResolutionSchema = z.object({
   rootCause: z.string().describe('Why the error occurred'),
@@ -30,7 +30,7 @@ class PaymentService {
   @trypatch({
     resultSchema: ResolutionSchema,
     investigationProvider: {
-      provider: Providers.OPENAI,
+      provider: 'openai',
       apiKey: process.env.OPENAI_API_KEY!,
     },
   })
@@ -59,13 +59,13 @@ When `processPayment` fails:
 Automatically redact API keys, tokens, and PII before they leave your instance:
 
 ```typescript
-import { trypatch, Providers } from 'ssandir/trypatch'
+import { trypatch } from 'ssandir/trypatch'
 
 class DatabaseService {
   @trypatch({
     resultSchema: ErrorResolutionSchema,
     investigationProvider: {
-      provider: Providers.OPENAI,
+      provider: 'openai',
       apiKey: process.env.OPENAI_API_KEY!,
     },
     // Redact sensitive terms before sending to OpenAI
@@ -99,7 +99,7 @@ class DatabaseService {
 Provide tools that trypatch can invoke to retry or recover from transient failures:
 
 ```typescript
-import { Tool, trypatch, Providers } from 'ssandir/trypatch'
+import { Tool, trypatch } from 'ssandir/trypatch'
 import { z } from 'zod'
 
 const RetrySchema = z.object({
@@ -135,7 +135,7 @@ class ThirdPartyApiClient {
   @trypatch({
     resultSchema: RetrySchema,
     investigationProvider: {
-      provider: Providers.CURSOR,
+      provider: 'cursor',
       apiKey: process.env.CURSOR_API_KEY!,
     },
     // Tools the AI can call during investigation
@@ -168,7 +168,7 @@ For JSON Schema, define the shape locally and cast in handlers:
 
 ```typescript
 import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
-import { Tool, trypatch, Providers } from 'ssandir/trypatch'
+import { Tool, trypatch } from 'ssandir/trypatch'
 
 const schema = {
   type: 'object',
@@ -193,7 +193,7 @@ new Tool({
 class Service {
   @trypatch({
     resultSchema: schema,
-    investigationProvider: { provider: Providers.OPENAI, apiKey: process.env.OPENAI_API_KEY! },
+    investigationProvider: { provider: 'openai', apiKey: process.env.OPENAI_API_KEY! },
     onInvestigationResult: (result) => console.warn((result as Result).rootCause),
   })
   async run (): Promise<Result> { /* ... */ }
@@ -206,14 +206,14 @@ Use `as const satisfies JSONSchema` so `FromSchema<typeof schema>` stays precise
 
 ## Claude (Anthropic)
 
-`provider: Providers.CLAUDE` calls Anthropic's Messages API. `apiKey` is required; resolve it however you like (env var, secret manager, etc.) before passing it in.
+`provider: 'claude'` calls Anthropic's Messages API. `apiKey` is required; resolve it however you like (env var, secret manager, etc.) before passing it in.
 
 ```typescript
 class Service {
   @trypatch({
     resultSchema: ResolutionSchema,
     investigationProvider: {
-      provider: Providers.CLAUDE,
+      provider: 'claude',
       apiKey: process.env.ANTHROPIC_API_KEY!,
     },
   })
@@ -234,7 +234,7 @@ class Service {
   @trypatch({
     resultSchema: ResolutionSchema,
     investigationProvider: {
-      provider: Providers.OPENAI,
+      provider: 'openai',
       apiKey: process.env.OPENAI_API_KEY!,
       fetch: async (url, init) => fetch(`https://my-proxy.internal/openai?target=${encodeURIComponent(String(url))}`, {
         ...init,

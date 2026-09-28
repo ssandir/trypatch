@@ -1,7 +1,5 @@
-import { Providers } from '../types'
-
 export type ClaudeInvestigationConfig = {
-    provider: typeof Providers.CLAUDE
+    provider: 'claude'
     apiKey: string
     model?: string
     baseURL?: string

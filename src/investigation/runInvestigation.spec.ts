@@ -6,7 +6,6 @@ import { Logger } from '../logger'
 import { Tool } from '../tools'
 import type { CustomErrorDefinition, TryPatchOptions } from '../types'
 import { mockMethodDescriptor } from '../test/mockMethodDecoratorContext'
-import { Providers } from './aiInvestigation/providers/types'
 
 const fetchMock = jest.fn()
 
@@ -49,7 +48,7 @@ describe('runInvestigation', () => {
                     aiInvestigation: {
                         resultSchema: schema,
                         investigationProvider: {
-                            provider: Providers.OPENAI,
+                            provider: 'openai',
                             apiKey: 'test-key',
                         },
                     },
@@ -83,7 +82,7 @@ describe('runInvestigation', () => {
                     aiInvestigation: {
                         resultSchema: z.object({ rootCause: z.string() }),
                         investigationProvider: {
-                            provider: Providers.OPENAI,
+                            provider: 'openai',
                             apiKey: 'test-key',
                         },
                     },
@@ -159,7 +158,7 @@ describe('runInvestigation', () => {
             const result = await investigateError(ctx, {
                 aiInvestigation: {
                     investigationProvider: {
-                        provider: Providers.OPENAI,
+                        provider: 'openai',
                         apiKey: 'test-key',
                     },
                 },
@@ -205,7 +204,7 @@ describe('runInvestigation', () => {
                 aiInvestigation: {
                     resultSchema: schema,
                     investigationProvider: {
-                        provider: Providers.OPENAI,
+                        provider: 'openai',
                         apiKey: 'test-key',
                     },
                     resultTools: [resultTool],
@@ -253,7 +252,7 @@ describe('runInvestigation', () => {
             await expect(investigateError(ctx, {
                 aiInvestigation: {
                     investigationProvider: {
-                        provider: Providers.OPENAI,
+                        provider: 'openai',
                         apiKey: 'test-key',
                     },
                     customErrors,
@@ -293,7 +292,7 @@ describe('runInvestigation', () => {
                 aiInvestigation: {
                     resultSchema: schema,
                     investigationProvider: {
-                        provider: Providers.OPENAI,
+                        provider: 'openai',
                         apiKey: 'test-key',
                     },
                     redactConfig: {},

@@ -3,7 +3,6 @@ import { z } from 'zod'
 import { trypatch } from './trypatch'
 import type { TryPatchOptions } from './types'
 import { mockMethodDecoratorContext } from './test/mockMethodDecoratorContext'
-import { Providers } from './investigation/aiInvestigation/providers/types'
 
 /**
  * Compile-time-only checks for TryPatchOptions/@trypatch generic constraints. Nothing here runs —
@@ -17,7 +16,7 @@ const resultSchema = z.object({
 })
 
 const investigationProvider = {
-    provider: Providers.OPENAI,
+    provider: 'openai',
     apiKey: 'test-key',
 } as const
 

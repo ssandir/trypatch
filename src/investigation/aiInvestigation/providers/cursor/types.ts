@@ -1,5 +1,3 @@
-import { Providers } from '../types'
-
 export type CursorRepositoryConfig = {
     url: string
     startingRef?: string
@@ -7,7 +5,7 @@ export type CursorRepositoryConfig = {
 }
 
 export type CursorInvestigationConfig = {
-    provider: typeof Providers.CURSOR
+    provider: 'cursor'
     apiKey: string
     baseURL?: string
     model?: string | { id: string, params?: { id: string, value: string | boolean | number }[] }

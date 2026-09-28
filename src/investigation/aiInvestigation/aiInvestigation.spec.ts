@@ -5,7 +5,6 @@ import { buildInvestigationPrompt } from './buildPrompt'
 import { investigateWithOpenAi } from './providers/openai/investigate'
 import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithClaude } from './providers/claude/investigate'
-import { Providers } from './providers/types'
 import { buildInvestigationResultSchema } from './resultSchema'
 
 describe('aiInvestigation', () => {
@@ -75,7 +74,7 @@ describe('aiInvestigation', () => {
         it('should call OpenAI and return the parsed outcome', async () => {
             const result = await investigateWithOpenAi(
                 {
-                    provider: Providers.OPENAI,
+                    provider: 'openai',
                     apiKey: 'test-key',
                 },
                 outcomeSchema,
@@ -116,7 +115,7 @@ describe('aiInvestigation', () => {
 
             await investigateWithOpenAi(
                 {
-                    provider: Providers.OPENAI,
+                    provider: 'openai',
                     apiKey: 'test-key',
                     fetch: customFetch,
                 },
@@ -183,7 +182,7 @@ describe('aiInvestigation', () => {
         it('should create a cursor agent and poll until finished', async () => {
             const result = await investigateWithCursor(
                 {
-                    provider: Providers.CURSOR,
+                    provider: 'cursor',
                     apiKey: 'cursor-key',
                 },
                 outcomeSchema,
@@ -250,7 +249,7 @@ describe('aiInvestigation', () => {
 
             const result = await investigateWithClaude(
                 {
-                    provider: Providers.CLAUDE,
+                    provider: 'claude',
                     apiKey: 'anthropic-key',
                 },
                 outcomeSchema,
@@ -318,7 +317,7 @@ describe('aiInvestigation', () => {
 
             const result = await investigateWithClaude(
                 {
-                    provider: Providers.CLAUDE,
+                    provider: 'claude',
                     apiKey: 'anthropic-key',
                 },
                 outcomeSchemaWithResultTool,

@@ -10,7 +10,6 @@ export type {
     InvestigationOutcome,
     InvestigationResultToolOutcome,
 } from './investigation/aiInvestigation/resultSchema'
-export { Providers, type Provider } from './investigation/aiInvestigation/providers/types'
 export { Tool } from './tools'
 export type {
     ToolInput,

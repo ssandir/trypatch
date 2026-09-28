@@ -5,7 +5,6 @@ import { TrypatchFatalError } from './errors'
 import { Tool } from './tools'
 import type { InvestigationContext, TryPatchOptions } from './types'
 import { mockMethodDecoratorContext } from './test/mockMethodDecoratorContext'
-import { Providers } from './investigation/aiInvestigation/providers/types'
 
 describe('trypatch', () => {
     const fetchMock = jest.fn()
@@ -16,7 +15,7 @@ describe('trypatch', () => {
     }
 
     const investigationProvider = {
-        provider: Providers.OPENAI,
+        provider: 'openai',
         apiKey: 'test-key',
     } as const
 
@@ -375,7 +374,7 @@ describe('trypatch', () => {
                 aiInvestigation: {
                     resultSchema,
                     investigationProvider: {
-                        provider: Providers.OPENAI,
+                        provider: 'openai',
                         apiKey: 'test-key',
                         model: 'gpt-5.5',
                         baseURL: 'https://api.openai.com/v1',

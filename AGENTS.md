@@ -43,7 +43,7 @@ Example:
 
 ```typescript
 import { z } from 'zod'
-import { trypatch, Providers } from 'ssandir/trypatch'
+import { trypatch } from 'ssandir/trypatch'
 
 const schema = z.object({
   rootCause: z.string(),
@@ -54,7 +54,7 @@ class Service {
   @trypatch({
     resultSchema: schema,
     investigationProvider: {
-      provider: Providers.OPENAI,
+      provider: 'openai',
       apiKey: process.env.OPENAI_API_KEY!,
     },
     redactConfig: {

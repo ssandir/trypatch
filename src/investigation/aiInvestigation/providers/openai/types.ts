@@ -1,7 +1,5 @@
-import { Providers } from '../types'
-
 export type OpenAiInvestigationConfig = {
-    provider: typeof Providers.OPENAI
+    provider: 'openai'
     apiKey: string
     model?: string
     baseURL?: string

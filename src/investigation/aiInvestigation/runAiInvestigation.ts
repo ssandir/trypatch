@@ -10,7 +10,6 @@ import { buildInvestigationPrompt } from './buildPrompt'
 import type { Schema, SchemaInfer } from '../../schema/types'
 import { parseWithSchema } from '../../schema/utils'
 import { redactInvestigationPrompts, restoreInvestigationResponse } from './redact/flareRedact'
-import { Providers } from './providers/types'
 import { investigateWithClaude } from './providers/claude/investigate'
 import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithOpenAi } from './providers/openai/investigate'
@@ -68,7 +67,7 @@ async function callInvestigationProvider (
     investigationTools: LooseTool[] | undefined,
 ): Promise<InvestigationOutcome> {
     switch (investigationProvider.provider) {
-        case Providers.OPENAI:
+        case 'openai':
             return await investigateWithOpenAi(
                 investigationProvider,
                 outcomeSchema,
@@ -77,14 +76,14 @@ async function callInvestigationProvider (
                 maxTokens,
                 investigationTools,
             )
-        case Providers.CURSOR:
+        case 'cursor':
             return await investigateWithCursor(
                 investigationProvider,
                 outcomeSchema,
                 prompts,
                 timeoutMs,
             )
-        case Providers.CLAUDE:
+        case 'claude':
             return await investigateWithClaude(
                 investigationProvider,
                 outcomeSchema,
