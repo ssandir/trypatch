@@ -158,6 +158,18 @@ class ThirdPartyApiClient {
 
 ---
 
+## Fallback Outcomes: Avoiding Fabricated Results
+
+Besides returning a `result`, calling a `resultTool`, or throwing a `customErrors` entry, the AI can report that it has nothing good to offer — instead of guessing. Three booleans control this, all defaulting to `true`:
+
+- `allowCannotDetermine` — not enough information to identify a cause at all → throws `TrypatchCannotDetermineError`
+- `allowUncertainResult` — a candidate answer exists but confidence is too low to state as fact → throws `TrypatchUncertainResultError`
+- `allowNoApplicableOutcome` — none of the configured `result`/`resultTools`/`customErrors` fit the situation → throws `TrypatchNoApplicableOutcomeError`
+
+The AI supplies a `reason` string, which becomes the thrown error's message. Like `customErrors`, these are logged and swallowed. Set the corresponding boolean to `false` to remove that escape hatch.
+
+---
+
 ## JSON Schema and TypeScript
 
 JSON Schema tool parameters and `@trypatch` result schemas map to `unknown`, not `FromSchema<T>`. Resolving

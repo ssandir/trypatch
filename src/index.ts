@@ -1,14 +1,23 @@
 export { trypatch } from './trypatch'
-export { TrypatchFatalError, TrypatchConfigError } from './errors'
+export {
+    TrypatchFatalError,
+    TrypatchConfigError,
+    TrypatchCannotDetermineError,
+    TrypatchUncertainResultError,
+    TrypatchNoApplicableOutcomeError,
+} from './errors'
 export { runInvestigation, investigateError } from './investigation/runInvestigation'
 export { Logger } from './logger'
 export { buildInvestigationContext } from './investigation/investigationContext'
 export { buildInvestigationResultSchema } from './investigation/aiInvestigation/resultSchema'
 export type {
+    InvestigationCannotDetermineOutcome,
     InvestigationErrorOutcome,
     InvestigationExplicitResultOutcome,
+    InvestigationNoApplicableOutcome,
     InvestigationOutcome,
     InvestigationResultToolOutcome,
+    InvestigationUncertainOutcome,
 } from './investigation/aiInvestigation/resultSchema'
 export { Tool } from './tools'
 export type {

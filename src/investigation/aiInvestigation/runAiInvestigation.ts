@@ -1,4 +1,9 @@
 import type { JSONSchema } from 'json-schema-to-ts'
+import {
+    TrypatchCannotDetermineError,
+    TrypatchNoApplicableOutcomeError,
+    TrypatchUncertainResultError,
+} from '../../errors'
 import type {
     AiInvestigationOptions,
     CustomErrorDefinition,
@@ -55,6 +60,12 @@ async function resolveOutcome<S extends Schema, C> (
         }
         case 'result':
             return parseWithSchema(resultSchema, outcome.result, 'investigation result')
+        case 'cannotDetermine':
+            throw new TrypatchCannotDetermineError(outcome.reason)
+        case 'uncertain':
+            throw new TrypatchUncertainResultError(outcome.reason)
+        case 'noApplicableOutcome':
+            throw new TrypatchNoApplicableOutcomeError(outcome.reason)
     }
 }
 
@@ -107,13 +118,24 @@ export async function runAiInvestigation<S extends Schema, C> (
         resultTools,
         customErrors,
         allowDirectResultCreation,
+        allowCannotDetermine,
+        allowUncertainResult,
+        allowNoApplicableOutcome,
         onInvestigationResult,
     }: AiInvestigationOptions<S, C>,
 ): Promise<unknown> {
     const sanitizedArgs = investigationBehavior.sanitizeArgs
         ? investigationBehavior.sanitizeArgs(ctx.args)
         : ctx.args
-    const outcomeSchema = buildInvestigationResultSchema({ resultSchema, customErrors, resultTools, allowDirectResultCreation })
+    const outcomeSchema = buildInvestigationResultSchema({
+        resultSchema,
+        customErrors,
+        resultTools,
+        allowDirectResultCreation,
+        allowCannotDetermine,
+        allowUncertainResult,
+        allowNoApplicableOutcome,
+    })
     const builtPrompts = buildInvestigationPrompt(ctx, sanitizedArgs, outcomeSchema, investigationBehavior)
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)
     const timeoutMs = investigationBehavior.timeoutMs ?? DEFAULT_TIMEOUT_MS

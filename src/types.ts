@@ -117,9 +117,24 @@ export type AiInvestigationOptions<
     customErrors?: CustomErrorDefinition[]
     /**
      * Whether the AI may return a `result` directly, versus only via {@link resultTools}/{@link customErrors}.
-     * Defaults to `true`. 
+     * Defaults to `true`.
      */
     allowDirectResultCreation?: boolean
+    /**
+     * Whether the AI may report that it could not determine any result — there isn't enough
+     * information to identify a cause. Throws {@link TrypatchCannotDetermineError}. Defaults to `true`.
+     */
+    allowCannotDetermine?: boolean
+    /**
+     * Whether the AI may report a plausible result exists but its confidence in it is too low to
+     * state as fact, instead of guessing. Throws {@link TrypatchUncertainResultError}. Defaults to `true`.
+     */
+    allowUncertainResult?: boolean
+    /**
+     * Whether the AI may report that none of the configured outcomes actually fit the situation.
+     * Throws {@link TrypatchNoApplicableOutcomeError}. Defaults to `true`.
+     */
+    allowNoApplicableOutcome?: boolean
     /** Callback invoked with the parsed investigation result before it is returned from the wrapped method. */
     onInvestigationResult?: (result: SchemaInfer<S>) => void | Promise<void>
 }

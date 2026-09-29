@@ -1,2 +1,5 @@
 export { TrypatchFatalError } from './TrypatchFatalError'
 export { TrypatchConfigError } from './TrypatchConfigError'
+export { TrypatchCannotDetermineError } from './TrypatchCannotDetermineError'
+export { TrypatchUncertainResultError } from './TrypatchUncertainResultError'
+export { TrypatchNoApplicableOutcomeError } from './TrypatchNoApplicableOutcomeError'

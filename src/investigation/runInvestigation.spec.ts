@@ -1,7 +1,12 @@
 import { z } from 'zod'
 import { investigateError, runInvestigation } from './runInvestigation'
 import { buildInvestigationContext } from './investigationContext'
-import { TrypatchFatalError } from '../errors'
+import {
+    TrypatchCannotDetermineError,
+    TrypatchFatalError,
+    TrypatchNoApplicableOutcomeError,
+    TrypatchUncertainResultError,
+} from '../errors'
 import { Logger } from '../logger'
 import { Tool } from '../tools'
 import type { CustomErrorDefinition, TryPatchOptions } from '../types'
@@ -269,6 +274,57 @@ describe('runInvestigation', () => {
             expect(result).toBeUndefined()
             expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed:', expect.any(Error))
         })
+        it.each([
+            ['cannotDetermine', 'allowCannotDetermine', TrypatchCannotDetermineError],
+            ['uncertain', 'allowUncertainResult', TrypatchUncertainResultError],
+            ['noApplicableOutcome', 'allowNoApplicableOutcome', TrypatchNoApplicableOutcomeError],
+        ] as const)('should swallow a %s outcome and log it by default', async (outcomeType, allowOption, errorClass) => {
+            const loggerLike = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+            }
+            fetchMock.mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: () => Promise.resolve({
+                    choices: [
+                        {
+                            message: {
+                                content: JSON.stringify({
+                                    outcome: { type: outcomeType, reason: 'not enough information' },
+                                }),
+                            },
+                        },
+                    ],
+                }),
+            })
+
+            const result = await runInvestigation(
+                new Error('original'),
+                {
+                    aiInvestigation: {
+                        investigationProvider: {
+                            provider: 'openai',
+                            apiKey: 'test-key',
+                        },
+                        [allowOption]: true,
+                    },
+                },
+                new Logger({
+                    logger: loggerLike,
+                    verbosity: 'high',
+                }),
+                mockMethodDescriptor(),
+                undefined,
+                [],
+            )
+
+            expect(result).toBeUndefined()
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed:', expect.any(errorClass))
+        })
     })
 
     describe('investigateError', () => {
@@ -411,6 +467,35 @@ describe('runInvestigation', () => {
                     customErrors,
                 },
             })).rejects.toThrow(RetryableError)
+        })
+
+        it('should throw TrypatchCannotDetermineError with the AI-provided reason when allowCannotDetermine is set', async () => {
+            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
+            fetchMock.mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: () => Promise.resolve({
+                    choices: [
+                        {
+                            message: {
+                                content: JSON.stringify({
+                                    outcome: { type: 'cannotDetermine', reason: 'logs contain no identifiable cause' },
+                                }),
+                            },
+                        },
+                    ],
+                }),
+            })
+
+            await expect(investigateError(ctx, {
+                aiInvestigation: {
+                    investigationProvider: {
+                        provider: 'openai',
+                        apiKey: 'test-key',
+                    },
+                    allowCannotDetermine: true,
+                },
+            })).rejects.toThrow('logs contain no identifiable cause')
         })
 
         it('should redact investigation prompts before calling the provider', async () => {

@@ -2,53 +2,17 @@ import type { JSONSchema } from 'json-schema-to-ts'
 import { TrypatchConfigError } from '../../../errors'
 import type { CustomErrorDefinition } from '../../../types'
 import type { Schema } from '../../../schema/types'
-import { parseWithSchema, toJsonSchemaObject } from '../../../schema/utils'
+import { parseWithSchema } from '../../../schema/utils'
 import type { LooseTool } from '../toolAdapter'
+import {
+    cannotDetermineOutcomeVariant,
+    errorOutcomeVariant,
+    explicitResultOutcomeVariant,
+    noApplicableOutcomeVariant,
+    resultToolOutcomeVariant,
+    uncertainOutcomeVariant,
+} from './outcomeVariants'
 import type { InvestigationOutcome } from './types'
-
-function errorOutcomeVariant (definition: CustomErrorDefinition) {
-    return {
-        type: 'object',
-        ...definition.description !== undefined ? { description: definition.description } : {},
-        properties: {
-            type: { enum: ['error'] },
-            error: { enum: [definition.errorConstructor.name] },
-            errorSchema: toJsonSchemaObject(definition.errorParameterSchema),
-        },
-        required: ['type', 'error', 'errorSchema'],
-        additionalProperties: false,
-    } as const satisfies JSONSchema
-}
-
-function resultToolOutcomeVariant (tool: LooseTool) {
-    return {
-        type: 'object',
-        properties: {
-            type: { enum: ['resultTool'] },
-            toolName: { enum: [tool.name] },
-            input: tool.parameters,
-        },
-        required: ['type', 'toolName', 'input'],
-        additionalProperties: false,
-    } as const satisfies JSONSchema
-}
-
-function explicitResultOutcomeVariant (resultSchema: Schema | undefined) {
-    return {
-        type: 'object',
-        properties: {
-            type: { enum: ['result'] },
-            result: resultSchema !== undefined
-                ? toJsonSchemaObject(resultSchema)
-                : {
-                    type: 'string',
-                    description: 'A JSON-encoded string representing the investigation result. It will be parsed with JSON.parse.',
-                },
-        },
-        required: ['type', 'result'],
-        additionalProperties: false,
-    } as const satisfies JSONSchema
-}
 
 /**
  * Builds a strict-mode-compatible JSON Schema (per OpenAI's structured outputs rules: object root,
@@ -61,20 +25,29 @@ export function buildInvestigationResultSchema ({
     customErrors,
     resultTools,
     allowDirectResultCreation = true,
+    allowCannotDetermine = true,
+    allowUncertainResult = true,
+    allowNoApplicableOutcome = true,
 }: {
     resultSchema?: Schema | undefined
     customErrors?: CustomErrorDefinition[] | undefined
     resultTools?: LooseTool[] | undefined
     allowDirectResultCreation?: boolean | undefined
+    allowCannotDetermine?: boolean | undefined
+    allowUncertainResult?: boolean | undefined
+    allowNoApplicableOutcome?: boolean | undefined
 }) {
     const variants = [
         ...(customErrors ?? []).map(errorOutcomeVariant),
         ...(resultTools ?? []).map(resultToolOutcomeVariant),
         ...allowDirectResultCreation ? [explicitResultOutcomeVariant(resultSchema)] : [],
+        ...allowCannotDetermine ? [cannotDetermineOutcomeVariant] : [],
+        ...allowUncertainResult ? [uncertainOutcomeVariant] : [],
+        ...allowNoApplicableOutcome ? [noApplicableOutcomeVariant] : [],
     ]
 
     if (variants.length === 0) {
-        throw new TrypatchConfigError('AI investigation has no possible outcome: allowDirectResultCreation is false and no resultTools or customErrors were provided.')
+        throw new TrypatchConfigError('AI investigation has no possible outcome.')
     }
 
     return {

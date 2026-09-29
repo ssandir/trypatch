@@ -13,6 +13,12 @@ function variantTypes (outcomeSchema: ReturnType<typeof buildInvestigationResult
     return outcomeVariants(outcomeSchema).map(variant => (variant as { properties: { type: { enum: string[] } } }).properties.type.enum[0]!)
 }
 
+const disableFallbackOutcomes = {
+    allowCannotDetermine: false,
+    allowUncertainResult: false,
+    allowNoApplicableOutcome: false,
+} as const
+
 describe('buildInvestigationResultSchema', () => {
     const resultTool = new Tool({
         name: 'submit_investigation',
@@ -28,9 +34,9 @@ describe('buildInvestigationResultSchema', () => {
         },
     ]
 
-    it('should include the result variant by default', () => {
+    it('should include the result, cannotDetermine, uncertain, and noApplicableOutcome variants by default', () => {
         const schema = buildInvestigationResultSchema({})
-        expect(variantTypes(schema)).toEqual(['result'])
+        expect(variantTypes(schema)).toEqual(['result', 'cannotDetermine', 'uncertain', 'noApplicableOutcome'])
     })
 
     it('should describe the result as a JSON-encoded string when no resultSchema is given', () => {
@@ -39,25 +45,46 @@ describe('buildInvestigationResultSchema', () => {
         expect(variant!.properties.result).toMatchObject({ type: 'string' })
     })
 
-    it('should include the result variant when allowDirectResultCreation is explicitly true', () => {
-        const schema = buildInvestigationResultSchema({ allowDirectResultCreation: true })
-        expect(variantTypes(schema)).toEqual(['result'])
-    })
-
     it('should exclude the result variant when allowDirectResultCreation is false and a result tool is provided', () => {
-        const schema = buildInvestigationResultSchema({ allowDirectResultCreation: false, resultTools: [resultTool] })
+        const schema = buildInvestigationResultSchema({ allowDirectResultCreation: false, resultTools: [resultTool], ...disableFallbackOutcomes })
         expect(variantTypes(schema)).toEqual(['resultTool'])
     })
 
     it('should exclude the result variant when allowDirectResultCreation is false and a custom error is provided', () => {
-        const schema = buildInvestigationResultSchema({ allowDirectResultCreation: false, customErrors })
+        const schema = buildInvestigationResultSchema({ allowDirectResultCreation: false, customErrors, ...disableFallbackOutcomes })
         expect(variantTypes(schema)).toEqual(['error'])
     })
 
-    it('should throw when allowDirectResultCreation is false with no result tools or custom errors', () => {
-        expect(() => buildInvestigationResultSchema({ allowDirectResultCreation: false }))
+    it('should throw when allowDirectResultCreation is false with no result tools, custom errors, or fallback outcomes', () => {
+        const options = { allowDirectResultCreation: false, ...disableFallbackOutcomes }
+        expect(() => buildInvestigationResultSchema(options))
             .toThrow(TrypatchConfigError)
-        expect(() => buildInvestigationResultSchema({ allowDirectResultCreation: false }))
+        expect(() => buildInvestigationResultSchema(options))
             .toThrow('AI investigation has no possible outcome')
+    })
+
+    it('should exclude the cannotDetermine variant when allowCannotDetermine is explicitly false', () => {
+        const schema = buildInvestigationResultSchema({ allowCannotDetermine: false })
+        expect(variantTypes(schema)).toEqual(['result', 'uncertain', 'noApplicableOutcome'])
+    })
+
+    it('should exclude the uncertain variant when allowUncertainResult is explicitly false', () => {
+        const schema = buildInvestigationResultSchema({ allowUncertainResult: false })
+        expect(variantTypes(schema)).toEqual(['result', 'cannotDetermine', 'noApplicableOutcome'])
+    })
+
+    it('should exclude the noApplicableOutcome variant when allowNoApplicableOutcome is explicitly false', () => {
+        const schema = buildInvestigationResultSchema({ allowNoApplicableOutcome: false })
+        expect(variantTypes(schema)).toEqual(['result', 'cannotDetermine', 'uncertain'])
+    })
+
+    it('should allow cannotDetermine as the only outcome when everything else is disabled', () => {
+        const schema = buildInvestigationResultSchema({
+            allowDirectResultCreation: false,
+            allowCannotDetermine: true,
+            allowUncertainResult: false,
+            allowNoApplicableOutcome: false,
+        })
+        expect(variantTypes(schema)).toEqual(['cannotDetermine'])
     })
 })
