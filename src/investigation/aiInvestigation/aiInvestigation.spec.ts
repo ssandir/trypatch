@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { Logger } from '../../logger'
 import type { InvestigationContext } from '../../types'
 import { buildInvestigationPrompt } from './buildPrompt'
 import { investigateWithCursor } from './providers/cursor/investigate'
@@ -82,7 +83,7 @@ describe('aiInvestigation', () => {
                     systemPrompt: 'Investigate',
                     userPrompt: 'Something failed',
                 },
-                5_000,
+                { timeoutMs: 5_000 },
             )
 
             expect(result).toEqual({
@@ -103,6 +104,52 @@ describe('aiInvestigation', () => {
                     }),
                 }),
             )
+        })
+
+        it('should pass MCP servers to cursor with header functions resolved', async () => {
+            await investigateWithCursor(
+                { provider: 'cursor', apiKey: 'cursor-key' },
+                outcomeSchema,
+                { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
+                {
+                    timeoutMs: 5_000,
+                    mcpServers: [
+                        { name: 'linear', type: 'http', url: 'https://mcp.linear.app/mcp', headers: () => ({ Authorization: 'Bearer token' }) },
+                        { name: 'github', type: 'stdio', command: 'npx', args: ['-y', 'server-github'], env: { GITHUB_TOKEN: 'gh' }, cwd: '/ignored' },
+                    ],
+                },
+            )
+
+            const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body)) as Record<string, unknown>
+            expect(body['mcpServers']).toEqual([
+                { name: 'linear', type: 'http', url: 'https://mcp.linear.app/mcp', headers: { Authorization: 'Bearer token' } },
+                { name: 'github', type: 'stdio', command: 'npx', args: ['-y', 'server-github'], env: { GITHUB_TOKEN: 'gh' } },
+            ])
+        })
+
+        it('should drop an MCP server whose headers fail to resolve and tell the agent', async () => {
+            const warn = jest.fn()
+
+            await investigateWithCursor(
+                { provider: 'cursor', apiKey: 'cursor-key' },
+                outcomeSchema,
+                { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
+                {
+                    timeoutMs: 5_000,
+                    mcpServers: [{
+                        name: 'linear',
+                        type: 'http',
+                        url: 'https://mcp.linear.app/mcp',
+                        headers: () => Promise.reject(new Error('vault sealed')),
+                    }],
+                    logger: new Logger({ logger: { ...console, warn } }),
+                },
+            )
+
+            const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body)) as { prompt: { text: string }, mcpServers?: unknown }
+            expect(body.mcpServers).toBeUndefined()
+            expect(body.prompt.text).toContain('- linear: vault sealed')
+            expect(warn).toHaveBeenCalledWith('[ssandir/trypatch] MCP server "linear" unavailable:', expect.any(Error))
         })
     })
 

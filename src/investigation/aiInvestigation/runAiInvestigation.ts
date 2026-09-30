@@ -11,7 +11,9 @@ import type {
     InvestigationProviderConfig,
     ResultTool,
 } from '../../types'
+import type { Logger } from '../../logger'
 import { buildInvestigationPrompt } from './buildPrompt'
+import { validateMcpServers } from './mcp/servers'
 import type { Schema, SchemaInfer } from '../../schema/types'
 import { parseWithSchema } from '../../schema/utils'
 import { redactInvestigationPrompts, restoreInvestigationResponse } from './redact/flareRedact'
@@ -78,7 +80,7 @@ async function callInvestigationProvider (
     options: LanguageModelInvestigationOptions,
 ): Promise<InvestigationOutcome> {
     if (investigationProvider.provider === 'cursor') {
-        return await investigateWithCursor(investigationProvider, outcomeSchema, prompts, options.timeoutMs)
+        return await investigateWithCursor(investigationProvider, outcomeSchema, prompts, options)
     }
 
     return await investigateWithLanguageModel(investigationProvider, outcomeSchema, prompts, options)
@@ -93,6 +95,7 @@ export async function runAiInvestigation<S extends Schema, C> (
         redactConfig,
         toolContext,
         investigationTools,
+        mcpServers,
         resultTools,
         customErrors,
         allowDirectResultCreation,
@@ -101,7 +104,10 @@ export async function runAiInvestigation<S extends Schema, C> (
         allowNoApplicableOutcome,
         onInvestigationResult,
     }: AiInvestigationOptions<S, C>,
+    logger?: Logger,
 ): Promise<unknown> {
+    validateMcpServers(mcpServers, investigationProvider.provider)
+
     const sanitizedArgs = investigationBehavior.sanitizeArgs
         ? investigationBehavior.sanitizeArgs(ctx.args)
         : ctx.args
@@ -123,6 +129,8 @@ export async function runAiInvestigation<S extends Schema, C> (
         investigationTools,
         toolContext,
         vault,
+        mcpServers,
+        logger,
     })
 
     const outcome = restoreInvestigationResponse(rawOutcome, vault)

@@ -1,7 +1,7 @@
 const { defaults } = require('jest-config')
 
 // ESM-only dependencies that Jest (CJS) needs compiled.
-const esmDependencies = '(flare-redact|ai|@ai-sdk|@standard-schema|eventsource-parser|@workflow)'
+const esmDependencies = '(flare-redact|ai|@ai-sdk|@standard-schema|eventsource-parser|@workflow|pkce-challenge)'
 
 const esmDependencyTransform = ['@swc/jest', {
     jsc: {

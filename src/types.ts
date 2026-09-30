@@ -3,6 +3,7 @@ import type { LoggingOptions } from './logger'
 import type { Tool } from './tools'
 import type { CursorInvestigationConfig } from './investigation/aiInvestigation/providers/cursor/types'
 import type { LanguageModelInvestigationConfig } from './investigation/aiInvestigation/providers/languageModel/types'
+import type { McpServerConfig } from './investigation/aiInvestigation/mcp/types'
 import type { Schema, SchemaInfer } from './schema/types'
 
 export type AnyMethod = (this: unknown, ...args: unknown[]) => unknown
@@ -110,6 +111,14 @@ export type AiInvestigationOptions<
      * Tools the AI may call while investigating. Strongly recommended to be read-only — no mutations or side effects.
      */
     investigationTools?: InvestigationTool<C>[]
+    /**
+     * MCP servers whose tools the AI may call while investigating, alongside {@link investigationTools}.
+     * Connected once per investigation and closed afterwards. A server that can't be reached is logged
+     * as a warning and skipped, and the AI is told it's unavailable.
+     *
+     * Recommended: expose only read-only tools (narrow them with `allowedTools`), since the AI decides what to call.
+     */
+    mcpServers?: McpServerConfig[]
     /**
      * Tools invoked as the final step once investigation completes.
      * The return value of the invoked result tool is returned directly as the investigation result.

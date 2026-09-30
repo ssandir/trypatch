@@ -1,5 +1,9 @@
+import type { Vault } from 'flare-redact'
 import type { JSONSchema } from 'json-schema-to-ts'
+import { Logger } from '../../../../logger'
 import { extractJsonFromText } from '../../../../schema/utils'
+import { appendUnavailableMcpServersNote, resolveMcpServers, type ResolvedMcpServerConfig } from '../../mcp/servers'
+import type { McpServerConfig } from '../../mcp/types'
 import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
 import { DEFAULT_BASE_URL, DEFAULT_POLL_INTERVAL_MS, TERMINAL_RUN_STATUSES } from './constants'
 import type { CursorCreateAgentResponse, CursorInvestigationConfig, CursorRunResponse } from './types'
@@ -42,19 +46,43 @@ function buildCursorRepos (config: CursorInvestigationConfig): Record<string, st
     ]
 }
 
-function buildCreateAgentBody (
+// Cursor connects to the servers itself, from its cloud VM.
+function buildCursorMcpServer (server: ResolvedMcpServerConfig): Record<string, unknown> {
+    if (server.type === 'stdio') {
+        return {
+            name: server.name,
+            type: 'stdio',
+            command: server.command,
+            ...server.args ? { args: server.args } : {},
+            ...server.env ? { env: server.env } : {},
+        }
+    }
+
+    return {
+        name: server.name,
+        type: server.type,
+        url: server.url,
+        ...server.headers ? { headers: server.headers } : {},
+    }
+}
+
+async function buildCreateAgentBody (
     config: CursorInvestigationConfig,
     prompts: { systemPrompt: string, userPrompt: string },
-): Record<string, unknown> {
+    options: CursorInvestigationOptions,
+): Promise<Record<string, unknown>> {
     const model = buildCursorModel(config)
     const repos = buildCursorRepos(config)
+    const mcp = await resolveMcpServers(options.mcpServers ?? [], options.logger ?? new Logger())
+    const userPrompt = appendUnavailableMcpServersNote(prompts.userPrompt, mcp.unavailable, options.vault)
 
     return {
         prompt: {
-            text: `${prompts.systemPrompt}\n\n${prompts.userPrompt}`,
+            text: `${prompts.systemPrompt}\n\n${userPrompt}`,
         },
         ...model ? { model } : {},
         ...repos ? { repos } : {},
+        ...mcp.servers.length > 0 ? { mcpServers: mcp.servers.map(buildCursorMcpServer) } : {},
     }
 }
 
@@ -145,12 +173,20 @@ async function pollCursorRun (
     throw new Error(`Cursor investigation timed out after ${timeoutMs}ms`)
 }
 
+export type CursorInvestigationOptions = {
+    timeoutMs: number
+    mcpServers?: McpServerConfig[] | undefined
+    vault?: Vault | undefined
+    logger?: Logger | undefined
+}
+
 export async function investigateWithCursor (
     config: CursorInvestigationConfig,
     outcomeSchema: JSONSchema,
     prompts: { systemPrompt: string, userPrompt: string },
-    timeoutMs: number,
+    options: CursorInvestigationOptions,
 ): Promise<InvestigationOutcome> {
+    const { timeoutMs } = options
     const baseURL = (config.baseURL ?? DEFAULT_BASE_URL).replace(/\/$/, '')
     const authorization = buildAuthorizationHeader(config.apiKey)
     const pollIntervalMs = config.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
@@ -160,7 +196,7 @@ export async function investigateWithCursor (
     const { agentId, runId } = await createCursorAgent(
         baseURL,
         authorization,
-        buildCreateAgentBody(config, prompts),
+        await buildCreateAgentBody(config, prompts, options),
         doFetch,
     )
 

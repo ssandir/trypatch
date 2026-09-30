@@ -1,3 +1,6 @@
+import { createMCPClient, type MCPClient } from '@ai-sdk/mcp'
+import { Experimental_StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio'
+import { jsonSchema, tool, type ToolSet } from 'ai'
 import { createVault } from 'flare-redact'
 import { z } from 'zod'
 import {
@@ -6,13 +9,17 @@ import {
     mockToolCallTurn,
     type MockCallOptions,
     type MockGenerateResult,
+    promptText,
 } from '../../../../test/mockLanguageModel'
+import { Logger } from '../../../../logger'
 import { Tool } from '../../../../tools'
 import { buildInvestigationResultSchema } from '../../resultSchema'
 import { createLanguageModel } from './createLanguageModel'
 import { investigateWithLanguageModel } from './investigate'
 
 jest.mock('./createLanguageModel')
+jest.mock('@ai-sdk/mcp', () => ({ createMCPClient: jest.fn() }))
+jest.mock('@ai-sdk/mcp/mcp-stdio', () => ({ Experimental_StdioMCPTransport: jest.fn() }))
 
 describe('investigateWithLanguageModel', () => {
     const outcomeSchema = buildInvestigationResultSchema({
@@ -149,5 +156,187 @@ describe('investigateWithLanguageModel', () => {
             timeoutMs: 50,
             investigationTools: [hangingTool],
         })).rejects.toThrow('aborted due to timeout')
+    })
+    describe('mcpServers', () => {
+        const warn = jest.fn()
+        const logger = new Logger({ logger: { ...console, warn } })
+        const queryLogs = jest.fn((input: { query: string }) => ({ lines: [`log for ${input.query}`] }))
+
+        function mcpTools (): ToolSet {
+            return {
+                query_logs: tool({
+                    description: 'Query logs',
+                    inputSchema: jsonSchema<{ query: string }>({
+                        type: 'object',
+                        properties: { query: { type: 'string' } },
+                        required: ['query'],
+                    }),
+                    execute: queryLogs,
+                }),
+                delete_dashboard: tool({
+                    description: 'Delete a dashboard',
+                    inputSchema: jsonSchema({ type: 'object', properties: {} }),
+                    execute: () => ({ deleted: true }),
+                }),
+            }
+        }
+
+        function mockClient (tools: ToolSet = mcpTools()): MCPClient & { close: jest.Mock } {
+            return { tools: jest.fn().mockResolvedValue(tools), close: jest.fn().mockResolvedValue(undefined) } as unknown as MCPClient & { close: jest.Mock }
+        }
+
+        const grafana = { name: 'grafana', type: 'http', url: 'https://mcp.internal/grafana' } as const
+
+        it('should expose prefixed MCP tools filtered by allowedTools and close the client', async () => {
+            const client = mockClient()
+            jest.mocked(createMCPClient).mockResolvedValue(client)
+            const model = useModel(
+                mockToolCallTurn('grafana__query_logs', { query: 'checkout' }),
+                finalOutcome('checkout timed out'),
+            )
+
+            const result = await investigateWithLanguageModel(config, outcomeSchema, prompts, {
+                timeoutMs: 5_000,
+                investigationTools: [orderTool],
+                mcpServers: [{ ...grafana, headers: { Authorization: 'Bearer t' }, allowedTools: ['query_logs'] }],
+                logger,
+            })
+
+            expect(result).toEqual({ type: 'result', result: { rootCause: 'checkout timed out' } })
+            expect(model.doGenerateCalls[0]?.tools?.map(sentTool => sentTool.name)).toEqual(['lookup_order', 'grafana__query_logs'])
+            expect(queryLogs).toHaveBeenCalledWith({ query: 'checkout' }, expect.anything())
+            expect(jest.mocked(createMCPClient)).toHaveBeenCalledWith(expect.objectContaining({
+                transport: expect.objectContaining({ type: 'http', url: grafana.url, headers: { Authorization: 'Bearer t' } }),
+            }))
+            expect(client.close).toHaveBeenCalledTimes(1)
+            expect(warn).not.toHaveBeenCalled()
+        })
+
+        it('should start stdio servers through the stdio transport', async () => {
+            jest.mocked(createMCPClient).mockResolvedValue(mockClient())
+            useModel(finalOutcome('unknown'))
+
+            await investigateWithLanguageModel(config, outcomeSchema, prompts, {
+                timeoutMs: 5_000,
+                mcpServers: [{ name: 'db', type: 'stdio', command: 'npx', args: ['db-mcp'], env: { DB_URL: 'x' } }],
+            })
+
+            expect(Experimental_StdioMCPTransport).toHaveBeenCalledWith({ command: 'npx', args: ['db-mcp'], env: { DB_URL: 'x' } })
+        })
+
+        it('should resolve header functions once per investigation', async () => {
+            jest.mocked(createMCPClient).mockImplementation(() => Promise.resolve(mockClient()))
+            const headers = jest.fn(() => Promise.resolve({ Authorization: 'Bearer fresh' }))
+            useModel(finalOutcome('a'), finalOutcome('b'))
+
+            for (let i = 0; i < 2; i++) {
+                await investigateWithLanguageModel(config, outcomeSchema, prompts, {
+                    timeoutMs: 5_000,
+                    mcpServers: [{ ...grafana, headers }],
+                })
+            }
+
+            expect(headers).toHaveBeenCalledTimes(2)
+        })
+
+        it('should skip an unreachable server with a warning and tell the model, keeping other servers', async () => {
+            const loki = mockClient({ loki_query: mcpTools()['query_logs']! })
+            jest.mocked(createMCPClient)
+                .mockRejectedValueOnce(new Error('connect ECONNREFUSED mcp.internal'))
+                .mockResolvedValueOnce(loki)
+            const vault = createVault({ terms: ['mcp.internal'] })
+            const model = useModel(finalOutcome('probably a timeout'))
+
+            const result = await investigateWithLanguageModel(config, outcomeSchema, prompts, {
+                timeoutMs: 5_000,
+                mcpServers: [grafana, { name: 'loki', type: 'http', url: 'https://loki.example.com/mcp' }],
+                vault,
+                logger,
+            })
+
+            expect(result).toEqual({ type: 'result', result: { rootCause: 'probably a timeout' } })
+            expect(warn).toHaveBeenCalledWith('[ssandir/trypatch] MCP server "grafana" unavailable:', expect.any(Error))
+            expect(model.doGenerateCalls[0]?.tools?.map(sentTool => sentTool.name)).toEqual(['loki__loki_query'])
+            const userPrompt = promptText(model.doGenerateCalls[0], 'user')
+            expect(userPrompt).toContain('- grafana: connect ECONNREFUSED')
+            expect(userPrompt).not.toContain('mcp.internal')
+            expect(loki.close).toHaveBeenCalledTimes(1)
+        })
+
+        it('should still investigate when every server is unavailable', async () => {
+            jest.mocked(createMCPClient).mockRejectedValue(new Error('down'))
+            const model = useModel(finalOutcome('rate limited'))
+
+            const result = await investigateWithLanguageModel(config, outcomeSchema, prompts, {
+                timeoutMs: 5_000,
+                mcpServers: [grafana],
+                logger,
+            })
+
+            expect(result).toEqual({ type: 'result', result: { rootCause: 'rate limited' } })
+            expect(model.doGenerateCalls[0]?.tools).toBeUndefined()
+        })
+
+        it('should restore redacted MCP tool input and redact its output', async () => {
+            jest.mocked(createMCPClient).mockResolvedValue(mockClient())
+            const vault = createVault({ terms: ['secret-order'] })
+            const placeholder = String(vault.redact('secret-order'))
+            queryLogs.mockReturnValueOnce({ lines: ['secret-order failed'] })
+            const model = useModel(
+                mockToolCallTurn('grafana__query_logs', { query: placeholder }),
+                finalOutcome('stuck'),
+            )
+
+            await investigateWithLanguageModel(config, outcomeSchema, prompts, {
+                timeoutMs: 5_000,
+                mcpServers: [grafana],
+                vault,
+            })
+
+            expect(queryLogs).toHaveBeenCalledWith({ query: 'secret-order' }, expect.anything())
+            expect(JSON.stringify(model.doGenerateCalls[1]?.prompt)).not.toContain('secret-order')
+        })
+
+        it('should close clients when the investigation fails', async () => {
+            const client = mockClient()
+            jest.mocked(createMCPClient).mockResolvedValue(client)
+            useModel(mockToolCallTurn('grafana__query_logs', { query: 'a' }), mockToolCallTurn('grafana__query_logs', { query: 'b' }, 'call-2'))
+
+            await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
+                timeoutMs: 5_000,
+                mcpServers: [grafana],
+                maxToolIterations: 1,
+            })).rejects.toThrow('did not reach an outcome')
+            expect(client.close).toHaveBeenCalledTimes(1)
+        })
+
+        it('should warn about a failing close without changing the outcome', async () => {
+            const client = mockClient()
+            client.close.mockRejectedValue(new Error('already closed'))
+            jest.mocked(createMCPClient).mockResolvedValue(client)
+            useModel(finalOutcome('rate limited'))
+
+            const result = await investigateWithLanguageModel(config, outcomeSchema, prompts, {
+                timeoutMs: 5_000,
+                mcpServers: [grafana],
+                logger,
+            })
+
+            expect(result).toEqual({ type: 'result', result: { rootCause: 'rate limited' } })
+            expect(warn).toHaveBeenCalledWith('[ssandir/trypatch] Failed to close MCP client:', expect.any(Error))
+        })
+
+        it('should reject MCP tools that collide with an investigation tool', async () => {
+            const client = mockClient({ lookup: mcpTools()['query_logs']! })
+            jest.mocked(createMCPClient).mockResolvedValue(client)
+            useModel(finalOutcome('x'))
+
+            await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
+                timeoutMs: 5_000,
+                investigationTools: [new Tool({ name: 'grafana__lookup', description: 'x', execute: () => null })],
+                mcpServers: [grafana],
+            })).rejects.toThrow('MCP tool "grafana__lookup" has the same name as an investigation tool')
+            expect(client.close).toHaveBeenCalledTimes(1)
+        })
     })
 })

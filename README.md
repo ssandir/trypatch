@@ -160,13 +160,59 @@ The AI can call investigation tools over several turns: it calls a tool, reads t
 - `toolContext` is passed to every tool's `execute` as its second argument
 - If a tool throws, the error is sent back to the AI so it can try something else, instead of failing the investigation
 
-Investigation tools work with `openai`, `claude` and `openai-compatible`. The `cursor` provider ignores them, because Cursor's cloud agent runs its own tools remotely.
+Investigation tools work with `openai`, `claude` and `openai-compatible`. The `cursor` provider ignores them, because Cursor's cloud agent runs its own tools remotely; use [`mcpServers`](#mcp-servers-give-the-ai-your-existing-tooling) to give it tools.
 
 **Use cases:**
 - **Volatile APIs**: `@trypatch` detects transient timeouts and retries automatically
 - **Database connection pools**: Tools can wait for a connection to become available
 - **Fallback services**: Tools can switch to a backup endpoint
 - **Rate limiting**: Tools can apply backoff and retry intelligently
+
+---
+
+## MCP Servers: Give the AI Your Existing Tooling
+
+`mcpServers` connects the investigation to [MCP](https://modelcontextprotocol.io) servers, and the AI can call their tools the same way it calls `investigationTools`. You define the servers; trypatch ships no presets.
+
+```typescript
+aiInvestigation: {
+  investigationProvider: { provider: 'claude', apiKey: process.env.ANTHROPIC_API_KEY! },
+  mcpServers: [
+    {
+      name: 'grafana',
+      type: 'http', // or 'sse'
+      url: 'https://mcp.internal/grafana',
+      headers: async () => ({ Authorization: `Bearer ${await secrets.get('grafana-token')}` }),
+      allowedTools: ['query_logs', 'get_dashboard'],
+    },
+    {
+      name: 'db',
+      type: 'stdio',
+      command: 'npx',
+      args: ['some-db-mcp'],
+      env: { DATABASE_URL: process.env.READONLY_DATABASE_URL! },
+    },
+  ],
+}
+```
+
+- **Tool names:** the AI sees each tool as `<server name>__<tool name>` (`grafana__query_logs`), so two servers can't collide. Server names may only contain letters, digits, `_` and `-`.
+- **Auth:** static `headers`, or a `headers` function that is called once per investigation (short-lived tokens, secret managers, client-credentials OAuth where you fetch the token yourself). Stdio servers get secrets through `env`. Interactive OAuth isn't supported: nobody is around to complete a browser login when an error fires on a server.
+- **Recommended: read-only tools.** The AI decides which tools to call, and MCP servers often expose tools that change things (`delete_*`, `create_*`). Narrow each server with `allowedTools`. trypatch doesn't enforce this; which servers and tools to expose is your call.
+- **Connection lifetime:** servers are connected when an investigation starts and closed when it ends. For stdio that means starting a new process on every investigated failure.
+- **Unavailable servers don't fail the investigation.** A server that refuses to connect (or whose `headers` function throws) is logged as a warning and skipped. The AI is told which servers were unavailable, so it can reach an outcome without them or fall back to one of the [fallback outcomes](#fallback-outcomes-avoiding-fabricated-results).
+- MCP tools share `maxToolIterations`, `timeoutMs` (which also covers connecting) and `redactConfig` with `investigationTools`: the AI only sees redacted values, and MCP tool output is redacted before it reaches the provider. Tool descriptions are sent unredacted.
+
+**Why trypatch connects to MCP servers itself.** OpenAI and Anthropic can also connect to MCP servers from their own cloud. trypatch deliberately connects locally for `openai`, `claude` and `openai-compatible`:
+
+- **Internal servers work.** Hosted MCP only reaches servers on the public internet. The servers most useful for investigating errors (internal Grafana, databases, internal APIs) usually aren't.
+- **stdio works.** Hosted MCP only supports remote servers.
+- **Redaction applies.** With hosted MCP, tool calls go directly between the provider and the server, where `redactConfig` can't see them. Your MCP credentials would also have to be sent to the provider.
+- **Limits apply.** Hosted tool calls happen inside a single API call, out of reach of `maxToolIterations` and the investigation deadline.
+- **One behaviour everywhere.** `openai-compatible` has no hosted MCP, and Anthropic's connector only takes a single bearer token.
+- **Failures are handled.** An unreachable server is skipped with a warning instead of failing the provider call.
+
+**Cursor** is the exception: its Cloud Agents API runs MCP itself, so trypatch passes the servers through. Stdio servers run inside Cursor's cloud VM (`cwd` and `fetch` are ignored), and `headers`/`env` are sent to Cursor, which stores them encrypted and deletes them with the agent. `redactConfig` doesn't cover MCP traffic there, `allowedTools` isn't supported (setting it throws a `TrypatchConfigError`), and a server Cursor can't reach is handled by Cursor, not reported by trypatch.
 
 ---
 
@@ -277,7 +323,7 @@ Set `supportsStructuredOutputs: true` if the endpoint enforces JSON Schema outpu
 
 ### Cursor Cloud Agents
 
-`provider: 'cursor'` starts a Cursor cloud agent and polls its run until it finishes. It doesn't support `investigationTools` or `maxToolIterations`.
+`provider: 'cursor'` starts a Cursor cloud agent and polls its run until it finishes. It doesn't support `investigationTools` or `maxToolIterations`, but it does support [`mcpServers`](#mcp-servers-give-the-ai-your-existing-tooling).
 
 ```typescript
 investigationProvider: {

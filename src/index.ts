@@ -44,6 +44,12 @@ export type {
     OpenAiCompatibleInvestigationConfig,
     OpenAiInvestigationConfig,
 } from './investigation/aiInvestigation/providers/languageModel/types'
+export type {
+    McpHeaders,
+    McpRemoteServerConfig,
+    McpServerConfig,
+    McpStdioServerConfig,
+} from './investigation/aiInvestigation/mcp/types'
 export type { Schema, SchemaInfer } from './schema/types'
 export {
     redactInvestigationPrompts,
