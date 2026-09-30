@@ -8,7 +8,9 @@
 - 🛡️ **Schema-Based Guarantees**: All investigation results conform to a schema you define (Zod or JSON Schema)
 - 🔐 **Automatic Credential Censoring**: Sensitive data is redacted before leaving your instance; placeholders are restored in responses
 - 🔧 **Tool-Based Recovery**: Provide tools (e.g., `executeExternalApiCall`,`retryWithExponentialBackoff`, `fetchFromBackupService`) that trypatch can execute to resolve transient failures
-- 🤖 **Multiple Providers**: OpenAI, Claude (Anthropic), or Cursor Cloud Agents for investigation logic
+- 🤖 **Multiple Providers**: OpenAI, Claude (Anthropic), any OpenAI-compatible endpoint (Gemini, Mistral, Groq, Ollama, OpenRouter, vLLM, ...), or Cursor Cloud Agents for investigation logic
+
+Requires Node.js 22 or later.
 
 ---
 
@@ -89,8 +91,9 @@ class DatabaseService {
 1. Before sending the investigation prompt to OpenAI, trypatch redacts all terms in `redactConfig.terms`
 2. Placeholders (e.g., `[REDACTED_0]`) replace the sensitive values
 3. OpenAI investigates with redacted data: *"Query failed at `[REDACTED_0]`..."*
-4. Response placeholders are restored locally before returning
-5. **Original secrets never leave your infrastructure**
+4. When the AI calls an investigation tool, placeholders in its input are restored before the tool runs, and the tool's output is redacted before it goes back to the AI
+5. Response placeholders are restored locally before returning
+6. **Original secrets never leave your infrastructure**
 
 ---
 
@@ -135,20 +138,29 @@ class ThirdPartyApiClient {
   @trypatch({
     resultSchema: RetrySchema,
     investigationProvider: {
-      provider: 'cursor',
-      apiKey: process.env.CURSOR_API_KEY!,
+      provider: 'claude',
+      apiKey: process.env.ANTHROPIC_API_KEY!,
     },
     // Tools the AI can call during investigation
     investigationTools: [retryTool],
   })
   async fetchData(endpoint: string) {
-    // If this fails, Cursor investigates and may invoke retryWithBackoff
+    // If this fails, Claude investigates and may invoke retryWithBackoff
     const response = await fetch(`https://api.example.com${endpoint}`)
     if (!response.ok) throw new Error('API returned ' + response.status)
     return response.json()
   }
 }
 ```
+
+The AI can call investigation tools over several turns: it calls a tool, reads the result, keeps investigating (possibly calling more tools), and then returns its outcome.
+
+- `investigationBehavior.maxToolIterations` caps the number of tool turns (default 20)
+- `investigationBehavior.timeoutMs` covers the whole investigation, including every tool turn; a tool still running at the deadline is abandoned
+- `toolContext` is passed to every tool's `execute` as its second argument
+- If a tool throws, the error is sent back to the AI so it can try something else, instead of failing the investigation
+
+Investigation tools work with `openai`, `claude` and `openai-compatible`. The `cursor` provider ignores them, because Cursor's cloud agent runs its own tools remotely.
 
 **Use cases:**
 - **Volatile APIs**: `@trypatch` detects transient timeouts and retries automatically
@@ -216,24 +228,66 @@ Use `as const satisfies JSONSchema` so `FromSchema<typeof schema>` stays precise
 
 ---
 
-## Claude (Anthropic)
+## Providers
 
-`provider: 'claude'` calls Anthropic's Messages API. `apiKey` is required; resolve it however you like (env var, secret manager, etc.) before passing it in.
+Every provider config takes the API key directly; resolve it however you like (env var, secret manager, etc.) before passing it in. `openai`, `claude` and `openai-compatible` are built on the [Vercel AI SDK](https://ai-sdk.dev), bundled internally, so its types and versions never show up in your code.
+
+### OpenAI
+
+`provider: 'openai'` calls OpenAI's Responses API with strict JSON Schema output.
 
 ```typescript
-class Service {
-  @trypatch({
-    resultSchema: ResolutionSchema,
-    investigationProvider: {
-      provider: 'claude',
-      apiKey: process.env.ANTHROPIC_API_KEY!,
-    },
-  })
-  async run() { /* ... */ }
+investigationProvider: {
+  provider: 'openai',
+  apiKey: process.env.OPENAI_API_KEY!,
 }
 ```
 
-Optional fields: `model` (default `claude-sonnet-5`), `baseURL`, and `apiVersion` (`anthropic-version` header, default `2023-06-01`).
+Optional fields: `model` (default `gpt-5.5`), `baseURL`, `organization`, `project`, and `fetch`.
+
+### Claude (Anthropic)
+
+`provider: 'claude'` calls Anthropic's Messages API with JSON Schema output.
+
+```typescript
+investigationProvider: {
+  provider: 'claude',
+  apiKey: process.env.ANTHROPIC_API_KEY!,
+}
+```
+
+Optional fields: `model` (default `claude-sonnet-5`), `baseURL` (without the `/v1` suffix), `apiVersion` (`anthropic-version` header, default `2023-06-01`), and `fetch`.
+
+### OpenAI-compatible endpoints
+
+`provider: 'openai-compatible'` works with anything that exposes an OpenAI-compatible Chat Completions API: Gemini, Mistral, Groq, Ollama, OpenRouter, vLLM, and many more.
+
+```typescript
+investigationProvider: {
+  provider: 'openai-compatible',
+  baseURL: 'http://localhost:11434/v1',
+  model: 'llama3.3',
+  supportsStructuredOutputs: true,
+}
+```
+
+`baseURL` and `model` are required. Optional fields: `apiKey`, `headers`, `supportsStructuredOutputs`, and `fetch`.
+
+Set `supportsStructuredOutputs: true` if the endpoint enforces JSON Schema output. When it's `false` (the default), the AI is only asked for JSON, trypatch validates the outcome afterwards, and the AI SDK logs a warning on every investigation.
+
+### Cursor Cloud Agents
+
+`provider: 'cursor'` starts a Cursor cloud agent and polls its run until it finishes. It doesn't support `investigationTools` or `maxToolIterations`.
+
+```typescript
+investigationProvider: {
+  provider: 'cursor',
+  apiKey: process.env.CURSOR_API_KEY!,
+  repository: { url: 'https://github.com/acme/payments' },
+}
+```
+
+Optional fields: `model`, `repository` (`url`, `startingRef`, `prUrl`), `baseURL`, `pollIntervalMs`, and `fetch`.
 
 ---
 
