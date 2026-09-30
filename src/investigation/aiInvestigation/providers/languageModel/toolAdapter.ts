@@ -25,7 +25,7 @@ export function toolsToAiSdkTools (
         investigationTool.name,
         tool({
             description: investigationTool.description,
-            // No validate function: Tool.call already parses and validates its own input.
+            // Tool.call already parses and validates its own input.
             inputSchema: jsonSchema(investigationTool.parameters as Parameters<typeof jsonSchema>[0]),
             execute: async (input: unknown, { abortSignal }) => {
                 abortSignal?.throwIfAborted()

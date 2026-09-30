@@ -2,16 +2,8 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { LanguageModel } from 'ai'
-import { DEFAULT_MODEL as DEFAULT_CLAUDE_MODEL } from '../claude/constants'
-import type { ClaudeInvestigationConfig } from '../claude/types'
-import { DEFAULT_MODEL as DEFAULT_OPENAI_MODEL } from '../openai/constants'
-import type { OpenAiInvestigationConfig } from '../openai/types'
-import type { OpenAiCompatibleInvestigationConfig } from '../openaiCompatible/types'
-
-export type LanguageModelInvestigationConfig
-    = | ClaudeInvestigationConfig
-        | OpenAiInvestigationConfig
-        | OpenAiCompatibleInvestigationConfig
+import { DEFAULT_CLAUDE_MODEL, DEFAULT_OPENAI_MODEL } from './constants'
+import type { LanguageModelInvestigationConfig } from './types'
 
 // Maps our own provider configs onto AI SDK models so no AI SDK type leaks into the public API —
 // AI SDK major upgrades stay an internal change.

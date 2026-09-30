@@ -3,10 +3,10 @@ import type { Vault } from 'flare-redact'
 import type { JSONSchema } from 'json-schema-to-ts'
 import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
 import type { LooseTool } from '../../toolAdapter'
-import { createLanguageModel, type LanguageModelInvestigationConfig } from './createLanguageModel'
+import { DEFAULT_MAX_TOOL_ITERATIONS } from './constants'
+import { createLanguageModel } from './createLanguageModel'
 import { toolsToAiSdkTools } from './toolAdapter'
-
-export const DEFAULT_MAX_TOOL_ITERATIONS = 20
+import type { LanguageModelInvestigationConfig } from './types'
 
 export type LanguageModelInvestigationOptions = {
     timeoutMs: number
