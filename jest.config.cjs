@@ -1,6 +1,9 @@
 const { defaults } = require('jest-config')
 
-const flareRedactTransform = ['@swc/jest', {
+// ESM-only dependencies that Jest (CJS) needs compiled.
+const esmDependencies = '(flare-redact|ai|@ai-sdk|@standard-schema|eventsource-parser|@workflow)'
+
+const esmDependencyTransform = ['@swc/jest', {
     jsc: {
         parser: {
             syntax: 'ecmascript',
@@ -12,7 +15,7 @@ const shared = {
     testEnvironment: 'node',
     moduleFileExtensions: [...defaults.moduleFileExtensions, 'ts'],
     transformIgnorePatterns: [
-        'node_modules/(?!(flare-redact)/)',
+        `node_modules/(?!${esmDependencies}/)`,
     ],
 }
 
@@ -35,7 +38,7 @@ module.exports = {
                         },
                     },
                 }],
-                'node_modules/flare-redact/.+\\.js$': flareRedactTransform,
+                [`node_modules/${esmDependencies}/.+\\.js$`]: esmDependencyTransform,
             },
         },
         {
@@ -57,7 +60,7 @@ module.exports = {
                         },
                     },
                 }],
-                'node_modules/flare-redact/.+\\.js$': flareRedactTransform,
+                [`node_modules/${esmDependencies}/.+\\.js$`]: esmDependencyTransform,
             },
         },
     ],
