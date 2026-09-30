@@ -41,6 +41,7 @@ export type { VaultOptions } from 'flare-redact'
 export type { ClaudeInvestigationConfig } from './investigation/aiInvestigation/providers/claude/types'
 export type { CursorInvestigationConfig, CursorRepositoryConfig } from './investigation/aiInvestigation/providers/cursor/types'
 export type { OpenAiInvestigationConfig } from './investigation/aiInvestigation/providers/openai/types'
+export type { OpenAiCompatibleInvestigationConfig } from './investigation/aiInvestigation/providers/openaiCompatible/types'
 export type { Schema, SchemaInfer } from './schema/types'
 export {
     redactInvestigationPrompts,

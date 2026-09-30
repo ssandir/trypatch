@@ -4,6 +4,7 @@ import type { Tool } from './tools'
 import type { ClaudeInvestigationConfig } from './investigation/aiInvestigation/providers/claude/types'
 import type { CursorInvestigationConfig } from './investigation/aiInvestigation/providers/cursor/types'
 import type { OpenAiInvestigationConfig } from './investigation/aiInvestigation/providers/openai/types'
+import type { OpenAiCompatibleInvestigationConfig } from './investigation/aiInvestigation/providers/openaiCompatible/types'
 import type { Schema, SchemaInfer } from './schema/types'
 
 export type AnyMethod = (this: unknown, ...args: unknown[]) => unknown
@@ -38,6 +39,7 @@ export type InvestigationProviderConfig
     = | OpenAiInvestigationConfig
         | CursorInvestigationConfig
         | ClaudeInvestigationConfig
+        | OpenAiCompatibleInvestigationConfig
 
 export type InvestigationContext = {
     error: unknown
@@ -53,8 +55,12 @@ export type InvestigationContext = {
 export type InvestigationBehavior = {
     prompt?: string | ((ctx: InvestigationContext) => string)
     systemPrompt?: string
+    /** Deadline for the whole investigation, including every tool round. */
     timeoutMs?: number
     maxTokens?: number
+    // TBD: should not be ignored by cursor
+    /** Maximum model turns spent calling {@link AiInvestigationOptions.investigationTools}. Defaults to 20. Ignored by `cursor`. */ 
+    maxToolIterations?: number
     sanitizeArgs?: (args: unknown[]) => unknown[]
 }
 

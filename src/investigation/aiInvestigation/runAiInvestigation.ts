@@ -15,12 +15,14 @@ import { buildInvestigationPrompt } from './buildPrompt'
 import type { Schema, SchemaInfer } from '../../schema/types'
 import { parseWithSchema } from '../../schema/utils'
 import { redactInvestigationPrompts, restoreInvestigationResponse } from './redact/flareRedact'
-import { investigateWithClaude } from './providers/claude/investigate'
 import { investigateWithCursor } from './providers/cursor/investigate'
-import { investigateWithOpenAi } from './providers/openai/investigate'
+import {
+    investigateWithLanguageModel,
+    type LanguageModelInvestigationOptions,
+} from './providers/languageModel/investigate'
 import type { InvestigationOutcome } from './resultSchema'
 import { buildInvestigationResultSchema } from './resultSchema'
-import { findToolByName, type LooseTool } from './toolAdapter'
+import { findToolByName } from './toolAdapter'
 
 const DEFAULT_TIMEOUT_MS = 300_000
 
@@ -73,37 +75,13 @@ async function callInvestigationProvider (
     investigationProvider: InvestigationProviderConfig,
     outcomeSchema: JSONSchema,
     prompts: { systemPrompt: string, userPrompt: string },
-    timeoutMs: number,
-    maxTokens: number | undefined,
-    investigationTools: LooseTool[] | undefined,
+    options: LanguageModelInvestigationOptions,
 ): Promise<InvestigationOutcome> {
-    switch (investigationProvider.provider) {
-        case 'openai':
-            return await investigateWithOpenAi(
-                investigationProvider,
-                outcomeSchema,
-                prompts,
-                timeoutMs,
-                maxTokens,
-                investigationTools,
-            )
-        case 'cursor':
-            return await investigateWithCursor(
-                investigationProvider,
-                outcomeSchema,
-                prompts,
-                timeoutMs,
-            )
-        case 'claude':
-            return await investigateWithClaude(
-                investigationProvider,
-                outcomeSchema,
-                prompts,
-                timeoutMs,
-                maxTokens,
-                investigationTools,
-            )
+    if (investigationProvider.provider === 'cursor') {
+        return await investigateWithCursor(investigationProvider, outcomeSchema, prompts, options.timeoutMs)
     }
+
+    return await investigateWithLanguageModel(investigationProvider, outcomeSchema, prompts, options)
 }
 
 export async function runAiInvestigation<S extends Schema, C> (
@@ -138,17 +116,14 @@ export async function runAiInvestigation<S extends Schema, C> (
     })
     const builtPrompts = buildInvestigationPrompt(ctx, sanitizedArgs, outcomeSchema, investigationBehavior)
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)
-    const timeoutMs = investigationBehavior.timeoutMs ?? DEFAULT_TIMEOUT_MS
-    const maxTokens = investigationBehavior.maxTokens
-
-    const rawOutcome = await callInvestigationProvider(
-        investigationProvider,
-        outcomeSchema,
-        prompts,
-        timeoutMs,
-        maxTokens,
+    const rawOutcome = await callInvestigationProvider(investigationProvider, outcomeSchema, prompts, {
+        timeoutMs: investigationBehavior.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+        maxTokens: investigationBehavior.maxTokens,
+        maxToolIterations: investigationBehavior.maxToolIterations,
         investigationTools,
-    )
+        toolContext,
+        vault,
+    })
 
     const outcome = restoreInvestigationResponse(rawOutcome, vault)
     const result = await resolveOutcome(outcome, resultSchema, customErrors, resultTools, toolContext)
