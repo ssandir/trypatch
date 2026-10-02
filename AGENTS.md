@@ -25,7 +25,7 @@ The AI SDK is ESM-only; `jest.config.cjs` lists it among the ESM dependencies th
 
 ## Type-checking
 
-`tsc` does not reject `await` on non-Promise values. The `type-check` script runs both `tsc` and type-aware ESLint (`@typescript-eslint/await-thenable`) on `src/`.
+`tsc` does not reject `await` on non-Promise values; type-aware ESLint (`@typescript-eslint/await-thenable`) catches those, so `npm run lint` is part of type safety, not just style. The `type-check` script runs `tsc` only. A husky pre-commit hook (`lint-staged.config.js`) runs `lint:fix` on staged files and `type-check` on the whole project.
 
 ## Logging
 
