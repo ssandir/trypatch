@@ -1,0 +1,69 @@
+name: Prepare release
+
+# Run on main, or on an old major's branch (e.g. 1.x) to release a fix for it.
+# Opens a release PR; merging it publishes (release.yml).
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump
+        type: choice
+        options: [patch, minor, major]
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepare-release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Open release PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check branch
+        env:
+          BUMP: ${{ inputs.bump }}
+        # Maintenance branches only get patch/minor: a new major version there would collide with main's.
+        run: |
+          case "$GITHUB_REF_NAME:$BUMP" in
+            main:* | [0-9]*.x:patch | [0-9]*.x:minor) ;;
+            *)
+              echo "::error::can't release $BUMP from $GITHUB_REF_NAME (use main, or patch/minor from a maintenance branch like 1.x)"
+              exit 1
+              ;;
+          esac
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Tags are needed to find the previous release.
+          fetch-depth: 0
+          # Kept for the push below; no dependencies are installed, so nothing else can read it.
+          persist-credentials: true
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Bump version and open PR
+        env:
+          BUMP: ${{ inputs.bump }}
+          GH_TOKEN: ${{ github.token }}
+          # Commit hooks are for local development; lint-staged would need node_modules here.
+          HUSKY: 0
+        run: |
+          tag=$(npm version "$BUMP" --no-git-tag-version)
+          branch="release/$tag"
+          git switch -c "$branch"
+          # Runners have no git identity; use the Actions bot's.
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -am "release $tag"
+          git push origin "$branch"
+
+          notes=$(.github/scripts/release-notes.sh "$tag" "$branch")
+          body=$(printf '%s\n\n%s' "Merging releases \`$tag\`." "$notes")
+          gh pr create --base "$GITHUB_REF_NAME" --head "$branch" --title "release $tag" --body "$body"
