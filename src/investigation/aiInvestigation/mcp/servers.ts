@@ -1,7 +1,7 @@
 import { TrypatchConfigError } from '../../../errors'
 import type { Logger } from '../../../logger'
 import type { InvestigationProviderConfig } from '../../../types'
-import type { McpServerConfig } from './types'
+import type { McpServerConfig, ResolvedMcpServerConfig } from './types'
 
 const SERVER_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/
 
@@ -45,8 +45,6 @@ function validateServerUrl (name: string, url: string): void {
     }
 }
 
-export type ResolvedMcpServerConfig = McpServerConfig & { headers?: Record<string, string> }
-
 /**
  * Header functions run once per investigation. A failing one makes that server unavailable
  * rather than failing the investigation, same as a server that refuses to connect.
@@ -56,11 +54,15 @@ export async function resolveMcpServers (
     logger: Logger,
 ): Promise<ResolvedMcpServerConfig[]> {
     const settled = await Promise.allSettled(servers.map(async (server): Promise<ResolvedMcpServerConfig> => {
-        if (server.type === 'stdio' || typeof server.headers !== 'function') {
-            return server as ResolvedMcpServerConfig
+        if (server.type === 'stdio') {
+            return server
         }
 
-        return { ...server, headers: await server.headers() }
+        const { headers, ...rest } = server
+        return {
+            ...rest,
+            ...headers ? { headers: typeof headers === 'function' ? await headers() : headers } : {},
+        }
     }))
 
     const resolved: ResolvedMcpServerConfig[] = []

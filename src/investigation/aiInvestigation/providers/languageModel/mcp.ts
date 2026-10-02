@@ -2,8 +2,8 @@ import { createMCPClient, type MCPClient, type MCPClientConfig } from '@ai-sdk/m
 import { Experimental_StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio'
 import type { ToolSet } from 'ai'
 import type { Logger } from '../../../../logger'
-import { resolveMcpServers, warnUnavailableMcpServer, type ResolvedMcpServerConfig } from '../../mcp/servers'
-import type { McpServerConfig } from '../../mcp/types'
+import { resolveMcpServers, warnUnavailableMcpServer } from '../../mcp/servers'
+import type { McpServerConfig, ResolvedMcpServerConfig } from '../../mcp/types'
 
 export type McpConnection = {
     tools: ToolSet
