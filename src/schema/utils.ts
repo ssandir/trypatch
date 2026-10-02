@@ -1,33 +1,26 @@
-import { ZodStandardJSONSchemaPayload } from 'zod/v4/core'
 import Ajv, { type AnySchema } from 'ajv'
 import type { JSONSchema } from 'json-schema-to-ts'
-import { toJSONSchema } from 'zod'
-import type { ZodObject, ZodType } from 'zod'
+import { parse, toJSONSchema } from 'zod/v4/core'
+import type { $ZodObject, $ZodType, ZodStandardJSONSchemaPayload } from 'zod/v4/core'
 import type { Schema } from './types'
 
 const ajv = new Ajv()
 
-export function isZodSchema (value: unknown): value is ZodType {
+export function isZodSchema (value: unknown): value is $ZodType {
     return typeof value === 'object'
         && value !== null
-        && 'safeParse' in value
-        && typeof value.safeParse === 'function'
+        && '_zod' in value
 }
 
-export function isZodObject (value: unknown): value is ZodObject {
-    return isZodSchema(value)
-        && '_def' in value
-        && typeof value._def === 'object'
-        && value._def !== null
-        && 'type' in value._def
-        && value._def.type === 'object'
+export function isZodObject (value: unknown): value is $ZodObject {
+    return isZodSchema(value) && value._zod.def.type === 'object'
 }
 
 export function isJsonSchema (value: unknown): value is JSONSchema {
     return typeof value === 'object' && value !== null
 }
 
-function zodToJsonSchemaRecord (schema: ZodType): JSONSchema {
+function zodToJsonSchemaRecord (schema: $ZodType): JSONSchema {
     const converted = toJSONSchema(schema)
     if ('schema' in converted && converted.schema && typeof converted.schema === 'object') {
         return converted.schema
@@ -35,7 +28,7 @@ function zodToJsonSchemaRecord (schema: ZodType): JSONSchema {
     return converted as JSONSchema
 }
 
-export function zodToJsonSchemaPayload<TSchema extends ZodObject> (
+export function zodToJsonSchemaPayload<TSchema extends $ZodObject> (
     schema: TSchema,
 ): ZodStandardJSONSchemaPayload<TSchema> {
     const converted = toJSONSchema(schema)
@@ -79,7 +72,7 @@ export function parseWithSchema (
     }
 
     if (isZodSchema(schema)) {
-        return schema.parse(value)
+        return parse(schema, value)
     }
 
     createJsonSchemaValidator(schema, label)(value)

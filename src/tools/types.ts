@@ -1,10 +1,10 @@
 import type { JSONSchema } from 'json-schema-to-ts'
-import type { ZodObject, output as ZodOutput } from 'zod'
+import type { $ZodObject, output as ZodOutput } from 'zod/v4/core'
 
-export type ToolInput = undefined | ZodObject | JSONSchema
+export type ToolInput = undefined | $ZodObject | JSONSchema
 
 export type ToolInputValue<TSchema extends ToolInput>
-    = TSchema extends ZodObject ? ZodOutput<TSchema>
+    = TSchema extends $ZodObject ? ZodOutput<TSchema>
         // FromSchema<TSchema> triggers TS2589 (excessively deep instantiation) for JSON Schema.
         // Infer the shape locally with FromSchema<typeof schema> and cast inside execute.
         : TSchema extends JSONSchema ? unknown

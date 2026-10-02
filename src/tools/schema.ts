@@ -1,5 +1,6 @@
 import type { JSONSchema } from 'json-schema-to-ts'
-import { ZodStandardJSONSchemaPayload } from 'zod/v4/core'
+import { parse } from 'zod/v4/core'
+import type { ZodStandardJSONSchemaPayload } from 'zod/v4/core'
 import { TrypatchFatalError } from '../errors'
 import {
     createJsonSchemaValidator,
@@ -77,7 +78,7 @@ export function getParser<TSchema extends ToolInput> (
     }
 
     if (isZodObject(parameters)) {
-        return ((input: string) => parameters.parse(JSON.parse(input))) as (
+        return ((input: string) => parse(parameters, JSON.parse(input))) as (
             input: string,
         ) => ToolInputValue<TSchema>
     }

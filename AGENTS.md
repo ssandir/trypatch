@@ -1,6 +1,6 @@
 # trypatch
 
-Standalone TypeScript library (Node 22+) that exposes a method decorator for wrapping function execution with error handling.
+Standalone TypeScript library (Node 22.12+) that exposes a method decorator for wrapping function execution with error handling.
 
 ```bash
 cd trypatch
