@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+    # ready_for_review: a draft marked ready has no new commit to trigger a run otherwise.
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, type-check, package
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      # Lint and type-check only see the source; these check the tarball consumers install.
+      - run: npx --yes publint@0.3.25 --strict
+      - run: npx --yes @arethetypeswrong/cli@0.18.5 --pack .
+
+  test:
+    name: Test (Node ${{ matrix.node }}${{ matrix.zod && format(', zod {0}', matrix.zod) || '' }})
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 22.12 is the engines floor: the CJS build require()s ESM-only dependencies.
+          - node: '22.12'
+          - node: '24'
+          - node: '26'
+          # Must match the floor of peerDependencies.zod in package.json; the other legs use the lockfile's zod.
+          - node: '24'
+            zod: '4.2.0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - if: ${{ matrix.zod }}
+        run: npm install --no-save zod@${{ matrix.zod }}
+      - run: npm run type-check
+      - run: npm test
