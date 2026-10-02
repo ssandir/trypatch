@@ -2,10 +2,15 @@ import type { JSONSchema } from 'json-schema-to-ts'
 import { Logger } from '../../../../logger'
 import { extractJsonFromText } from '../../../../schema/utils'
 import { resolveMcpServers } from '../../mcp/servers'
-import type { McpServerConfig, ResolvedMcpServerConfig } from '../../mcp/types'
+import type { ResolvedMcpServerConfig } from '../../mcp/types'
 import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
 import { DEFAULT_BASE_URL, DEFAULT_POLL_INTERVAL_MS, TERMINAL_RUN_STATUSES } from './constants'
-import type { CursorCreateAgentResponse, CursorInvestigationConfig, CursorRunResponse } from './types'
+import type {
+    CursorCreateAgentResponse,
+    CursorInvestigationConfig,
+    CursorInvestigationOptions,
+    CursorRunResponse,
+} from './types'
 
 function buildAuthorizationHeader (apiKey: string): string {
     if (apiKey.startsWith('Bearer ')) {
@@ -169,12 +174,6 @@ async function pollCursorRun (
     }
 
     throw new Error(`Cursor investigation timed out after ${timeoutMs}ms`)
-}
-
-export type CursorInvestigationOptions = {
-    timeoutMs: number
-    mcpServers?: McpServerConfig[] | undefined
-    logger?: Logger | undefined
 }
 
 export async function investigateWithCursor (

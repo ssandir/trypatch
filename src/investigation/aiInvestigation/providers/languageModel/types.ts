@@ -1,3 +1,9 @@
+import type { ToolSet } from 'ai'
+import type { Vault } from 'flare-redact'
+import type { Logger } from '../../../../logger'
+import type { McpServerConfig } from '../../mcp/types'
+import type { LooseTool } from '../../toolAdapter'
+
 export type ClaudeInvestigationConfig = {
     provider: 'claude'
     apiKey: string
@@ -40,3 +46,19 @@ export type LanguageModelInvestigationConfig
     = | ClaudeInvestigationConfig
         | OpenAiInvestigationConfig
         | OpenAiCompatibleInvestigationConfig
+
+export type LanguageModelInvestigationOptions = {
+    timeoutMs: number
+    maxTokens?: number | undefined
+    maxToolIterations?: number | undefined
+    investigationTools?: LooseTool[] | undefined
+    toolContext?: unknown
+    vault?: Vault | undefined
+    mcpServers?: McpServerConfig[] | undefined
+    logger?: Logger | undefined
+}
+
+export type McpConnection = {
+    tools: ToolSet
+    close: () => Promise<void>
+}

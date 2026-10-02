@@ -18,10 +18,8 @@ import type { Schema, SchemaInfer } from '../../schema/types'
 import { parseWithSchema } from '../../schema/utils'
 import { redactInvestigationPrompts, restoreInvestigationResponse } from './redact/flareRedact'
 import { investigateWithCursor } from './providers/cursor/investigate'
-import {
-    investigateWithLanguageModel,
-    type LanguageModelInvestigationOptions,
-} from './providers/languageModel/investigate'
+import { investigateWithLanguageModel } from './providers/languageModel/investigate'
+import type { LanguageModelInvestigationOptions } from './providers/languageModel/types'
 import type { InvestigationOutcome } from './resultSchema'
 import { buildInvestigationResultSchema } from './resultSchema'
 import { findToolByName } from './toolAdapter'

@@ -4,11 +4,7 @@ import type { ToolSet } from 'ai'
 import type { Logger } from '../../../../logger'
 import { resolveMcpServers, warnUnavailableMcpServer } from '../../mcp/servers'
 import type { McpServerConfig, ResolvedMcpServerConfig } from '../../mcp/types'
-
-export type McpConnection = {
-    tools: ToolSet
-    close: () => Promise<void>
-}
+import type { McpConnection } from './types'
 
 function buildTransport (server: ResolvedMcpServerConfig): MCPClientConfig['transport'] {
     if (server.type === 'stdio') {

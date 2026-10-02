@@ -1,27 +1,13 @@
 import { generateText, jsonSchema, Output, stepCountIs, type ToolSet } from 'ai'
-import type { Vault } from 'flare-redact'
 import type { JSONSchema } from 'json-schema-to-ts'
 import { TrypatchConfigError } from '../../../../errors'
 import { Logger } from '../../../../logger'
-import type { McpServerConfig } from '../../mcp/types'
 import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
-import type { LooseTool } from '../../toolAdapter'
 import { DEFAULT_MAX_TOOL_ITERATIONS, MAX_TOOL_NAME_LENGTH } from './constants'
 import { createLanguageModel } from './createLanguageModel'
 import { connectMcpTools } from './mcp'
 import { guardMcpTools, toolsToAiSdkTools } from './toolAdapter'
-import type { LanguageModelInvestigationConfig } from './types'
-
-export type LanguageModelInvestigationOptions = {
-    timeoutMs: number
-    maxTokens?: number | undefined
-    maxToolIterations?: number | undefined
-    investigationTools?: LooseTool[] | undefined
-    toolContext?: unknown
-    vault?: Vault | undefined
-    mcpServers?: McpServerConfig[] | undefined
-    logger?: Logger | undefined
-}
+import type { LanguageModelInvestigationConfig, LanguageModelInvestigationOptions } from './types'
 
 function mergeTools (investigationTools: ToolSet | undefined, mcpTools: ToolSet): ToolSet | undefined {
     for (const name of Object.keys(mcpTools)) {
