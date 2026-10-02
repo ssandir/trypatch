@@ -32,7 +32,7 @@ async function connectMcpServer (
 ): Promise<{ client: MCPClient, tools: ToolSet }> {
     const client = await createMCPClient({
         transport: buildTransport(server),
-        clientName: 'ssandir/trypatch',
+        clientName: '@ssandir/trypatch',
         initializationOptions: { signal: abortSignal },
     })
 

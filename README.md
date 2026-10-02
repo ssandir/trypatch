@@ -1,4 +1,4 @@
-# ssandir/trypatch
+# @ssandir/trypatch
 
 **Production-ready error investigation and automatic resolution.** When your functions fail, `trypatch` investigates the error in your production environment and either recovers it with custom tools or returns a structured diagnosis—all while keeping sensitive data local.
 
@@ -20,7 +20,7 @@ Define what a resolved error should look like, and `@trypatch` ensures you alway
 
 ```typescript
 import { z } from 'zod'
-import { trypatch } from 'ssandir/trypatch'
+import { trypatch } from '@ssandir/trypatch'
 
 const ResolutionSchema = z.object({
   rootCause: z.string().describe('Why the error occurred'),
@@ -61,7 +61,7 @@ When `processPayment` fails:
 Automatically redact API keys, tokens, and PII before they leave your instance:
 
 ```typescript
-import { trypatch } from 'ssandir/trypatch'
+import { trypatch } from '@ssandir/trypatch'
 
 class DatabaseService {
   @trypatch({
@@ -102,7 +102,7 @@ class DatabaseService {
 Provide tools that trypatch can invoke to retry or recover from transient failures:
 
 ```typescript
-import { Tool, trypatch } from 'ssandir/trypatch'
+import { Tool, trypatch } from '@ssandir/trypatch'
 import { z } from 'zod'
 
 const RetrySchema = z.object({
@@ -238,7 +238,7 @@ For JSON Schema, define the shape locally and cast in handlers:
 
 ```typescript
 import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
-import { Tool, trypatch } from 'ssandir/trypatch'
+import { Tool, trypatch } from '@ssandir/trypatch'
 
 const schema = {
   type: 'object',

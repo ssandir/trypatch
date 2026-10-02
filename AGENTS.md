@@ -60,7 +60,7 @@ Example:
 
 ```typescript
 import { z } from 'zod'
-import { trypatch } from 'ssandir/trypatch'
+import { trypatch } from '@ssandir/trypatch'
 
 const schema = z.object({
   rootCause: z.string(),
