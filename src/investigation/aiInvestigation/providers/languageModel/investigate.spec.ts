@@ -9,7 +9,6 @@ import {
     mockToolCallTurn,
     type MockCallOptions,
     type MockGenerateResult,
-    promptText,
 } from '../../../../test/mockLanguageModel'
 import { Logger } from '../../../../logger'
 import { Tool } from '../../../../tools'
@@ -239,27 +238,22 @@ describe('investigateWithLanguageModel', () => {
             expect(headers).toHaveBeenCalledTimes(2)
         })
 
-        it('should skip an unreachable server with a warning and tell the model, keeping other servers', async () => {
+        it('should skip an unreachable server with a warning, keeping other servers', async () => {
             const loki = mockClient({ loki_query: mcpTools()['query_logs']! })
             jest.mocked(createMCPClient)
                 .mockRejectedValueOnce(new Error('connect ECONNREFUSED mcp.internal'))
                 .mockResolvedValueOnce(loki)
-            const vault = createVault({ terms: ['mcp.internal'] })
             const model = useModel(finalOutcome('probably a timeout'))
 
             const result = await investigateWithLanguageModel(config, outcomeSchema, prompts, {
                 timeoutMs: 5_000,
                 mcpServers: [grafana, { name: 'loki', type: 'http', url: 'https://loki.example.com/mcp' }],
-                vault,
                 logger,
             })
 
             expect(result).toEqual({ type: 'result', result: { rootCause: 'probably a timeout' } })
             expect(warn).toHaveBeenCalledWith('[ssandir/trypatch] MCP server "grafana" unavailable:', expect.any(Error))
             expect(model.doGenerateCalls[0]?.tools?.map(sentTool => sentTool.name)).toEqual(['loki__loki_query'])
-            const userPrompt = promptText(model.doGenerateCalls[0], 'user')
-            expect(userPrompt).toContain('- grafana: connect ECONNREFUSED')
-            expect(userPrompt).not.toContain('mcp.internal')
             expect(loki.close).toHaveBeenCalledTimes(1)
         })
 

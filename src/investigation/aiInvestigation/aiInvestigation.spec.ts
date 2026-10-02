@@ -127,7 +127,7 @@ describe('aiInvestigation', () => {
             ])
         })
 
-        it('should drop an MCP server whose headers fail to resolve and tell the agent', async () => {
+        it('should drop an MCP server whose headers fail to resolve', async () => {
             const warn = jest.fn()
 
             await investigateWithCursor(
@@ -146,9 +146,8 @@ describe('aiInvestigation', () => {
                 },
             )
 
-            const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body)) as { prompt: { text: string }, mcpServers?: unknown }
+            const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body)) as { mcpServers?: unknown }
             expect(body.mcpServers).toBeUndefined()
-            expect(body.prompt.text).toContain('- linear: vault sealed')
             expect(warn).toHaveBeenCalledWith('[ssandir/trypatch] MCP server "linear" unavailable:', expect.any(Error))
         })
     })

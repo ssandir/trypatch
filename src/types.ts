@@ -114,7 +114,7 @@ export type AiInvestigationOptions<
     /**
      * MCP servers whose tools the AI may call while investigating, alongside {@link investigationTools}.
      * Connected once per investigation and closed afterwards. A server that can't be reached is logged
-     * as a warning and skipped, and the AI is told it's unavailable.
+     * as a warning and skipped.
      *
      * Recommended: expose only read-only tools (narrow them with `allowedTools`), since the AI decides what to call.
      */

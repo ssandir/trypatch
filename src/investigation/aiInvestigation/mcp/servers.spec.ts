@@ -1,5 +1,5 @@
 import { TrypatchConfigError } from '../../../errors'
-import { appendUnavailableMcpServersNote, validateMcpServers } from './servers'
+import { validateMcpServers } from './servers'
 
 describe('mcp servers', () => {
     describe('validateMcpServers', () => {
@@ -34,18 +34,6 @@ describe('mcp servers', () => {
             expect(() => validateMcpServers([{ ...grafana, allowedTools: ['query_logs'] }], 'cursor'))
                 .toThrow('allowedTools is not supported by the cursor provider')
             expect(() => validateMcpServers([grafana], 'cursor')).not.toThrow()
-        })
-    })
-
-    describe('appendUnavailableMcpServersNote', () => {
-        it('should leave the prompt untouched when every server is available', () => {
-            expect(appendUnavailableMcpServersNote('prompt', [], undefined)).toBe('prompt')
-        })
-
-        it('should list unavailable servers with their reasons', () => {
-            const prompt = appendUnavailableMcpServersNote('prompt', [{ name: 'grafana', reason: 'connection refused' }], undefined)
-            expect(prompt).toMatch(/^prompt\n\nNote: these MCP servers were unavailable/)
-            expect(prompt).toContain('- grafana: connection refused')
         })
     })
 })

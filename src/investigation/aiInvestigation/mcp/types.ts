@@ -27,8 +27,3 @@ export type McpStdioServerConfig = {
 }
 
 export type McpServerConfig = McpRemoteServerConfig | McpStdioServerConfig
-
-export type UnavailableMcpServer = {
-    name: string
-    reason: string
-}

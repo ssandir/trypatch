@@ -2,12 +2,11 @@ import { createMCPClient, type MCPClient, type MCPClientConfig } from '@ai-sdk/m
 import { Experimental_StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio'
 import type { ToolSet } from 'ai'
 import type { Logger } from '../../../../logger'
-import { reportUnavailableMcpServer, resolveMcpServers, type ResolvedMcpServerConfig } from '../../mcp/servers'
-import type { McpServerConfig, UnavailableMcpServer } from '../../mcp/types'
+import { resolveMcpServers, warnUnavailableMcpServer, type ResolvedMcpServerConfig } from '../../mcp/servers'
+import type { McpServerConfig } from '../../mcp/types'
 
 export type McpConnection = {
     tools: ToolSet
-    unavailable: UnavailableMcpServer[]
     close: () => Promise<void>
 }
 
@@ -72,8 +71,8 @@ async function closeClients (clients: MCPClient[], logger: Logger): Promise<void
 }
 
 /**
- * Servers that can't be reached are reported in `unavailable` rather than thrown:
- * the investigation may still reach an outcome without them.
+ * Servers that can't be reached are logged and skipped rather than thrown: the investigation
+ * may still reach an outcome without them, and the escape outcomes cover the case where it can't.
  */
 export async function connectMcpTools (
     servers: McpServerConfig[],
@@ -81,21 +80,20 @@ export async function connectMcpTools (
     logger: Logger,
 ): Promise<McpConnection> {
     const resolved = await resolveMcpServers(servers, logger)
-    const settled = await Promise.allSettled(resolved.servers.map(server => connectMcpServer(server, abortSignal, logger)))
+    const settled = await Promise.allSettled(resolved.map(server => connectMcpServer(server, abortSignal, logger)))
 
     const clients: MCPClient[] = []
     const tools: ToolSet = {}
-    const unavailable = [...resolved.unavailable]
 
     settled.forEach((result, index) => {
-        const server = resolved.servers[index]!
+        const server = resolved[index]!
         if (result.status === 'fulfilled') {
             clients.push(result.value.client)
             Object.assign(tools, exposeServerTools(server, result.value.tools, logger))
         } else {
-            unavailable.push(reportUnavailableMcpServer(server.name, result.reason, logger))
+            warnUnavailableMcpServer(server.name, result.reason, logger)
         }
     })
 
-    return { tools, unavailable, close: () => closeClients(clients, logger) }
+    return { tools, close: () => closeClients(clients, logger) }
 }

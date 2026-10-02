@@ -1,8 +1,7 @@
-import type { Vault } from 'flare-redact'
 import type { JSONSchema } from 'json-schema-to-ts'
 import { Logger } from '../../../../logger'
 import { extractJsonFromText } from '../../../../schema/utils'
-import { appendUnavailableMcpServersNote, resolveMcpServers, type ResolvedMcpServerConfig } from '../../mcp/servers'
+import { resolveMcpServers, type ResolvedMcpServerConfig } from '../../mcp/servers'
 import type { McpServerConfig } from '../../mcp/types'
 import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
 import { DEFAULT_BASE_URL, DEFAULT_POLL_INTERVAL_MS, TERMINAL_RUN_STATUSES } from './constants'
@@ -73,16 +72,15 @@ async function buildCreateAgentBody (
 ): Promise<Record<string, unknown>> {
     const model = buildCursorModel(config)
     const repos = buildCursorRepos(config)
-    const mcp = await resolveMcpServers(options.mcpServers ?? [], options.logger ?? new Logger())
-    const userPrompt = appendUnavailableMcpServersNote(prompts.userPrompt, mcp.unavailable, options.vault)
+    const mcpServers = await resolveMcpServers(options.mcpServers ?? [], options.logger ?? new Logger())
 
     return {
         prompt: {
-            text: `${prompts.systemPrompt}\n\n${userPrompt}`,
+            text: `${prompts.systemPrompt}\n\n${prompts.userPrompt}`,
         },
         ...model ? { model } : {},
         ...repos ? { repos } : {},
-        ...mcp.servers.length > 0 ? { mcpServers: mcp.servers.map(buildCursorMcpServer) } : {},
+        ...mcpServers.length > 0 ? { mcpServers: mcpServers.map(buildCursorMcpServer) } : {},
     }
 }
 
@@ -176,7 +174,6 @@ async function pollCursorRun (
 export type CursorInvestigationOptions = {
     timeoutMs: number
     mcpServers?: McpServerConfig[] | undefined
-    vault?: Vault | undefined
     logger?: Logger | undefined
 }
 

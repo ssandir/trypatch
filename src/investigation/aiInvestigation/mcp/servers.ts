@@ -1,8 +1,7 @@
-import type { Vault } from 'flare-redact'
 import { TrypatchConfigError } from '../../../errors'
 import type { Logger } from '../../../logger'
 import type { InvestigationProviderConfig } from '../../../types'
-import type { McpServerConfig, UnavailableMcpServer } from './types'
+import type { McpServerConfig } from './types'
 
 const SERVER_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/
 
@@ -55,7 +54,7 @@ export type ResolvedMcpServerConfig = McpServerConfig & { headers?: Record<strin
 export async function resolveMcpServers (
     servers: McpServerConfig[],
     logger: Logger,
-): Promise<{ servers: ResolvedMcpServerConfig[], unavailable: UnavailableMcpServer[] }> {
+): Promise<ResolvedMcpServerConfig[]> {
     const settled = await Promise.allSettled(servers.map(async (server): Promise<ResolvedMcpServerConfig> => {
         if (server.type === 'stdio' || typeof server.headers !== 'function') {
             return server as ResolvedMcpServerConfig
@@ -65,42 +64,18 @@ export async function resolveMcpServers (
     }))
 
     const resolved: ResolvedMcpServerConfig[] = []
-    const unavailable: UnavailableMcpServer[] = []
 
     settled.forEach((result, index) => {
-        const server = servers[index]!
         if (result.status === 'fulfilled') {
             resolved.push(result.value)
         } else {
-            unavailable.push(reportUnavailableMcpServer(server.name, result.reason, logger))
+            warnUnavailableMcpServer(servers[index]!.name, result.reason, logger)
         }
     })
 
-    return { servers: resolved, unavailable }
+    return resolved
 }
 
-export function reportUnavailableMcpServer (name: string, error: unknown, logger: Logger): UnavailableMcpServer {
+export function warnUnavailableMcpServer (name: string, error: unknown, logger: Logger): void {
     logger.warn(`[ssandir/trypatch] MCP server "${name}" unavailable:`, error)
-    return { name, reason: error instanceof Error ? error.message : String(error) }
-}
-
-/**
- * Tells the model which servers it can't use, so it can fall back to an escape outcome
- * instead of guessing. Connection errors can contain hosts and URLs, hence the redaction.
- */
-export function appendUnavailableMcpServersNote (
-    userPrompt: string,
-    unavailable: UnavailableMcpServer[],
-    vault: Vault | undefined,
-): string {
-    if (unavailable.length === 0) {
-        return userPrompt
-    }
-
-    const note = [
-        'Note: these MCP servers were unavailable for this investigation, so their tools cannot be called:',
-        ...unavailable.map(({ name, reason }) => `- ${name}: ${reason}`),
-    ].join('\n')
-
-    return `${userPrompt}\n\n${vault ? String(vault.redact(note)) : note}`
 }

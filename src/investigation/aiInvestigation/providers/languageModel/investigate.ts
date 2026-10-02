@@ -3,7 +3,6 @@ import type { Vault } from 'flare-redact'
 import type { JSONSchema } from 'json-schema-to-ts'
 import { TrypatchConfigError } from '../../../../errors'
 import { Logger } from '../../../../logger'
-import { appendUnavailableMcpServersNote } from '../../mcp/servers'
 import type { McpServerConfig } from '../../mcp/types'
 import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
 import type { LooseTool } from '../../toolAdapter'
@@ -59,7 +58,7 @@ export async function investigateWithLanguageModel (
         const result = await generateText({
             model: createLanguageModel(config),
             system: prompts.systemPrompt,
-            prompt: appendUnavailableMcpServersNote(prompts.userPrompt, mcp.unavailable, options.vault),
+            prompt: prompts.userPrompt,
             ...tools ? { tools } : {},
             output: Output.object({ schema: jsonSchema(outcomeSchema as Parameters<typeof jsonSchema>[0]) }),
             // Producing the structured output is a step of its own on top of the tool rounds.
