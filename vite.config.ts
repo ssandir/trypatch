@@ -30,8 +30,11 @@ export default defineConfig({
         dts({
             include: ['src'],
             exclude: ['src/**/*.spec.ts', 'src/**/*.testTypes.ts', 'src/test'],
-            outDirs: 'dist',
+            // Bundled so node16 users don't hit extensionless imports; the .d.cts copy gives
+            // require() users CommonJS types.
+            outDirs: ['dist', { dir: 'dist', moduleFormat: 'cjs' }],
             entryRoot: 'src',
+            bundleTypes: true,
         }),
     ],
 })
