@@ -16,9 +16,14 @@
     "types": "./dist/index.d.ts",
     "exports": {
         ".": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js",
-            "require": "./dist/index.cjs"
+            "import": {
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.js"
+            },
+            "require": {
+                "types": "./dist/index.d.cts",
+                "default": "./dist/index.cjs"
+            }
         }
     },
     "files": [
@@ -52,6 +57,7 @@
     },
     "devDependencies": {
         "@eslint/js": "^9.36.0",
+        "@microsoft/api-extractor": "^7.59.3",
         "@swc/core": "^1.13.3",
         "@swc/jest": "^0.2.39",
         "@types/jest": "^30.0.0",
