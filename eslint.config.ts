@@ -56,6 +56,7 @@ export default defineConfig(
       '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/unbound-method': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
+      'jest/require-top-level-describe': ['error', { maxNumberOfTopLevelDescribes: 1 }],
     },
   },
   {

@@ -27,6 +27,10 @@ The AI SDK is ESM-only; `jest.config.cjs` lists it among the ESM dependencies th
 
 `tsc` does not reject `await` on non-Promise values. The `type-check` script runs both `tsc` and type-aware ESLint (`@typescript-eslint/await-thenable`) on `src/`.
 
+## Logging
+
+`Logger` with `verbosity: 'low'` only writes the first argument, so every `logger.*` call's first argument must be a complete message on its own: prefix it with `[ssandir/trypatch]`, put identifying details (server name, tool names) inline, and never end it with `:`. Error objects and extra detail go in later arguments.
+
 ## Decorator dialects
 
 `@trypatch` supports both TC39 stage-3 decorators (TS 5 default) and TypeScript's legacy `experimentalDecorators` (NestJS/TypeORM's default), since a lot of real-world consumers are still on legacy. `trypatch.ts` detects which dialect called it at runtime by argument shape and dispatches to a matching implementation; see the comment on `trypatch()` there for details. `jest.config.cjs` runs `trypatch.spec.ts` twice — once compiled per dialect — to cover both runtime paths; this project's own `tsconfig.json` intentionally omits `experimentalDecorators` since the source is authored against stage-3.

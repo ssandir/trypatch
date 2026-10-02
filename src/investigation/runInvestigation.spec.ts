@@ -23,11 +23,11 @@ function useOutcome (outcome: unknown): ReturnType<typeof mockLanguageModel> {
     return model
 }
 
-afterEach(() => {
-    jest.restoreAllMocks()
-})
-
 describe('runInvestigation', () => {
+    afterEach(() => {
+        jest.restoreAllMocks()
+    })
+
     describe('runInvestigation', () => {
         const schema = z.object({
             rootCause: z.string(),
