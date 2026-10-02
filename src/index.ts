@@ -38,9 +38,18 @@ export type {
     TryPatchOptions,
 } from './types'
 export type { VaultOptions } from 'flare-redact'
-export type { ClaudeInvestigationConfig } from './investigation/aiInvestigation/providers/claude/types'
 export type { CursorInvestigationConfig, CursorRepositoryConfig } from './investigation/aiInvestigation/providers/cursor/types'
-export type { OpenAiInvestigationConfig } from './investigation/aiInvestigation/providers/openai/types'
+export type {
+    ClaudeInvestigationConfig,
+    OpenAiCompatibleInvestigationConfig,
+    OpenAiInvestigationConfig,
+} from './investigation/aiInvestigation/providers/languageModel/types'
+export type {
+    McpHeaders,
+    McpRemoteServerConfig,
+    McpServerConfig,
+    McpStdioServerConfig,
+} from './investigation/aiInvestigation/mcp/types'
 export type { Schema, SchemaInfer } from './schema/types'
 export {
     redactInvestigationPrompts,

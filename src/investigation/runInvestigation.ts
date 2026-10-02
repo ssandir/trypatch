@@ -11,12 +11,13 @@ export async function investigateError<
 > (
     ctx: InvestigationContext,
     options: TryPatchOptions<S, C>,
+    logger?: Logger,
 ): Promise<unknown> {
     if ('customInvestigation' in options) {
         return await options.customInvestigation.investigate(ctx)
     }
 
-    return await runAiInvestigation(ctx, options.aiInvestigation)
+    return await runAiInvestigation(ctx, options.aiInvestigation, logger)
 }
 
 function shouldPropagateCustomError (investigationError: unknown, options: TryPatchOptions<any, any>): boolean {
@@ -39,7 +40,7 @@ export async function runInvestigation<
     const investigationContext = buildInvestigationContext(error, methodDescriptor, receiver, args)
 
     try {
-        return await investigateError(investigationContext, options)
+        return await investigateError(investigationContext, options, logger)
     } catch (investigationError) {
         if (investigationError instanceof TrypatchFatalError) {
             throw investigationError
@@ -49,7 +50,7 @@ export async function runInvestigation<
             throw investigationError
         }
 
-        logger.error('[ssandir/trypatch] Investigation failed:', investigationError)
+        logger.error('[ssandir/trypatch] Investigation failed', investigationError)
         return undefined
     }
 }

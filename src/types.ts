@@ -1,9 +1,9 @@
 import type { VaultOptions } from 'flare-redact'
 import type { LoggingOptions } from './logger'
 import type { Tool } from './tools'
-import type { ClaudeInvestigationConfig } from './investigation/aiInvestigation/providers/claude/types'
 import type { CursorInvestigationConfig } from './investigation/aiInvestigation/providers/cursor/types'
-import type { OpenAiInvestigationConfig } from './investigation/aiInvestigation/providers/openai/types'
+import type { LanguageModelInvestigationConfig } from './investigation/aiInvestigation/providers/languageModel/types'
+import type { McpServerConfig } from './investigation/aiInvestigation/mcp/types'
 import type { Schema, SchemaInfer } from './schema/types'
 
 export type AnyMethod = (this: unknown, ...args: unknown[]) => unknown
@@ -35,9 +35,8 @@ export type MethodDescriptor =
     }
 
 export type InvestigationProviderConfig
-    = | OpenAiInvestigationConfig
+    = | LanguageModelInvestigationConfig
         | CursorInvestigationConfig
-        | ClaudeInvestigationConfig
 
 export type InvestigationContext = {
     error: unknown
@@ -53,8 +52,12 @@ export type InvestigationContext = {
 export type InvestigationBehavior = {
     prompt?: string | ((ctx: InvestigationContext) => string)
     systemPrompt?: string
+    /** Deadline for the whole investigation, including every tool round. */
     timeoutMs?: number
     maxTokens?: number
+    // TBD: should not be ignored by cursor
+    /** Maximum model turns spent calling {@link AiInvestigationOptions.investigationTools}. Defaults to 20. Ignored by `cursor`. */ 
+    maxToolIterations?: number
     sanitizeArgs?: (args: unknown[]) => unknown[]
 }
 
@@ -108,6 +111,14 @@ export type AiInvestigationOptions<
      * Tools the AI may call while investigating. Strongly recommended to be read-only — no mutations or side effects.
      */
     investigationTools?: InvestigationTool<C>[]
+    /**
+     * MCP servers whose tools the AI may call while investigating, alongside {@link investigationTools}.
+     * Connected once per investigation and closed afterwards. A server that can't be reached is logged
+     * as a warning and skipped.
+     *
+     * Recommended: expose only read-only tools (narrow them with `allowedTools`), since the AI decides what to call.
+     */
+    mcpServers?: McpServerConfig[]
     /**
      * Tools invoked as the final step once investigation completes.
      * The return value of the invoked result tool is returned directly as the investigation result.

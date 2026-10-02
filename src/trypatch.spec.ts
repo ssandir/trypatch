@@ -5,10 +5,12 @@ import { TrypatchFatalError } from './errors'
 import { Tool } from './tools'
 import type { InvestigationContext, TryPatchOptions } from './types'
 import { mockMethodDecoratorContext } from './test/mockMethodDecoratorContext'
+import { mockLanguageModel, mockOutcomeTurn } from './test/mockLanguageModel'
+import { createLanguageModel } from './investigation/aiInvestigation/providers/languageModel/createLanguageModel'
+
+jest.mock('./investigation/aiInvestigation/providers/languageModel/createLanguageModel')
 
 describe('trypatch', () => {
-    const fetchMock = jest.fn()
-
     type InvestigationResult = {
         rootCause: string
         retryable: boolean
@@ -19,12 +21,7 @@ describe('trypatch', () => {
         apiKey: 'test-key',
     } as const
 
-    beforeAll(() => {
-        globalThis.fetch = fetchMock
-    })
-
     afterEach(() => {
-        fetchMock.mockReset()
         jest.restoreAllMocks()
     })
 
@@ -45,20 +42,10 @@ describe('trypatch', () => {
         })
     }
 
-    function mockOpenAiInvestigationResponse (result: InvestigationResult): void {
-        fetchMock.mockResolvedValue({
-            ok: true,
-            status: 200,
-            json: () => Promise.resolve({
-                choices: [
-                    {
-                        message: {
-                            content: JSON.stringify({ outcome: { type: 'result', result } }),
-                        },
-                    },
-                ],
-            }),
-        })
+    function mockInvestigationResponse (result: InvestigationResult): ReturnType<typeof mockLanguageModel> {
+        const model = mockLanguageModel(mockOutcomeTurn({ type: 'result', result }))
+        jest.mocked(createLanguageModel).mockReturnValue(model)
+        return model
     }
 
     describe('as a plain function', () => {
@@ -79,7 +66,7 @@ describe('trypatch', () => {
 
         it('should return investigation results when the method throws', async () => {
             const onInvestigationResult = jest.fn()
-            mockOpenAiInvestigationResponse({ rootCause: 'bad input', retryable: false })
+            mockInvestigationResponse({ rootCause: 'bad input', retryable: false })
 
             class ExampleService {
                 run (value: string): InvestigationResult {
@@ -111,7 +98,7 @@ describe('trypatch', () => {
 
         it('should return investigation results when the method throws with a JSON schema', async () => {
             const onInvestigationResult = jest.fn()
-            mockOpenAiInvestigationResponse({ rootCause: 'schema mismatch', retryable: true })
+            mockInvestigationResponse({ rootCause: 'schema mismatch', retryable: true })
 
             class ExampleService {
                 run (value: string): InvestigationResult {
@@ -142,12 +129,6 @@ describe('trypatch', () => {
         })
 
         it('should resolve sync success values through a promise', async () => {
-            fetchMock.mockResolvedValue({
-                ok: true,
-                status: 200,
-                json: () => Promise.resolve({ choices: [] }),
-            })
-
             class ExampleService {
                 run (value: string): InvestigationResult {
                     return { rootCause: value, retryable: false }
@@ -167,7 +148,7 @@ describe('trypatch', () => {
 
         it('should await investigation for async methods before returning the fallback result', async () => {
             const onInvestigationResult = jest.fn()
-            mockOpenAiInvestigationResponse({ rootCause: 'async failure', retryable: true })
+            mockInvestigationResponse({ rootCause: 'async failure', retryable: true })
 
             class ExampleService {
                 async run (value: string): Promise<InvestigationResult> {
@@ -427,7 +408,7 @@ describe('trypatch', () => {
                 },
             } satisfies TryPatchOptions<typeof resultSchema, ServiceToolContext>
 
-            mockOpenAiInvestigationResponse({ rootCause: 'provider root cause', retryable: false })
+            const model = mockInvestigationResponse({ rootCause: 'provider root cause', retryable: false })
 
             class AiInvestigateService {
                 @trypatch(aiOptions)
@@ -446,10 +427,7 @@ describe('trypatch', () => {
                 retryable: false,
             })
 
-            const fetchBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
-                tools?: { function: { name: string } }[]
-            }
-            expect(fetchBody.tools?.map(tool => tool.function.name)).toEqual([
+            expect(model.doGenerateCalls[0]?.tools?.map(tool => tool.name)).toEqual([
                 'search_logs',
                 'count_retries',
             ])

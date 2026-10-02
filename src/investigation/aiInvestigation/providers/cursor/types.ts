@@ -1,3 +1,6 @@
+import type { Logger } from '../../../../logger'
+import type { McpServerConfig } from '../../mcp/types'
+
 export type CursorRepositoryConfig = {
     url: string
     startingRef?: string
@@ -34,4 +37,10 @@ export type CursorRunResponse = {
     error?: {
         message?: string
     }
+}
+
+export type CursorInvestigationOptions = {
+    timeoutMs: number
+    mcpServers?: McpServerConfig[] | undefined
+    logger?: Logger | undefined
 }

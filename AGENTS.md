@@ -1,6 +1,6 @@
 # trypatch
 
-Standalone TypeScript library that exposes a method decorator for wrapping function execution with error handling.
+Standalone TypeScript library (Node 22+) that exposes a method decorator for wrapping function execution with error handling.
 
 ```bash
 cd trypatch
@@ -19,6 +19,10 @@ npm --prefix trypatch run <script>
 
 Consumers can depend on it via a `file:` reference in their `package.json`:
 
+## Testing
+
+The AI SDK is ESM-only; `jest.config.cjs` lists it among the ESM dependencies that get compiled for Jest. Tests don't mock provider wire formats beyond one smoke test per provider in `aiInvestigation.spec.ts`: they `jest.mock` `createLanguageModel` and return a `MockLanguageModelV4` built with the helpers in `src/test/mockLanguageModel.ts`.
+
 ## Type-checking
 
 `tsc` does not reject `await` on non-Promise values. The `type-check` script runs both `tsc` and type-aware ESLint (`@typescript-eslint/await-thenable`) on `src/`.
@@ -35,11 +39,16 @@ Three more outcomes exist to steer the AI away from fabricating a result when no
 
 | Provider | Notes |
 | -------- | ----- |
-| `openai` | Uses Chat Completions with strict JSON Schema output |
-| `cursor` | Uses Cloud Agents API; polls run until finished |
-| `claude` | Uses Anthropic Messages API with JSON Schema output |
+| `openai` | AI SDK (`@ai-sdk/openai`, Responses API) with strict JSON Schema output |
+| `claude` | AI SDK (`@ai-sdk/anthropic`, Messages API) with JSON Schema output |
+| `openai-compatible` | AI SDK (`@ai-sdk/openai-compatible`) for any OpenAI-compatible endpoint (Gemini, Mistral, Groq, Ollama, OpenRouter, vLLM, ...); set `supportsStructuredOutputs` if the endpoint enforces JSON Schema |
+| `cursor` | Raw `fetch` against the Cloud Agents API; polls run until finished. Does not use `investigationTools`, but supports `mcpServers` |
 
-Each provider config takes `apiKey: string` directly — resolving it (env var, secret manager, etc.) is the consumer's job — plus an optional `fetch` override (same pattern as the Anthropic/OpenAI SDKs) used instead of the global one for every HTTP call that provider makes.
+All providers except `cursor` go through `providers/languageModel/`, which maps our own provider configs onto [AI SDK](https://ai-sdk.dev) models and runs a single `generateText` call. No AI SDK type is part of the public API, so AI SDK major upgrades stay internal. That call runs the tool loop: the model may call `investigationTools` (executed via `Tool.call` with `toolContext`) over up to `investigationBehavior.maxToolIterations` turns (default 20) before returning its outcome, and `timeoutMs` covers the whole loop. Tool failures are sent back to the model rather than failing the investigation. With `redactConfig`, tool input is restored and tool output redacted, so tools see real values and the provider only sees placeholders. `resultTools` are not part of this loop: they stay outcome variants that trypatch executes after the model picks one.
+
+`mcpServers` (user-defined `http`/`sse`/`stdio` servers, auth via `headers` — static or a function resolved per investigation — or `env`) adds MCP tools to that same loop. `providers/languageModel/mcp.ts` connects with `@ai-sdk/mcp` once per investigation, exposes each tool as `<server>__<tool>` (filtered by the optional `allowedTools`), wraps it like `investigationTools` (redaction, deadline) and closes every client in a `finally`. We connect locally rather than using OpenAI/Anthropic hosted MCP so internal and stdio servers work and redaction/limits apply; README explains the trade-off. A server that fails to connect (or whose `headers` function throws) is logged with `warn` and skipped, never failing the investigation; the model isn't told, and the escape outcomes cover investigations that can't conclude without it. Invalid config (`validateMcpServers`: names, duplicate names, credentials in URLs, `allowedTools` with `cursor`) throws `TrypatchConfigError`. `cursor` passes servers through to its Create Agent body's `mcpServers` instead.
+
+Each provider config takes `apiKey: string` directly (optional for `openai-compatible`) — resolving it (env var, secret manager, etc.) is the consumer's job — plus an optional `fetch` override (same pattern as the Anthropic/OpenAI SDKs) used instead of the global one for every HTTP call that provider makes.
 
 Optional `redactConfig` (`VaultOptions`) on AI investigation options redacts prompts with [flare-redact](https://www.npmjs.com/package/flare-redact) before they reach the provider and restores placeholders in the response.
 

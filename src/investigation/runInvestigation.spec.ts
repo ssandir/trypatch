@@ -1,3 +1,4 @@
+import { MockLanguageModelV4 } from 'ai/test'
 import { z } from 'zod'
 import { investigateError, runInvestigation } from './runInvestigation'
 import { buildInvestigationContext } from './investigationContext'
@@ -11,15 +12,18 @@ import { Logger } from '../logger'
 import { Tool } from '../tools'
 import type { CustomErrorDefinition, TryPatchOptions } from '../types'
 import { mockMethodDescriptor } from '../test/mockMethodDecoratorContext'
+import { mockLanguageModel, mockOutcomeTurn, promptText } from '../test/mockLanguageModel'
+import { createLanguageModel } from './aiInvestigation/providers/languageModel/createLanguageModel'
 
-const fetchMock = jest.fn()
+jest.mock('./aiInvestigation/providers/languageModel/createLanguageModel')
 
-beforeAll(() => {
-    globalThis.fetch = fetchMock
-})
+function useOutcome (outcome: unknown): ReturnType<typeof mockLanguageModel> {
+    const model = mockLanguageModel(mockOutcomeTurn(outcome))
+    jest.mocked(createLanguageModel).mockReturnValue(model)
+    return model
+}
 
 afterEach(() => {
-    fetchMock.mockReset()
     jest.restoreAllMocks()
 })
 
@@ -31,21 +35,7 @@ describe('runInvestigation', () => {
         })
 
         it('should return parsed investigation results', async () => {
-            fetchMock.mockResolvedValue({
-                ok: true,
-                status: 200,
-                json: () => Promise.resolve({
-                    choices: [
-                        {
-                            message: {
-                                content: JSON.stringify({
-                                    outcome: { type: 'result', result: { rootCause: 'timeout', retryable: true } },
-                                }),
-                            },
-                        },
-                    ],
-                }),
-            })
+            useOutcome({ type: 'result', result: { rootCause: 'timeout', retryable: true } })
 
             const result = await runInvestigation(
                 new Error('original'),
@@ -75,11 +65,9 @@ describe('runInvestigation', () => {
                 error: jest.fn(),
                 debug: jest.fn(),
             }
-            fetchMock.mockResolvedValue({
-                ok: false,
-                status: 500,
-                json: () => Promise.resolve({ error: { message: 'provider down' } }),
-            })
+            jest.mocked(createLanguageModel).mockReturnValue(new MockLanguageModelV4({
+                doGenerate: () => Promise.reject(new Error('provider down')),
+            }))
 
             const result = await runInvestigation(
                 new Error('original'),
@@ -102,7 +90,7 @@ describe('runInvestigation', () => {
             )
 
             expect(result).toBeUndefined()
-            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed:', expect.any(Error))
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.any(Error))
         })
 
         it('should let a TrypatchFatalError propagate instead of swallowing it', async () => {
@@ -170,7 +158,7 @@ describe('runInvestigation', () => {
             )
 
             expect(result).toBeUndefined()
-            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed:', expect.any(Error))
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.any(Error))
         })
 
         it('should let an AI investigation custom error propagate when propagate is true', async () => {
@@ -180,21 +168,7 @@ describe('runInvestigation', () => {
                 }
             }
 
-            fetchMock.mockResolvedValue({
-                ok: true,
-                status: 200,
-                json: () => Promise.resolve({
-                    choices: [
-                        {
-                            message: {
-                                content: JSON.stringify({
-                                    outcome: { type: 'error', error: 'RetryableError', errorSchema: { reason: 'network blip' } },
-                                }),
-                            },
-                        },
-                    ],
-                }),
-            })
+            useOutcome({ type: 'error', error: 'RetryableError', errorSchema: { reason: 'network blip' } })
 
             await expect(runInvestigation(
                 new Error('original'),
@@ -232,21 +206,7 @@ describe('runInvestigation', () => {
                 error: jest.fn(),
                 debug: jest.fn(),
             }
-            fetchMock.mockResolvedValue({
-                ok: true,
-                status: 200,
-                json: () => Promise.resolve({
-                    choices: [
-                        {
-                            message: {
-                                content: JSON.stringify({
-                                    outcome: { type: 'error', error: 'RetryableError', errorSchema: { reason: 'network blip' } },
-                                }),
-                            },
-                        },
-                    ],
-                }),
-            })
+            useOutcome({ type: 'error', error: 'RetryableError', errorSchema: { reason: 'network blip' } })
 
             const result = await runInvestigation(
                 new Error('original'),
@@ -272,7 +232,7 @@ describe('runInvestigation', () => {
             )
 
             expect(result).toBeUndefined()
-            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed:', expect.any(Error))
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.any(Error))
         })
         it.each([
             ['cannotDetermine', 'allowCannotDetermine', TrypatchCannotDetermineError],
@@ -286,21 +246,7 @@ describe('runInvestigation', () => {
                 error: jest.fn(),
                 debug: jest.fn(),
             }
-            fetchMock.mockResolvedValue({
-                ok: true,
-                status: 200,
-                json: () => Promise.resolve({
-                    choices: [
-                        {
-                            message: {
-                                content: JSON.stringify({
-                                    outcome: { type: outcomeType, reason: 'not enough information' },
-                                }),
-                            },
-                        },
-                    ],
-                }),
-            })
+            useOutcome({ type: outcomeType, reason: 'not enough information' })
 
             const result = await runInvestigation(
                 new Error('original'),
@@ -323,7 +269,7 @@ describe('runInvestigation', () => {
             )
 
             expect(result).toBeUndefined()
-            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed:', expect.any(errorClass))
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.any(errorClass))
         })
     })
 
@@ -345,23 +291,9 @@ describe('runInvestigation', () => {
 
         it('should parse a JSON-encoded result when no resultSchema is given', async () => {
             const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
-            fetchMock.mockResolvedValue({
-                ok: true,
-                status: 200,
-                json: () => Promise.resolve({
-                    choices: [
-                        {
-                            message: {
-                                content: JSON.stringify({
-                                    outcome: {
-                                        type: 'result',
-                                        result: JSON.stringify({ rootCause: 'timeout', retryable: true }),
-                                    },
-                                }),
-                            },
-                        },
-                    ],
-                }),
+            useOutcome({
+                type: 'result',
+                result: JSON.stringify({ rootCause: 'timeout', retryable: true }),
             })
 
             const result = await investigateError(ctx, {
@@ -382,24 +314,10 @@ describe('runInvestigation', () => {
                 retryable: z.boolean(),
             })
             const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
-            fetchMock.mockResolvedValue({
-                ok: true,
-                status: 200,
-                json: () => Promise.resolve({
-                    choices: [
-                        {
-                            message: {
-                                content: JSON.stringify({
-                                    outcome: {
-                                        type: 'resultTool',
-                                        toolName: 'submit_investigation',
-                                        input: { rootCause: 'network', retryable: true },
-                                    },
-                                }),
-                            },
-                        },
-                    ],
-                }),
+            useOutcome({
+                type: 'resultTool',
+                toolName: 'submit_investigation',
+                input: { rootCause: 'network', retryable: true },
             })
 
             const resultTool = new Tool({
@@ -431,24 +349,10 @@ describe('runInvestigation', () => {
             }
 
             const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
-            fetchMock.mockResolvedValue({
-                ok: true,
-                status: 200,
-                json: () => Promise.resolve({
-                    choices: [
-                        {
-                            message: {
-                                content: JSON.stringify({
-                                    outcome: {
-                                        type: 'error',
-                                        error: 'RetryableError',
-                                        errorSchema: { reason: 'network blip' },
-                                    },
-                                }),
-                            },
-                        },
-                    ],
-                }),
+            useOutcome({
+                type: 'error',
+                error: 'RetryableError',
+                errorSchema: { reason: 'network blip' },
             })
 
             const customErrors: CustomErrorDefinition[] = [
@@ -471,21 +375,7 @@ describe('runInvestigation', () => {
 
         it('should throw TrypatchCannotDetermineError with the AI-provided reason when allowCannotDetermine is set', async () => {
             const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
-            fetchMock.mockResolvedValue({
-                ok: true,
-                status: 200,
-                json: () => Promise.resolve({
-                    choices: [
-                        {
-                            message: {
-                                content: JSON.stringify({
-                                    outcome: { type: 'cannotDetermine', reason: 'logs contain no identifiable cause' },
-                                }),
-                            },
-                        },
-                    ],
-                }),
-            })
+            useOutcome({ type: 'cannotDetermine', reason: 'logs contain no identifiable cause' })
 
             await expect(investigateError(ctx, {
                 aiInvestigation: {
@@ -510,21 +400,7 @@ describe('runInvestigation', () => {
                 undefined,
                 [{ authorization: secret }],
             )
-            fetchMock.mockResolvedValue({
-                ok: true,
-                status: 200,
-                json: () => Promise.resolve({
-                    choices: [
-                        {
-                            message: {
-                                content: JSON.stringify({
-                                    outcome: { type: 'result', result: { rootCause: 'invalid token', retryable: false } },
-                                }),
-                            },
-                        },
-                    ],
-                }),
-            })
+            const model = useOutcome({ type: 'result', result: { rootCause: 'invalid token', retryable: false } })
 
             await investigateError(ctx, {
                 aiInvestigation: {
@@ -537,10 +413,7 @@ describe('runInvestigation', () => {
                 },
             })
 
-            const fetchBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
-                messages: { role: string, content: string }[]
-            }
-            const userPrompt = fetchBody.messages.find(message => message.role === 'user')?.content ?? ''
+            const userPrompt = promptText(model.doGenerateCalls[0], 'user')
 
             expect(userPrompt).not.toContain(secret)
             expect(userPrompt).toContain('charge')

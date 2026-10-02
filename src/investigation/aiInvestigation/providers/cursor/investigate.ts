@@ -1,8 +1,16 @@
 import type { JSONSchema } from 'json-schema-to-ts'
+import { Logger } from '../../../../logger'
 import { extractJsonFromText } from '../../../../schema/utils'
+import { resolveMcpServers } from '../../mcp/servers'
+import type { ResolvedMcpServerConfig } from '../../mcp/types'
 import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
 import { DEFAULT_BASE_URL, DEFAULT_POLL_INTERVAL_MS, TERMINAL_RUN_STATUSES } from './constants'
-import type { CursorCreateAgentResponse, CursorInvestigationConfig, CursorRunResponse } from './types'
+import type {
+    CursorCreateAgentResponse,
+    CursorInvestigationConfig,
+    CursorInvestigationOptions,
+    CursorRunResponse,
+} from './types'
 
 function buildAuthorizationHeader (apiKey: string): string {
     if (apiKey.startsWith('Bearer ')) {
@@ -42,12 +50,34 @@ function buildCursorRepos (config: CursorInvestigationConfig): Record<string, st
     ]
 }
 
-function buildCreateAgentBody (
+// Cursor connects to the servers itself, from its cloud VM.
+function buildCursorMcpServer (server: ResolvedMcpServerConfig): Record<string, unknown> {
+    if (server.type === 'stdio') {
+        return {
+            name: server.name,
+            type: 'stdio',
+            command: server.command,
+            ...server.args ? { args: server.args } : {},
+            ...server.env ? { env: server.env } : {},
+        }
+    }
+
+    return {
+        name: server.name,
+        type: server.type,
+        url: server.url,
+        ...server.headers ? { headers: server.headers } : {},
+    }
+}
+
+async function buildCreateAgentBody (
     config: CursorInvestigationConfig,
     prompts: { systemPrompt: string, userPrompt: string },
-): Record<string, unknown> {
+    options: CursorInvestigationOptions,
+): Promise<Record<string, unknown>> {
     const model = buildCursorModel(config)
     const repos = buildCursorRepos(config)
+    const mcpServers = await resolveMcpServers(options.mcpServers ?? [], options.logger ?? new Logger())
 
     return {
         prompt: {
@@ -55,6 +85,7 @@ function buildCreateAgentBody (
         },
         ...model ? { model } : {},
         ...repos ? { repos } : {},
+        ...mcpServers.length > 0 ? { mcpServers: mcpServers.map(buildCursorMcpServer) } : {},
     }
 }
 
@@ -149,8 +180,9 @@ export async function investigateWithCursor (
     config: CursorInvestigationConfig,
     outcomeSchema: JSONSchema,
     prompts: { systemPrompt: string, userPrompt: string },
-    timeoutMs: number,
+    options: CursorInvestigationOptions,
 ): Promise<InvestigationOutcome> {
+    const { timeoutMs } = options
     const baseURL = (config.baseURL ?? DEFAULT_BASE_URL).replace(/\/$/, '')
     const authorization = buildAuthorizationHeader(config.apiKey)
     const pollIntervalMs = config.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
@@ -160,7 +192,7 @@ export async function investigateWithCursor (
     const { agentId, runId } = await createCursorAgent(
         baseURL,
         authorization,
-        buildCreateAgentBody(config, prompts),
+        await buildCreateAgentBody(config, prompts, options),
         doFetch,
     )
 
