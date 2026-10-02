@@ -1,0 +1,92 @@
+name: Release
+
+# Publishes when a merged release PR (prepare-release.yml) bumps the version on main or on an
+# old major's branch (e.g. 1.x).
+on:
+  push:
+    branches: [main, '[0-9]+.x']
+    paths: [package.json]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check for version bump
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      dist-tag: ${{ steps.check.outputs.dist-tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: check
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          version=$(jq -r .version package.json)
+          previous=$(git show "$BEFORE:package.json" | jq -r .version) || exit 0
+          if [ "$previous" = "$version" ] || git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            exit 0
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # Old majors must not take `latest`. Not `v<major>`: npm rejects tags that parse as semver ranges.
+          if [ "$GITHUB_REF_NAME" = main ]; then
+            echo "dist-tag=latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist-tag=latest-${version%%.*}" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    name: Publish to npm
+    needs: check
+    if: needs.check.outputs.version
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Trusted publishing (OIDC) authenticates as this workflow + environment; no npm token.
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      # TODO: drop --dry-run once trusted publishing is configured on npmjs.com.
+      - run: npm publish --dry-run --tag "$DIST_TAG"
+        env:
+          DIST_TAG: ${{ needs.check.outputs.dist-tag }}
+
+  github-release:
+    name: Tag and create GitHub Release
+    needs: [check, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - env:
+          TAG: v${{ needs.check.outputs.version }}
+          LATEST: ${{ needs.check.outputs.dist-tag == 'latest' }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes=$(.github/scripts/release-notes.sh "$TAG" "$GITHUB_SHA")
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes "$notes" --latest="$LATEST"
