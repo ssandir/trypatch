@@ -148,7 +148,7 @@ describe('aiInvestigation', () => {
 
             const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body)) as { mcpServers?: unknown }
             expect(body.mcpServers).toBeUndefined()
-            expect(warn).toHaveBeenCalledWith('[ssandir/trypatch] MCP server "linear" unavailable:', expect.any(Error))
+            expect(warn).toHaveBeenCalledWith('[ssandir/trypatch] MCP server "linear" is unavailable and was skipped', expect.any(Error))
         })
     })
 

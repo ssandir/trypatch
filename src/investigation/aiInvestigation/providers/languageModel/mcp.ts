@@ -43,7 +43,7 @@ async function connectMcpServer (
     try {
         return { client, tools: await client.tools() }
     } catch (error) {
-        await closeClients([client], logger)
+        await closeClients([{ name: server.name, client }], logger)
         throw error
     }
 }
@@ -52,7 +52,7 @@ function exposeServerTools (server: McpServerConfig, tools: ToolSet, logger: Log
     const { allowedTools } = server
     const missing = allowedTools?.filter(name => !(name in tools)) ?? []
     if (missing.length > 0) {
-        logger.warn(`[ssandir/trypatch] MCP server "${server.name}" does not expose allowed tools:`, missing)
+        logger.warn(`[ssandir/trypatch] MCP server "${server.name}" does not expose allowed tools ${missing.map(name => `"${name}"`).join(', ')}`)
     }
 
     // Prefixing keeps two servers exposing the same tool name from colliding.
@@ -61,13 +61,15 @@ function exposeServerTools (server: McpServerConfig, tools: ToolSet, logger: Log
         .map(([name, tool]) => [`${server.name}__${name}`, tool]))
 }
 
-async function closeClients (clients: MCPClient[], logger: Logger): Promise<void> {
-    const results = await Promise.allSettled(clients.map(client => client.close()))
-    for (const result of results) {
+type ConnectedMcpClient = { name: string, client: MCPClient }
+
+async function closeClients (clients: ConnectedMcpClient[], logger: Logger): Promise<void> {
+    const results = await Promise.allSettled(clients.map(({ client }) => client.close()))
+    results.forEach((result, index) => {
         if (result.status === 'rejected') {
-            logger.warn('[ssandir/trypatch] Failed to close MCP client:', result.reason)
+            logger.warn(`[ssandir/trypatch] Failed to close MCP client for server "${clients[index]!.name}"`, result.reason)
         }
-    }
+    })
 }
 
 /**
@@ -82,13 +84,13 @@ export async function connectMcpTools (
     const resolved = await resolveMcpServers(servers, logger)
     const settled = await Promise.allSettled(resolved.map(server => connectMcpServer(server, abortSignal, logger)))
 
-    const clients: MCPClient[] = []
+    const clients: ConnectedMcpClient[] = []
     const tools: ToolSet = {}
 
     settled.forEach((result, index) => {
         const server = resolved[index]!
         if (result.status === 'fulfilled') {
-            clients.push(result.value.client)
+            clients.push({ name: server.name, client: result.value.client })
             Object.assign(tools, exposeServerTools(server, result.value.tools, logger))
         } else {
             warnUnavailableMcpServer(server.name, result.reason, logger)

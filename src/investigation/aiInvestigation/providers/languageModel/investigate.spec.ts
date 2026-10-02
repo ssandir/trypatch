@@ -211,6 +211,19 @@ describe('investigateWithLanguageModel', () => {
             expect(warn).not.toHaveBeenCalled()
         })
 
+        it('should warn about allowed tools the server does not expose', async () => {
+            jest.mocked(createMCPClient).mockResolvedValue(mockClient())
+            useModel(finalOutcome('unknown'))
+
+            await investigateWithLanguageModel(config, outcomeSchema, prompts, {
+                timeoutMs: 5_000,
+                mcpServers: [{ ...grafana, allowedTools: ['query_logs', 'query_metrics', 'get_alerts'] }],
+                logger,
+            })
+
+            expect(warn).toHaveBeenCalledWith('[ssandir/trypatch] MCP server "grafana" does not expose allowed tools "query_metrics", "get_alerts"')
+        })
+
         it('should start stdio servers through the stdio transport', async () => {
             jest.mocked(createMCPClient).mockResolvedValue(mockClient())
             useModel(finalOutcome('unknown'))
@@ -252,7 +265,7 @@ describe('investigateWithLanguageModel', () => {
             })
 
             expect(result).toEqual({ type: 'result', result: { rootCause: 'probably a timeout' } })
-            expect(warn).toHaveBeenCalledWith('[ssandir/trypatch] MCP server "grafana" unavailable:', expect.any(Error))
+            expect(warn).toHaveBeenCalledWith('[ssandir/trypatch] MCP server "grafana" is unavailable and was skipped', expect.any(Error))
             expect(model.doGenerateCalls[0]?.tools?.map(sentTool => sentTool.name)).toEqual(['loki__loki_query'])
             expect(loki.close).toHaveBeenCalledTimes(1)
         })
@@ -317,7 +330,7 @@ describe('investigateWithLanguageModel', () => {
             })
 
             expect(result).toEqual({ type: 'result', result: { rootCause: 'rate limited' } })
-            expect(warn).toHaveBeenCalledWith('[ssandir/trypatch] Failed to close MCP client:', expect.any(Error))
+            expect(warn).toHaveBeenCalledWith('[ssandir/trypatch] Failed to close MCP client for server "grafana"', expect.any(Error))
         })
 
         it('should reject MCP tools that collide with an investigation tool', async () => {

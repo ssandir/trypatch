@@ -90,7 +90,7 @@ describe('runInvestigation', () => {
             )
 
             expect(result).toBeUndefined()
-            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed:', expect.any(Error))
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.any(Error))
         })
 
         it('should let a TrypatchFatalError propagate instead of swallowing it', async () => {
@@ -158,7 +158,7 @@ describe('runInvestigation', () => {
             )
 
             expect(result).toBeUndefined()
-            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed:', expect.any(Error))
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.any(Error))
         })
 
         it('should let an AI investigation custom error propagate when propagate is true', async () => {
@@ -232,7 +232,7 @@ describe('runInvestigation', () => {
             )
 
             expect(result).toBeUndefined()
-            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed:', expect.any(Error))
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.any(Error))
         })
         it.each([
             ['cannotDetermine', 'allowCannotDetermine', TrypatchCannotDetermineError],
@@ -269,7 +269,7 @@ describe('runInvestigation', () => {
             )
 
             expect(result).toBeUndefined()
-            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed:', expect.any(errorClass))
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.any(errorClass))
         })
     })
 

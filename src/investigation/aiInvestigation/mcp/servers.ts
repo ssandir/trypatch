@@ -77,5 +77,5 @@ export async function resolveMcpServers (
 }
 
 export function warnUnavailableMcpServer (name: string, error: unknown, logger: Logger): void {
-    logger.warn(`[ssandir/trypatch] MCP server "${name}" unavailable:`, error)
+    logger.warn(`[ssandir/trypatch] MCP server "${name}" is unavailable and was skipped`, error)
 }
