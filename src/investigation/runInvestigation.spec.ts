@@ -10,7 +10,7 @@ import {
 } from '../errors'
 import { Logger } from '../logger'
 import { Tool } from '../tools'
-import type { CustomErrorDefinition, TryPatchOptions } from '../types'
+import type { CustomErrorDefinition, InvestigationContext, TryPatchOptions } from '../types'
 import { mockMethodDescriptor } from '../test/mockMethodDecoratorContext'
 import { mockLanguageModel, mockOutcomeTurn, promptText } from '../test/mockLanguageModel'
 import { createLanguageModel } from './aiInvestigation/providers/languageModel/createLanguageModel'
@@ -91,6 +91,38 @@ describe('runInvestigation', () => {
 
             expect(result).toBeUndefined()
             expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.any(Error))
+        })
+
+        it('should swallow and log an error thrown by the signal factory', async () => {
+            const loggerLike = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+            }
+            const investigate = jest.fn(() => Promise.resolve('done'))
+
+            const result = await runInvestigation(
+                new Error('original'),
+                {
+                    signal: () => {
+                        throw new Error('no signal')
+                    },
+                    customInvestigation: { investigate },
+                },
+                new Logger({
+                    logger: loggerLike,
+                    verbosity: 'high',
+                }),
+                mockMethodDescriptor(),
+                undefined,
+                [],
+            )
+
+            expect(result).toBeUndefined()
+            expect(investigate).not.toHaveBeenCalled()
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.objectContaining({ message: 'no signal' }))
         })
 
         it('should let a TrypatchFatalError propagate instead of swallowing it', async () => {
@@ -287,6 +319,54 @@ describe('runInvestigation', () => {
             )
 
             expect(result).toEqual({ rootCause: 'custom' })
+        })
+
+        it('should resolve the signal from the investigation context and pass it to custom investigate', async () => {
+            const controller = new AbortController()
+            const signalFactory = jest.fn((ctx: InvestigationContext) => (ctx.args[0] as { signal: AbortSignal }).signal)
+            const investigate = jest.fn(() => Promise.resolve('done'))
+            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [{ signal: controller.signal }])
+
+            await investigateError(ctx, { signal: signalFactory, customInvestigation: { investigate } })
+
+            expect(signalFactory).toHaveBeenCalledWith(ctx)
+            expect(investigate).toHaveBeenCalledWith(ctx, { signal: controller.signal })
+        })
+
+        it('should pass empty options to custom investigate when no signal is resolved', async () => {
+            const investigate = jest.fn(() => Promise.resolve('done'))
+            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+
+            await investigateError(ctx, { signal: () => undefined, customInvestigation: { investigate } })
+
+            expect(investigate).toHaveBeenCalledWith(ctx, {})
+        })
+
+        it('should not start a custom investigation when the signal is already aborted', async () => {
+            const investigate = jest.fn(() => Promise.resolve('done'))
+            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+
+            await expect(investigateError(ctx, {
+                signal: () => AbortSignal.abort(new Error('cancelled')),
+                customInvestigation: { investigate },
+            })).rejects.toThrow('cancelled')
+            expect(investigate).not.toHaveBeenCalled()
+        })
+
+        it('should not call the AI provider when the signal is already aborted', async () => {
+            const model = useOutcome({ type: 'result', result: 'unused' })
+            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+
+            await expect(investigateError(ctx, {
+                signal: () => AbortSignal.abort(new Error('cancelled')),
+                aiInvestigation: {
+                    investigationProvider: {
+                        provider: 'openai',
+                        apiKey: 'test-key',
+                    },
+                },
+            })).rejects.toThrow('cancelled')
+            expect(model.doGenerateCalls).toHaveLength(0)
         })
 
         it('should parse a JSON-encoded result when no resultSchema is given', async () => {

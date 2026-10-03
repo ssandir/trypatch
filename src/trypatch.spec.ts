@@ -308,7 +308,7 @@ describe('trypatch', () => {
             expect(investigate).toHaveBeenCalledWith(expect.objectContaining({
                 methodName: 'run',
                 args: ['fail'],
-            }))
+            }), {})
         })
 
         it('should resolve className and static from the real receiver at call time', async () => {
@@ -336,14 +336,64 @@ describe('trypatch', () => {
             await expect(new BillingService().run('fail')).resolves.toBeDefined()
             expect(investigate).toHaveBeenCalledWith(expect.objectContaining({
                 methodMetadata: { className: 'BillingService', static: false, private: false },
-            }))
+            }), {})
 
             investigate.mockClear()
 
             await expect(BillingService.runStatic('fail')).resolves.toBeDefined()
             expect(investigate).toHaveBeenCalledWith(expect.objectContaining({
                 methodMetadata: { className: 'BillingService', static: true, private: false },
-            }))
+            }), {})
+        })
+
+        it('should resolve the signal per call from the call arguments for instance and static methods', async () => {
+            const investigate = jest.fn((_ctx: InvestigationContext, _options: { signal?: AbortSignal }) => Promise.resolve('investigated'))
+            const signalOptions = {
+                signal: (ctx: InvestigationContext) => (ctx.args[1] as { signal?: AbortSignal } | undefined)?.signal,
+                customInvestigation: { investigate },
+            } satisfies TryPatchOptions
+
+            class ReportService {
+                @trypatch(signalOptions)
+                run (_value: string, _options?: { signal?: AbortSignal }): string {
+                    throw new Error('failed')
+                }
+
+                @trypatch(signalOptions)
+                static runStatic (_value: string, _options?: { signal?: AbortSignal }): string {
+                    throw new Error('failed')
+                }
+            }
+
+            const first = new AbortController()
+            const second = new AbortController()
+
+            await expect(new ReportService().run('fail', { signal: first.signal })).resolves.toBe('investigated')
+            await expect(ReportService.runStatic('fail', { signal: second.signal })).resolves.toBe('investigated')
+            await expect(new ReportService().run('fail')).resolves.toBe('investigated')
+
+            expect(investigate.mock.calls.map(([, options]) => options)).toEqual([
+                { signal: first.signal },
+                { signal: second.signal },
+                {},
+            ])
+        })
+
+        it('should skip the investigation when the call signal is already aborted', async () => {
+            const investigate = jest.fn(() => Promise.resolve('investigated'))
+
+            class ReportService {
+                @trypatch({
+                    signal: ctx => (ctx.args[0] as { signal: AbortSignal }).signal,
+                    customInvestigation: { investigate },
+                })
+                run (_options: { signal: AbortSignal }): string {
+                    throw new Error('failed')
+                }
+            }
+
+            await expect(new ReportService().run({ signal: AbortSignal.abort() })).resolves.toBeUndefined()
+            expect(investigate).not.toHaveBeenCalled()
         })
 
         it('should apply AiInvestigationOptions via @trypatch with heterogeneous tools when the method throws', async () => {

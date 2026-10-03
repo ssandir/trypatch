@@ -13,8 +13,11 @@ export async function investigateError<
     options: TryPatchOptions<S, C>,
     logger?: Logger,
 ): Promise<unknown> {
+    const signal = options.signal?.(ctx)
+    signal?.throwIfAborted()
+
     if ('customInvestigation' in options) {
-        return await options.customInvestigation.investigate(ctx)
+        return await options.customInvestigation.investigate(ctx, signal ? { signal } : {})
     }
 
     return await runAiInvestigation(ctx, options.aiInvestigation, logger)
