@@ -164,7 +164,7 @@ type CustomInvestigateTryPatchOptions = {
 type TryPatchOptionsBase = {
     logging?: LoggingOptions
     /** Resolves an abort signal from the investigation context (including the call's arguments). Aborts the investigation when the signal fires. */
-    signal?: (ctx: InvestigationContext) => AbortSignal | undefined
+    getSignal?: (ctx: InvestigationContext) => AbortSignal | undefined
 }
 
 export type TryPatchOptions<

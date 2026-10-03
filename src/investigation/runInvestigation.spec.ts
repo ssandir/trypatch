@@ -109,7 +109,7 @@ describe('runInvestigation', () => {
             const result = await runInvestigation(
                 new Error('original'),
                 {
-                    signal: () => new AbortController().signal,
+                    getSignal: () => new AbortController().signal,
                     aiInvestigation: {
                         investigationProvider: {
                             provider: 'openai',
@@ -151,7 +151,7 @@ describe('runInvestigation', () => {
             await expect(runInvestigation(
                 new Error('original'),
                 {
-                    signal: () => controller.signal,
+                    getSignal: () => controller.signal,
                     aiInvestigation: {
                         investigationProvider: {
                             provider: 'openai',
@@ -177,7 +177,7 @@ describe('runInvestigation', () => {
 
             await runInvestigation(
                 new Error('original'),
-                { signal: signalFactory, customInvestigation: { investigate } },
+                { getSignal: signalFactory, customInvestigation: { investigate } },
                 new Logger(),
                 mockMethodDescriptor(),
                 undefined,
@@ -202,7 +202,7 @@ describe('runInvestigation', () => {
             const result = await runInvestigation(
                 new Error('original'),
                 {
-                    signal: () => {
+                    getSignal: () => {
                         throw new Error('no signal')
                     },
                     customInvestigation: { investigate },

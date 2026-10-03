@@ -349,7 +349,7 @@ describe('trypatch', () => {
         it('should resolve the signal per call from the call arguments for instance and static methods', async () => {
             const investigate = jest.fn((_ctx: InvestigationContext, _options: { signal?: AbortSignal }) => Promise.resolve('investigated'))
             const signalOptions = {
-                signal: (ctx: InvestigationContext) => (ctx.args[1] as { signal?: AbortSignal } | undefined)?.signal,
+                getSignal: (ctx: InvestigationContext) => (ctx.args[1] as { signal?: AbortSignal } | undefined)?.signal,
                 customInvestigation: { investigate },
             } satisfies TryPatchOptions
 
@@ -384,7 +384,7 @@ describe('trypatch', () => {
 
             class ReportService {
                 @trypatch({
-                    signal: ctx => (ctx.args[0] as { signal: AbortSignal }).signal,
+                    getSignal: ctx => (ctx.args[0] as { signal: AbortSignal }).signal,
                     customInvestigation: { investigate },
                 })
                 run (_options: { signal: AbortSignal }): string {
@@ -404,7 +404,7 @@ describe('trypatch', () => {
 
             class ReportService {
                 @trypatch({
-                    signal: ctx => (ctx.args[0] as { signal: AbortSignal }).signal,
+                    getSignal: ctx => (ctx.args[0] as { signal: AbortSignal }).signal,
                     customInvestigation: {
                         investigate: () => {
                             controller.abort(reason)

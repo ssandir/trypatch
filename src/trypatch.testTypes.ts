@@ -87,15 +87,15 @@ void ({
     },
 } satisfies TryPatchOptions)
 
-// `signal` is resolved per call from the investigation context, so it must be a factory.
+// `getSignal` is resolved per call from the investigation context, so it must be a factory.
 void ({
-    signal: ctx => (ctx.args[0] as { signal?: AbortSignal } | undefined)?.signal,
+    getSignal: ctx => (ctx.args[0] as { signal?: AbortSignal } | undefined)?.signal,
     customInvestigation: { investigate: () => Promise.resolve(undefined) },
 } satisfies TryPatchOptions)
 
 void ({
     // @ts-expect-error - a bare AbortSignal would exist once per decorator, not once per call
-    signal: new AbortController().signal,
+    getSignal: new AbortController().signal,
     customInvestigation: { investigate: () => Promise.resolve(undefined) },
 } satisfies TryPatchOptions)
 

@@ -44,7 +44,7 @@ export async function runInvestigation<
     let signal: AbortSignal | undefined
 
     try {
-        signal = options.signal?.(investigationContext)
+        signal = options.getSignal?.(investigationContext)
         return await investigateError(investigationContext, options, logger, signal)
     } catch (investigationError) {
         // Whoever controls a signal handles its abort.
