@@ -34,7 +34,8 @@ export class Tool<
         }
     }
 
-    async call (input: string, context: Context | undefined, options: { signal: AbortSignal | undefined }): Promise<Awaited<Result>> {
+    // TBD: make Tool.call  an internal function only the lib sees that is not exposed and make it's parameters required, consumer has no business calling this
+    async call (input: string, context?: Context, options: { signal?: AbortSignal | undefined } = {}): Promise<Awaited<Result>> {
         return await withDeadline(async (signal): Promise<Awaited<Result>> => {
             const parsed = this.parser(input)
             return await this.execute(parsed, context, { signal })

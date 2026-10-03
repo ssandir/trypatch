@@ -86,3 +86,29 @@ void ({
         ],
     },
 } satisfies TryPatchOptions)
+
+// `signal` is resolved per call from the investigation context, so it must be a factory.
+void ({
+    signal: ctx => (ctx.args[0] as { signal?: AbortSignal } | undefined)?.signal,
+    customInvestigation: { investigate: () => Promise.resolve(undefined) },
+} satisfies TryPatchOptions)
+
+void ({
+    // @ts-expect-error - a bare AbortSignal would exist once per decorator, not once per call
+    signal: new AbortController().signal,
+    customInvestigation: { investigate: () => Promise.resolve(undefined) },
+} satisfies TryPatchOptions)
+
+// Custom investigate handlers may ignore the options argument.
+void ({
+    customInvestigation: { investigate: ctx => Promise.resolve(ctx.methodName) },
+} satisfies TryPatchOptions)
+
+void ({
+    customInvestigation: {
+        investigate: (_ctx, { signal }) => {
+            const optionalSignal: AbortSignal | undefined = signal
+            return Promise.resolve(optionalSignal)
+        },
+    },
+} satisfies TryPatchOptions)

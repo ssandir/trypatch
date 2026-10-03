@@ -33,7 +33,7 @@ describe('Tool', () => {
             execute,
         })
 
-        await expect(created.call('hello', testContext, { signal: undefined })).resolves.toBe('HELLO')
+        await expect(created.call('hello', testContext)).resolves.toBe('HELLO')
         expect(execute).toHaveBeenCalledWith('hello', testContext, { signal: expect.any(AbortSignal) })
         expect(created.parameters).toEqual({
             type: 'object',
@@ -72,7 +72,7 @@ describe('Tool', () => {
         await expect(created.call(JSON.stringify({
             rootCause: 'bad input',
             retryable: false,
-        }), testContext, { signal: undefined })).resolves.toEqual({
+        }), testContext)).resolves.toEqual({
             summary: 'bad input',
             retryable: false,
         })
@@ -95,7 +95,7 @@ describe('Tool', () => {
             execute: (): string => 'ok',
         })
 
-        await expect(created.call('not-json', testContext, { signal: undefined })).rejects.toThrow(/Invalid JSON input/)
+        await expect(created.call('not-json', testContext)).rejects.toThrow(/Invalid JSON input/)
     })
 
     it('rejects JSON schema parameters input that fails validation', async () => {
@@ -118,7 +118,7 @@ describe('Tool', () => {
 
         await expect(created.call(JSON.stringify({
             rootCause: 'bad input',
-        }), testContext, { signal: undefined })).rejects.toThrow(/Invalid parameters/)
+        }), testContext)).rejects.toThrow(/Invalid parameters/)
     })
 
     it('parses zod parameters and passes typed input to execute', async () => {
@@ -136,7 +136,7 @@ describe('Tool', () => {
             execute,
         })
 
-        await expect(created.call(JSON.stringify({ id: 'a', count: 2 }), testContext, { signal: undefined })).resolves.toBe('a:2')
+        await expect(created.call(JSON.stringify({ id: 'a', count: 2 }), testContext)).resolves.toBe('a:2')
     })
 
     it('propagates errors from execute', async () => {
@@ -148,7 +148,7 @@ describe('Tool', () => {
             },
         })
 
-        await expect(created.call('input', testContext, { signal: undefined })).rejects.toThrow('boom')
+        await expect(created.call('input', testContext)).rejects.toThrow('boom')
     })
 
     it('rejects when timeoutMs is exceeded', async () => {
@@ -162,7 +162,7 @@ describe('Tool', () => {
             },
         })
 
-        await expect(created.call('input', testContext, { signal: undefined })).rejects.toThrow(TrypatchTimeoutError)
+        await expect(created.call('input', testContext)).rejects.toThrow(TrypatchTimeoutError)
     })
 
     it('aborts the signal execute sees when timeoutMs is exceeded', async () => {
@@ -177,7 +177,7 @@ describe('Tool', () => {
             },
         })
 
-        const error = await created.call('input', testContext, { signal: undefined }).catch((caught: unknown) => caught)
+        const error = await created.call('input', testContext).catch((caught: unknown) => caught)
 
         expect(error).toHaveProperty('message', 'Tool slow_tool timed out after 20ms')
         expect(error).toBeInstanceOf(TrypatchTimeoutError)
