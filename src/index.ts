@@ -5,6 +5,7 @@ export {
     TrypatchCannotDetermineError,
     TrypatchUncertainResultError,
     TrypatchNoApplicableOutcomeError,
+    TrypatchTimeoutError,
 } from './errors'
 export { runInvestigation, investigateError } from './investigation/runInvestigation'
 export { Logger } from './logger'

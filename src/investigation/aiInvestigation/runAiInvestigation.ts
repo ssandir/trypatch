@@ -103,6 +103,7 @@ export async function runAiInvestigation<S extends Schema, C> (
         onInvestigationResult,
     }: AiInvestigationOptions<S, C>,
     logger?: Logger,
+    signal?: AbortSignal,
 ): Promise<unknown> {
     validateMcpServers(mcpServers, investigationProvider.provider)
 
@@ -129,6 +130,7 @@ export async function runAiInvestigation<S extends Schema, C> (
         vault,
         mcpServers,
         logger,
+        signal,
     })
 
     const outcome = restoreInvestigationResponse(rawOutcome, vault)

@@ -20,7 +20,7 @@ export async function investigateError<
         return await options.customInvestigation.investigate(ctx, signal ? { signal } : {})
     }
 
-    return await runAiInvestigation(ctx, options.aiInvestigation, logger)
+    return await runAiInvestigation(ctx, options.aiInvestigation, logger, signal)
 }
 
 function shouldPropagateCustomError (investigationError: unknown, options: TryPatchOptions<any, any>): boolean {

@@ -1,6 +1,8 @@
+import { setTimeout as sleep } from 'node:timers/promises'
 import type { JSONSchema } from 'json-schema-to-ts'
 import { Logger } from '../../../../logger'
 import { extractJsonFromText } from '../../../../schema/utils'
+import { withInvestigationDeadline } from '../../deadline'
 import { resolveMcpServers } from '../../mcp/servers'
 import type { ResolvedMcpServerConfig } from '../../mcp/types'
 import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
@@ -94,6 +96,7 @@ async function createCursorAgent (
     authorization: string,
     body: Record<string, unknown>,
     doFetch: typeof fetch,
+    signal: AbortSignal,
 ): Promise<{ agentId: string, runId: string }> {
     const createResponse = await doFetch(`${baseURL}/v1/agents`, {
         method: 'POST',
@@ -102,6 +105,7 @@ async function createCursorAgent (
             Authorization: authorization,
         },
         body: JSON.stringify(body),
+        signal,
     })
 
     const createPayload = await createResponse.json() as CursorCreateAgentResponse
@@ -148,15 +152,15 @@ async function pollCursorRun (
     runId: string,
     outcomeSchema: JSONSchema,
     pollIntervalMs: number,
-    deadline: number,
-    timeoutMs: number,
     doFetch: typeof fetch,
+    signal: AbortSignal,
 ): Promise<InvestigationOutcome> {
-    while (Date.now() < deadline) {
+    for (;;) {
         const runResponse = await doFetch(`${baseURL}/v1/agents/${agentId}/runs/${runId}`, {
             headers: {
                 Authorization: authorization,
             },
+            signal,
         })
 
         const runPayload = await runResponse.json() as CursorRunResponse
@@ -170,10 +174,8 @@ async function pollCursorRun (
             return result
         }
 
-        await sleep(pollIntervalMs)
+        await sleep(pollIntervalMs, undefined, { signal })
     }
-
-    throw new Error(`Cursor investigation timed out after ${timeoutMs}ms`)
 }
 
 export async function investigateWithCursor (
@@ -182,35 +184,29 @@ export async function investigateWithCursor (
     prompts: { systemPrompt: string, userPrompt: string },
     options: CursorInvestigationOptions,
 ): Promise<InvestigationOutcome> {
-    const { timeoutMs } = options
     const baseURL = (config.baseURL ?? DEFAULT_BASE_URL).replace(/\/$/, '')
     const authorization = buildAuthorizationHeader(config.apiKey)
     const pollIntervalMs = config.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
-    const deadline = Date.now() + timeoutMs
     const doFetch = config.fetch ?? fetch
 
-    const { agentId, runId } = await createCursorAgent(
-        baseURL,
-        authorization,
-        await buildCreateAgentBody(config, prompts, options),
-        doFetch,
-    )
+    return await withInvestigationDeadline(options.timeoutMs, options.signal, async (signal) => {
+        const { agentId, runId } = await createCursorAgent(
+            baseURL,
+            authorization,
+            await buildCreateAgentBody(config, prompts, options),
+            doFetch,
+            signal,
+        )
 
-    return await pollCursorRun(
-        baseURL,
-        authorization,
-        agentId,
-        runId,
-        outcomeSchema,
-        pollIntervalMs,
-        deadline,
-        timeoutMs,
-        doFetch,
-    )
-}
-
-function sleep (ms: number): Promise<void> {
-    return new Promise((resolve) => {
-        setTimeout(resolve, ms)
+        return await pollCursorRun(
+            baseURL,
+            authorization,
+            agentId,
+            runId,
+            outcomeSchema,
+            pollIntervalMs,
+            doFetch,
+            signal,
+        )
     })
 }

@@ -10,6 +10,7 @@ import {
     type MockCallOptions,
     type MockGenerateResult,
 } from '../../../../test/mockLanguageModel'
+import { TrypatchTimeoutError } from '../../../../errors'
 import { Logger } from '../../../../logger'
 import { Tool } from '../../../../tools'
 import { buildInvestigationResultSchema } from '../../resultSchema'
@@ -154,7 +155,36 @@ describe('investigateWithLanguageModel', () => {
         await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
             timeoutMs: 50,
             investigationTools: [hangingTool],
-        })).rejects.toThrow('aborted due to timeout')
+        })).rejects.toThrow(TrypatchTimeoutError)
+    })
+
+    it('should abort the investigation when the caller signal fires before the deadline', async () => {
+        const hangingTool = new Tool({
+            name: 'hang',
+            description: 'Never resolves',
+            execute: () => new Promise<never>(() => undefined),
+        })
+        useModel(mockToolCallTurn('hang', {}), finalOutcome('unreachable'))
+        const controller = new AbortController()
+        setTimeout(() => {
+            controller.abort(new Error('cancelled'))
+        }, 20)
+
+        await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
+            timeoutMs: 5_000,
+            investigationTools: [hangingTool],
+            signal: controller.signal,
+        })).rejects.toThrow('cancelled')
+    })
+
+    it('should not call the model when the caller signal is already aborted', async () => {
+        const model = useModel(finalOutcome('unreachable'))
+
+        await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
+            timeoutMs: 5_000,
+            signal: AbortSignal.abort(new Error('cancelled')),
+        })).rejects.toThrow('cancelled')
+        expect(model.doGenerateCalls).toHaveLength(0)
     })
     describe('mcpServers', () => {
         const warn = jest.fn()
