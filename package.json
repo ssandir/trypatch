@@ -40,7 +40,8 @@
         "lint": "eslint --max-warnings 0",
         "lint:fix": "eslint --max-warnings 0 --fix --no-warn-ignored",
         "lint:inspect": "eslint --inspect-config",
-        "type-check": "tsc --project tsconfig.json --pretty --noEmit"
+        "type-check": "tsc --project tsconfig.json --pretty --noEmit",
+        "prepare": "husky"
     },
     "dependencies": {
         "@ai-sdk/anthropic": "^4.0.70",
