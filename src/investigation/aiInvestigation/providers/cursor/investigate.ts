@@ -1,8 +1,8 @@
 import { setTimeout as sleep } from 'node:timers/promises'
 import type { JSONSchema } from 'json-schema-to-ts'
+import { withDeadline } from '../../../../abort/withDeadline'
 import { Logger } from '../../../../logger'
 import { extractJsonFromText } from '../../../../schema/utils'
-import { withInvestigationDeadline } from '../../deadline'
 import { resolveMcpServers } from '../../mcp/servers'
 import type { ResolvedMcpServerConfig } from '../../mcp/types'
 import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
@@ -189,7 +189,7 @@ export async function investigateWithCursor (
     const pollIntervalMs = config.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
     const doFetch = config.fetch ?? fetch
 
-    return await withInvestigationDeadline(options.timeoutMs, options.signal, async (signal) => {
+    return await withDeadline(async (signal) => {
         const { agentId, runId } = await createCursorAgent(
             baseURL,
             authorization,
@@ -208,5 +208,5 @@ export async function investigateWithCursor (
             doFetch,
             signal,
         )
-    })
+    }, { signal: options.signal, timeout: { ms: options.timeoutMs, label: 'Investigation' } })
 }

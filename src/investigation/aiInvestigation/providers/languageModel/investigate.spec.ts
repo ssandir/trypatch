@@ -84,7 +84,7 @@ describe('investigateWithLanguageModel', () => {
         })
 
         expect(result).toEqual({ type: 'result', result: { rootCause: 'order o-1 is stuck' } })
-        expect(lookupOrder).toHaveBeenCalledWith({ orderId: 'o-1' }, { region: 'eu' })
+        expect(lookupOrder).toHaveBeenCalledWith({ orderId: 'o-1' }, { region: 'eu' }, { signal: expect.any(AbortSignal) })
         expect(model.doGenerateCalls).toHaveLength(2)
         expect(toolResultsSentIn(model.doGenerateCalls[1])).toEqual([
             { type: 'json', value: { orderId: 'o-1', region: 'eu', status: 'stuck' } },
@@ -140,7 +140,7 @@ describe('investigateWithLanguageModel', () => {
         })
 
         expect(placeholder).not.toBe('secret-order')
-        expect(lookupOrder).toHaveBeenCalledWith({ orderId: 'secret-order' }, undefined)
+        expect(lookupOrder).toHaveBeenCalledWith({ orderId: 'secret-order' }, undefined, { signal: expect.any(AbortSignal) })
         expect(JSON.stringify(model.doGenerateCalls[1]?.prompt)).not.toContain('secret-order')
     })
 
@@ -175,6 +175,30 @@ describe('investigateWithLanguageModel', () => {
             investigationTools: [hangingTool],
             signal: controller.signal,
         })).rejects.toThrow('cancelled')
+    })
+
+    it('should hand investigation tools a signal that fires when the caller aborts', async () => {
+        const controller = new AbortController()
+        let toolSignal: AbortSignal | undefined
+        const hangingTool = new Tool({
+            name: 'hang',
+            description: 'Never resolves',
+            execute: (_input, _context, { signal }) => {
+                toolSignal = signal
+                setTimeout(() => {
+                    controller.abort(new Error('cancelled'))
+                }, 0)
+                return new Promise<never>(() => undefined)
+            },
+        })
+        useModel(mockToolCallTurn('hang', {}), finalOutcome('unreachable'))
+
+        await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
+            timeoutMs: 5_000,
+            investigationTools: [hangingTool],
+            signal: controller.signal,
+        })).rejects.toThrow('cancelled')
+        expect(toolSignal?.aborted).toBe(true)
     })
 
     it('should not call the model when the caller signal is already aborted', async () => {

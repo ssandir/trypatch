@@ -369,6 +369,35 @@ describe('runInvestigation', () => {
             expect(model.doGenerateCalls).toHaveLength(0)
         })
 
+        it('should hand result tools the caller signal', async () => {
+            const controller = new AbortController()
+            let resultToolSignal: AbortSignal | undefined
+            useOutcome({ type: 'resultTool', toolName: 'submit', input: {} })
+            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+
+            await investigateError(ctx, {
+                signal: () => controller.signal,
+                aiInvestigation: {
+                    investigationProvider: {
+                        provider: 'openai',
+                        apiKey: 'test-key',
+                    },
+                    resultTools: [new Tool({
+                        name: 'submit',
+                        description: 'Submit the result',
+                        execute: (_input, _context, { signal }) => {
+                            resultToolSignal = signal
+                            return 'submitted'
+                        },
+                    })],
+                },
+            })
+
+            expect(resultToolSignal?.aborted).toBe(false)
+            controller.abort()
+            expect(resultToolSignal?.aborted).toBe(true)
+        })
+
         it('should parse a JSON-encoded result when no resultSchema is given', async () => {
             const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
             useOutcome({

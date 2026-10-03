@@ -1,11 +1,11 @@
 import { generateText, jsonSchema, Output, stepCountIs, type ToolSet } from 'ai'
 import type { JSONSchema } from 'json-schema-to-ts'
+import { withDeadline } from '../../../../abort/withDeadline'
 import { TrypatchConfigError } from '../../../../errors'
 import { Logger } from '../../../../logger'
 import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
 import { DEFAULT_MAX_TOOL_ITERATIONS, MAX_TOOL_NAME_LENGTH } from './constants'
 import { createLanguageModel } from './createLanguageModel'
-import { withInvestigationDeadline } from '../../deadline'
 import { connectMcpTools } from './mcp'
 import { guardMcpTools, toolsToAiSdkTools } from './toolAdapter'
 import type { LanguageModelInvestigationConfig, LanguageModelInvestigationOptions } from './types'
@@ -33,7 +33,7 @@ export async function investigateWithLanguageModel (
 ): Promise<InvestigationOutcome> {
     const maxToolIterations = options.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS
 
-    return await withInvestigationDeadline(options.timeoutMs, options.signal, async (abortSignal) => {
+    return await withDeadline(async (abortSignal) => {
         const mcp = await connectMcpTools(options.mcpServers ?? [], abortSignal, options.logger ?? new Logger())
 
         try {
@@ -65,5 +65,5 @@ export async function investigateWithLanguageModel (
         } finally {
             await mcp.close()
         }
-    })
+    }, { signal: options.signal, timeout: { ms: options.timeoutMs, label: 'Investigation' } })
 }

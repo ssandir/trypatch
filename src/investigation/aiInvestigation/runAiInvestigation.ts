@@ -30,8 +30,9 @@ async function callResultTool<S extends Schema, C> (
     tool: ResultTool<S, C>,
     input: unknown,
     toolContext: C | undefined,
+    signal: AbortSignal | undefined,
 ): Promise<unknown> {
-    return await tool.call(JSON.stringify(input ?? {}), toolContext)
+    return await tool.call(JSON.stringify(input ?? {}), toolContext, { signal })
 }
 
 async function resolveOutcome<S extends Schema, C> (
@@ -40,6 +41,7 @@ async function resolveOutcome<S extends Schema, C> (
     customErrors: CustomErrorDefinition[] | undefined,
     resultTools: ResultTool<S, C>[] | undefined,
     toolContext: C | undefined,
+    signal: AbortSignal | undefined,
 ): Promise<unknown> {
     switch (outcome.type) {
         case 'error': {
@@ -58,7 +60,7 @@ async function resolveOutcome<S extends Schema, C> (
                 throw new Error(`Result tool ${outcome.toolName} is not registered`)
             }
 
-            return await callResultTool(tool, outcome.input, toolContext)
+            return await callResultTool(tool, outcome.input, toolContext, signal)
         }
         case 'result':
             return parseWithSchema(resultSchema, outcome.result, 'investigation result')
@@ -134,7 +136,7 @@ export async function runAiInvestigation<S extends Schema, C> (
     })
 
     const outcome = restoreInvestigationResponse(rawOutcome, vault)
-    const result = await resolveOutcome(outcome, resultSchema, customErrors, resultTools, toolContext)
+    const result = await resolveOutcome(outcome, resultSchema, customErrors, resultTools, toolContext, signal)
 
     if (onInvestigationResult) {
         await Promise.resolve(onInvestigationResult(result as SchemaInfer<S>))

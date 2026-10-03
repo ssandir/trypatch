@@ -16,7 +16,9 @@ export type ToolHandler<
     Result = unknown,
 > = (
     input: ToolInputValue<TSchema>,
-    context?: Context,
+    context: Context | undefined,
+    /** `signal` fires on the tool's own `timeoutMs` or when the investigation is aborted, whichever comes first. */
+    options: { signal: AbortSignal },
 ) => Result | Promise<Result>
 
 export type ToolDefinition<
