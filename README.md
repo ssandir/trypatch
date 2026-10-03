@@ -30,10 +30,12 @@ const ResolutionSchema = z.object({
 
 class PaymentService {
   @trypatch({
-    resultSchema: ResolutionSchema,
-    investigationProvider: {
-      provider: 'openai',
-      apiKey: process.env.OPENAI_API_KEY!,
+    aiInvestigation: {
+      resultSchema: ResolutionSchema,
+      investigationProvider: {
+        provider: 'openai',
+        apiKey: process.env.OPENAI_API_KEY!,
+      },
     },
   })
   async processPayment(cardToken: string): Promise<z.infer<typeof ResolutionSchema>> {
@@ -65,18 +67,20 @@ import { trypatch } from '@ssandir/trypatch'
 
 class DatabaseService {
   @trypatch({
-    resultSchema: ErrorResolutionSchema,
-    investigationProvider: {
-      provider: 'openai',
-      apiKey: process.env.OPENAI_API_KEY!,
-    },
-    // Redact sensitive terms before sending to OpenAI
-    redactConfig: {
-      terms: [
-        process.env.DB_PASSWORD!,
-        'super-secret-api-key',
-        process.env.INTERNAL_SERVICE_TOKEN!,
-      ],
+    aiInvestigation: {
+      resultSchema: ErrorResolutionSchema,
+      investigationProvider: {
+        provider: 'openai',
+        apiKey: process.env.OPENAI_API_KEY!,
+      },
+      // Redact sensitive terms before sending to OpenAI
+      redactConfig: {
+        terms: [
+          process.env.DB_PASSWORD!,
+          'super-secret-api-key',
+          process.env.INTERNAL_SERVICE_TOKEN!,
+        ],
+      },
     },
   })
   async queryDatabase(query: string) {
@@ -136,13 +140,15 @@ const retryTool = new Tool({
 
 class ThirdPartyApiClient {
   @trypatch({
-    resultSchema: RetrySchema,
-    investigationProvider: {
-      provider: 'claude',
-      apiKey: process.env.ANTHROPIC_API_KEY!,
+    aiInvestigation: {
+      resultSchema: RetrySchema,
+      investigationProvider: {
+        provider: 'claude',
+        apiKey: process.env.ANTHROPIC_API_KEY!,
+      },
+      // Tools the AI can call during investigation
+      investigationTools: [retryTool],
     },
-    // Tools the AI can call during investigation
-    investigationTools: [retryTool],
   })
   async fetchData(endpoint: string) {
     // If this fails, Claude investigates and may invoke retryWithBackoff
@@ -156,8 +162,8 @@ class ThirdPartyApiClient {
 The AI can call investigation tools over several turns: it calls a tool, reads the result, keeps investigating (possibly calling more tools), and then returns its outcome.
 
 - `investigationBehavior.maxToolIterations` caps the number of tool turns (default 20)
-- `investigationBehavior.timeoutMs` covers the whole investigation, including every tool turn; a tool still running at the deadline is abandoned
-- `toolContext` is passed to every tool's `execute` as its second argument
+- `investigationBehavior.timeoutMs` covers the whole investigation, including every tool turn; a tool still running at the deadline is abandoned, and can listen to the `signal` it receives to actually stop (see [Cancellation](#cancellation-abort-signals))
+- `toolContext` is passed to every tool's `execute` as its second argument, and `{ signal }` as its third
 - If a tool throws, the error is sent back to the AI so it can try something else, instead of failing the investigation
 
 Investigation tools work with `openai`, `claude` and `openai-compatible`. The `cursor` provider ignores them, because Cursor's cloud agent runs its own tools remotely; use [`mcpServers`](#mcp-servers-give-the-ai-your-existing-tooling) to give it tools.
@@ -228,6 +234,34 @@ The AI supplies a `reason` string, which becomes the thrown error's message. Lik
 
 ---
 
+## Cancellation: Abort Signals
+
+A signal can abort an investigation, e.g. when the calling request is cancelled. Decorator options are evaluated once, but a caller's signal exists per call, so `getSignal` gets the investigation context (including the call's arguments) and returns that call's signal.
+
+```typescript
+class ReportService {
+  @trypatch({
+    getSignal: ctx => (ctx.args[1] as { signal?: AbortSignal } | undefined)?.signal,
+    aiInvestigation: {
+      investigationProvider: { provider: 'claude', apiKey: process.env.ANTHROPIC_API_KEY! },
+      investigationBehavior: { timeoutMs: 60_000 },
+    },
+  })
+  async generate(reportId: string, options?: { signal?: AbortSignal }) { /* ... */ }
+}
+```
+
+For a signal not tied to a call, such as app shutdown: `getSignal: () => shutdownController.signal`.
+
+- **Your abort, your error.** The decorated method rejects with the signal's `reason`, like `fetch` does. An already-aborted signal skips the investigation.
+- **Our timeout, our error.** `investigationBehavior.timeoutMs` and your signal are combined. If the timeout fires first, trypatch throws `TrypatchTimeoutError`, which is logged and swallowed like any investigation failure.
+- **Tools** get `{ signal }` as `execute`'s third argument; it also fires on the tool's own `timeoutMs` (throwing `TrypatchTimeoutError`). A tool still running is abandoned; listen to `signal` to actually stop it. Result tools get your signal but aren't covered by `investigationBehavior.timeoutMs`.
+- **MCP** connections and tool calls share the combined signal.
+- **Custom investigations** get `investigate(ctx, { signal })`; trypatch adds no timeout of its own.
+- **Cursor** stops polling on abort; the remote agent keeps running.
+
+---
+
 ## JSON Schema and TypeScript
 
 JSON Schema tool parameters and `@trypatch` result schemas map to `unknown`, not `FromSchema<T>`. Resolving
@@ -262,9 +296,11 @@ new Tool({
 // @trypatch — cast result / return type
 class Service {
   @trypatch({
-    resultSchema: schema,
-    investigationProvider: { provider: 'openai', apiKey: process.env.OPENAI_API_KEY! },
-    onInvestigationResult: (result) => console.warn((result as Result).rootCause),
+    aiInvestigation: {
+      resultSchema: schema,
+      investigationProvider: { provider: 'openai', apiKey: process.env.OPENAI_API_KEY! },
+      onInvestigationResult: (result) => console.warn((result as Result).rootCause),
+    },
   })
   async run (): Promise<Result> { /* ... */ }
 }
@@ -323,7 +359,7 @@ Set `supportsStructuredOutputs: true` if the endpoint enforces JSON Schema outpu
 
 ### Cursor Cloud Agents
 
-`provider: 'cursor'` starts a Cursor cloud agent and polls its run until it finishes. It doesn't support `investigationTools` or `maxToolIterations`, but it does support [`mcpServers`](#mcp-servers-give-the-ai-your-existing-tooling).
+`provider: 'cursor'` starts a Cursor cloud agent and polls its run until it finishes. It doesn't support `investigationTools` or `maxToolIterations`, but it does support [`mcpServers`](#mcp-servers-give-the-ai-your-existing-tooling). A timeout or [abort](#cancellation-abort-signals) stops polling, but the remote agent keeps running.
 
 ```typescript
 investigationProvider: {
@@ -344,14 +380,16 @@ Every provider config accepts an optional `fetch`, used instead of the global on
 ```typescript
 class Service {
   @trypatch({
-    resultSchema: ResolutionSchema,
-    investigationProvider: {
-      provider: 'openai',
-      apiKey: process.env.OPENAI_API_KEY!,
-      fetch: async (url, init) => fetch(`https://my-proxy.internal/openai?target=${encodeURIComponent(String(url))}`, {
-        ...init,
-        headers: { ...init?.headers, 'X-Proxy-Token': await getProxyToken() },
-      }),
+    aiInvestigation: {
+      resultSchema: ResolutionSchema,
+      investigationProvider: {
+        provider: 'openai',
+        apiKey: process.env.OPENAI_API_KEY!,
+        fetch: async (url, init) => fetch(`https://my-proxy.internal/openai?target=${encodeURIComponent(String(url))}`, {
+          ...init,
+          headers: { ...init?.headers, 'X-Proxy-Token': await getProxyToken() },
+        }),
+      },
     },
   })
   async run() { /* ... */ }
