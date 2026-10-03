@@ -379,7 +379,7 @@ describe('trypatch', () => {
             ])
         })
 
-        it('should skip the investigation when the call signal is already aborted', async () => {
+        it('should reject with the abort reason and skip the investigation when the call signal is already aborted', async () => {
             const investigate = jest.fn(() => Promise.resolve('investigated'))
 
             class ReportService {
@@ -392,8 +392,33 @@ describe('trypatch', () => {
                 }
             }
 
-            await expect(new ReportService().run({ signal: AbortSignal.abort() })).resolves.toBeUndefined()
+            const reason = new Error('cancelled')
+
+            await expect(new ReportService().run({ signal: AbortSignal.abort(reason) })).rejects.toBe(reason)
             expect(investigate).not.toHaveBeenCalled()
+        })
+
+        it('should reject with the abort reason when the call signal fires mid-investigation', async () => {
+            const controller = new AbortController()
+            const reason = new Error('cancelled')
+
+            class ReportService {
+                @trypatch({
+                    signal: ctx => (ctx.args[0] as { signal: AbortSignal }).signal,
+                    customInvestigation: {
+                        investigate: () => {
+                            controller.abort(reason)
+                            // A handler reacting to the abort with its own error must not mask the caller's reason.
+                            return Promise.reject(new Error('investigation gave up'))
+                        },
+                    },
+                })
+                run (_options: { signal: AbortSignal }): string {
+                    throw new Error('failed')
+                }
+            }
+
+            await expect(new ReportService().run({ signal: controller.signal })).rejects.toBe(reason)
         })
 
         it('should apply AiInvestigationOptions via @trypatch with heterogeneous tools when the method throws', async () => {

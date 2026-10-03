@@ -12,8 +12,8 @@ export async function investigateError<
     ctx: InvestigationContext,
     options: TryPatchOptions<S, C>,
     logger?: Logger,
+    signal?: AbortSignal,
 ): Promise<unknown> {
-    const signal = options.signal?.(ctx)
     signal?.throwIfAborted()
 
     if ('customInvestigation' in options) {
@@ -41,10 +41,15 @@ export async function runInvestigation<
     args: unknown[],
 ): Promise<unknown> {
     const investigationContext = buildInvestigationContext(error, methodDescriptor, receiver, args)
+    let signal: AbortSignal | undefined
 
     try {
-        return await investigateError(investigationContext, options, logger)
+        signal = options.signal?.(investigationContext)
+        return await investigateError(investigationContext, options, logger, signal)
     } catch (investigationError) {
+        // Whoever controls a signal handles its abort.
+        signal?.throwIfAborted()
+
         if (investigationError instanceof TrypatchFatalError) {
             throw investigationError
         }
