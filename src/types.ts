@@ -156,13 +156,15 @@ export type CustomInvestigationErrorDefinition = {
 
 type CustomInvestigateTryPatchOptions = {
     /** Custom investigation handler; replaces the built-in AI provider flow when provided. */
-    investigate: (ctx: InvestigationContext) => Promise<unknown>
+    investigate: (ctx: InvestigationContext, options?: { signal?: AbortSignal }) => Promise<unknown>
     /** Error classes that, when thrown by {@link investigate}, propagate instead of being swallowed. */
     customErrors?: CustomInvestigationErrorDefinition[]
 }
 
 type TryPatchOptionsBase = {
     logging?: LoggingOptions
+    /** Resolves an abort signal from the investigation context (including the call's arguments). Aborts the investigation when the signal fires. */
+    signal?: (ctx: InvestigationContext) => AbortSignal | undefined
 }
 
 export type TryPatchOptions<
