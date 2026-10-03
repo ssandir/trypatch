@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { TrypatchTimeoutError } from '../../errors'
 import { Logger } from '../../logger'
 import type { InvestigationContext } from '../../types'
 import { buildInvestigationPrompt } from './buildPrompt'
@@ -149,6 +150,66 @@ describe('aiInvestigation', () => {
             const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body)) as { mcpServers?: unknown }
             expect(body.mcpServers).toBeUndefined()
             expect(warn).toHaveBeenCalledWith('[ssandir/trypatch] MCP server "linear" is unavailable and was skipped', expect.any(Error))
+        })
+
+        describe('aborting', () => {
+            function useRunningAgent (): void {
+                fetchMock.mockReset()
+                fetchMock
+                    .mockResolvedValueOnce({
+                        ok: true,
+                        status: 200,
+                        json: () => Promise.resolve({ agent: { id: 'bc-agent' }, run: { id: 'run-1' } }),
+                    })
+                    .mockResolvedValue({
+                        ok: true,
+                        status: 200,
+                        json: () => Promise.resolve({ status: 'RUNNING' }),
+                    })
+            }
+
+            it('should pass the signal to every fetch', async () => {
+                const controller = new AbortController()
+
+                await investigateWithCursor(
+                    { provider: 'cursor', apiKey: 'cursor-key' },
+                    outcomeSchema,
+                    { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
+                    { timeoutMs: 5_000, signal: controller.signal },
+                )
+
+                const signals = fetchMock.mock.calls.map(([, init]) => (init as RequestInit).signal)
+                expect(signals).toHaveLength(2)
+                expect(signals.every(signal => signal instanceof AbortSignal)).toBe(true)
+                controller.abort()
+                expect(signals.every(signal => signal?.aborted)).toBe(true)
+            })
+
+            it('should stop polling when the caller aborts, without waiting out the poll interval', async () => {
+                useRunningAgent()
+                const controller = new AbortController()
+                setTimeout(() => {
+                    controller.abort(new Error('cancelled'))
+                }, 20)
+
+                await expect(investigateWithCursor(
+                    { provider: 'cursor', apiKey: 'cursor-key', pollIntervalMs: 60_000 },
+                    outcomeSchema,
+                    { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
+                    { timeoutMs: 5_000, signal: controller.signal },
+                )).rejects.toThrow('cancelled')
+            })
+
+            it('should report the timeout when it fires before the caller aborts', async () => {
+                useRunningAgent()
+
+                await expect(investigateWithCursor(
+                    { provider: 'cursor', apiKey: 'cursor-key', pollIntervalMs: 60_000 },
+                    outcomeSchema,
+                    { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
+                    { timeoutMs: 20, signal: new AbortController().signal },
+                )).rejects.toThrow(TrypatchTimeoutError)
+            })
         })
     })
 

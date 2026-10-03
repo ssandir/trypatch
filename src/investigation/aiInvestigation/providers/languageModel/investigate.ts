@@ -1,5 +1,6 @@
 import { generateText, jsonSchema, Output, stepCountIs, type ToolSet } from 'ai'
 import type { JSONSchema } from 'json-schema-to-ts'
+import { withDeadline } from '../../../../abort/withDeadline'
 import { TrypatchConfigError } from '../../../../errors'
 import { Logger } from '../../../../logger'
 import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
@@ -31,37 +32,38 @@ export async function investigateWithLanguageModel (
     options: LanguageModelInvestigationOptions,
 ): Promise<InvestigationOutcome> {
     const maxToolIterations = options.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS
-    // Shared by MCP connection setup and the tool loop, so timeoutMs covers both.
-    const abortSignal = AbortSignal.timeout(options.timeoutMs)
-    const mcp = await connectMcpTools(options.mcpServers ?? [], abortSignal, options.logger ?? new Logger())
 
-    try {
-        const tools = mergeTools(
-            toolsToAiSdkTools(options.investigationTools, options.toolContext, options.vault),
-            guardMcpTools(mcp.tools, options.vault),
-        )
+    return await withDeadline(async (abortSignal) => {
+        const mcp = await connectMcpTools(options.mcpServers ?? [], abortSignal, options.logger ?? new Logger())
 
-        const result = await generateText({
-            model: createLanguageModel(config),
-            system: prompts.systemPrompt,
-            prompt: prompts.userPrompt,
-            ...tools ? { tools } : {},
-            output: Output.object({ schema: jsonSchema(outcomeSchema as Parameters<typeof jsonSchema>[0]) }),
-            // Producing the structured output is a step of its own on top of the tool rounds.
-            stopWhen: stepCountIs(maxToolIterations + 1),
-            abortSignal,
-            ...options.maxTokens !== undefined ? { maxOutputTokens: options.maxTokens } : {},
-            providerOptions: {
-                openai: { strictJsonSchema: true },
-            },
-        })
+        try {
+            const tools = mergeTools(
+                toolsToAiSdkTools(options.investigationTools, options.toolContext, options.vault),
+                guardMcpTools(mcp.tools, options.vault),
+            )
 
-        if (result.finishReason === 'tool-calls') {
-            throw new Error(`Investigation did not reach an outcome within ${maxToolIterations} tool iterations`)
+            const result = await generateText({
+                model: createLanguageModel(config),
+                system: prompts.systemPrompt,
+                prompt: prompts.userPrompt,
+                ...tools ? { tools } : {},
+                output: Output.object({ schema: jsonSchema(outcomeSchema as Parameters<typeof jsonSchema>[0]) }),
+                // Producing the structured output is a step of its own on top of the tool rounds.
+                stopWhen: stepCountIs(maxToolIterations + 1),
+                abortSignal,
+                ...options.maxTokens !== undefined ? { maxOutputTokens: options.maxTokens } : {},
+                providerOptions: {
+                    openai: { strictJsonSchema: true },
+                },
+            })
+
+            if (result.finishReason === 'tool-calls') {
+                throw new Error(`Investigation did not reach an outcome within ${maxToolIterations} tool iterations`)
+            }
+
+            return parseProviderOutcome(JSON.stringify(result.output), outcomeSchema)
+        } finally {
+            await mcp.close()
         }
-
-        return parseProviderOutcome(JSON.stringify(result.output), outcomeSchema)
-    } finally {
-        await mcp.close()
-    }
+    }, { signal: options.signal, timeout: { ms: options.timeoutMs, label: 'Investigation' } })
 }

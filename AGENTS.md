@@ -39,6 +39,8 @@ On method failure, `@trypatch(...)` can call an external provider to analyze the
 
 Three more outcomes exist to steer the AI away from fabricating a result when nothing fits, each behind its own boolean (all default `true`, additive to the outcomes above; set to `false` to remove that escape hatch) and each throwing its own error class: `allowCannotDetermine` (there isn't enough information to identify a cause at all → `TrypatchCannotDetermineError`), `allowUncertainResult` (a candidate result exists but confidence is too low to state as fact → `TrypatchUncertainResultError`), and `allowNoApplicableOutcome` (none of the configured `result`/`resultTools`/`customErrors` fit the situation → `TrypatchNoApplicableOutcomeError`). The AI supplies a `reason` string that becomes the thrown error's message. Like `customErrors`, these are logged and swallowed by default in `runInvestigation`'s `catch (investigationError)` block; they have no `propagate` option of their own.
 
+`getSignal` on `TryPatchOptions` is a function `(ctx) => AbortSignal | undefined`, since a call's signal doesn't exist yet at decoration time. `runInvestigation` resolves it once per call (no per-dialect code; both dialects end up there) and passes it to `investigateError`. `src/abort/withDeadline.ts` combines it with our own timeouts (`investigationBehavior.timeoutMs` in both providers, a tool's `timeoutMs` in `Tool.call`) and stops waiting for work that ignores the signal. Whoever controls a signal handles its abort: our timeout becomes `TrypatchTimeoutError`, logged and swallowed like any investigation failure; the caller's abort is rethrown as its own reason by `signal?.throwIfAborted()` at the top of `runInvestigation`'s `catch`, ahead of every other check. Custom `investigate`, investigation tools, MCP connects and tools, and result tools all receive the signal; result tools get only the caller's signal, outside `timeoutMs`.
+
 `customInvestigation.investigate` bypasses the AI provider flow entirely with a user-supplied handler. Its own `customErrors` is a distinct, lighter-weight list of `{ errorConstructor }` entries: since `investigate` throws these directly rather than an AI constructing them from JSON, no `errorParameterSchema`/`description` is needed, and matching one always propagates.
 
 | Provider | Notes |
@@ -69,15 +71,17 @@ const schema = z.object({
 
 class Service {
   @trypatch({
-    resultSchema: schema,
-    investigationProvider: {
-      provider: 'openai',
-      apiKey: process.env.OPENAI_API_KEY!,
+    aiInvestigation: {
+      resultSchema: schema,
+      investigationProvider: {
+        provider: 'openai',
+        apiKey: process.env.OPENAI_API_KEY!,
+      },
+      redactConfig: {
+        terms: ['super-secret-value-from-env'],
+      },
+      onInvestigationResult: (result) => console.warn(result),
     },
-    redactConfig: {
-      terms: ['super-secret-value-from-env'],
-    },
-    onInvestigationResult: (result) => console.warn(result),
   })
   async run () { /* ... */ }
 }

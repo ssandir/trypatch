@@ -1,5 +1,6 @@
 import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
 import { z } from 'zod'
+import { TrypatchTimeoutError } from '../errors'
 import { Tool } from './tool'
 import type { ToolInputValue } from './types'
 
@@ -33,7 +34,7 @@ describe('Tool', () => {
         })
 
         await expect(created.call('hello', testContext)).resolves.toBe('HELLO')
-        expect(execute).toHaveBeenCalledWith('hello', testContext)
+        expect(execute).toHaveBeenCalledWith('hello', testContext, { signal: expect.any(AbortSignal) })
         expect(created.parameters).toEqual({
             type: 'object',
             properties: {},
@@ -161,6 +162,46 @@ describe('Tool', () => {
             },
         })
 
-        await expect(created.call('input', testContext)).rejects.toThrow(/timed out/)
+        await expect(created.call('input', testContext)).rejects.toThrow(TrypatchTimeoutError)
+    })
+
+    it('aborts the signal execute sees when timeoutMs is exceeded', async () => {
+        let executeSignal: AbortSignal | undefined
+        const created = new Tool({
+            name: 'slow_tool',
+            description: 'Slow tool',
+            timeoutMs: 20,
+            execute: (_input, _context, { signal }): Promise<never> => {
+                executeSignal = signal
+                return new Promise<never>(() => undefined)
+            },
+        })
+
+        const error = await created.call('input', testContext).catch((caught: unknown) => caught)
+
+        expect(error).toHaveProperty('message', 'Tool slow_tool timed out after 20ms')
+        expect(error).toBeInstanceOf(TrypatchTimeoutError)
+        expect(executeSignal?.aborted).toBe(true)
+    })
+
+    it('rejects with the outer abort reason and aborts the signal execute sees', async () => {
+        const controller = new AbortController()
+        const reason = new Error('cancelled')
+        let executeSignal: AbortSignal | undefined
+        const created = new Tool({
+            name: 'hanging_tool',
+            description: 'Hanging tool',
+            timeoutMs: 5_000,
+            execute: (_input, _context, { signal }): Promise<never> => {
+                executeSignal = signal
+                return new Promise<never>(() => undefined)
+            },
+        })
+        setTimeout(() => {
+            controller.abort(reason)
+        }, 20)
+
+        await expect(created.call('input', testContext, { signal: controller.signal })).rejects.toBe(reason)
+        expect(executeSignal?.aborted).toBe(true)
     })
 })

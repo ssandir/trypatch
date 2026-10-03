@@ -6,11 +6,12 @@ import {
     TrypatchCannotDetermineError,
     TrypatchFatalError,
     TrypatchNoApplicableOutcomeError,
+    TrypatchTimeoutError,
     TrypatchUncertainResultError,
 } from '../errors'
 import { Logger } from '../logger'
 import { Tool } from '../tools'
-import type { CustomErrorDefinition, TryPatchOptions } from '../types'
+import type { CustomErrorDefinition, InvestigationContext, TryPatchOptions } from '../types'
 import { mockMethodDescriptor } from '../test/mockMethodDecoratorContext'
 import { mockLanguageModel, mockOutcomeTurn, promptText } from '../test/mockLanguageModel'
 import { createLanguageModel } from './aiInvestigation/providers/languageModel/createLanguageModel'
@@ -91,6 +92,133 @@ describe('runInvestigation', () => {
 
             expect(result).toBeUndefined()
             expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.any(Error))
+        })
+
+        it('should log and swallow our own investigation timeout', async () => {
+            const loggerLike = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+            }
+            jest.mocked(createLanguageModel).mockReturnValue(new MockLanguageModelV4({
+                doGenerate: () => new Promise<never>(() => undefined),
+            }))
+
+            const result = await runInvestigation(
+                new Error('original'),
+                {
+                    getSignal: () => new AbortController().signal,
+                    aiInvestigation: {
+                        investigationProvider: {
+                            provider: 'openai',
+                            apiKey: 'test-key',
+                        },
+                        investigationBehavior: { timeoutMs: 20 },
+                    },
+                },
+                new Logger({
+                    logger: loggerLike,
+                    verbosity: 'high',
+                }),
+                mockMethodDescriptor(),
+                undefined,
+                [],
+            )
+
+            expect(result).toBeUndefined()
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.any(TrypatchTimeoutError))
+        })
+
+        it('should propagate the caller abort reason from an AI investigation instead of logging it', async () => {
+            const loggerLike = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+            }
+            const controller = new AbortController()
+            const reason = new Error('cancelled')
+            jest.mocked(createLanguageModel).mockReturnValue(new MockLanguageModelV4({
+                doGenerate: () => {
+                    controller.abort(reason)
+                    return new Promise<never>(() => undefined)
+                },
+            }))
+
+            await expect(runInvestigation(
+                new Error('original'),
+                {
+                    getSignal: () => controller.signal,
+                    aiInvestigation: {
+                        investigationProvider: {
+                            provider: 'openai',
+                            apiKey: 'test-key',
+                        },
+                    },
+                },
+                new Logger({
+                    logger: loggerLike,
+                    verbosity: 'high',
+                }),
+                mockMethodDescriptor(),
+                undefined,
+                [],
+            )).rejects.toBe(reason)
+            expect(loggerLike.error).not.toHaveBeenCalled()
+        })
+
+        it('should resolve the signal from the investigation context once and pass it to custom investigate', async () => {
+            const controller = new AbortController()
+            const signalFactory = jest.fn((ctx: InvestigationContext) => (ctx.args[0] as { signal: AbortSignal }).signal)
+            const investigate = jest.fn(() => Promise.resolve('done'))
+
+            await runInvestigation(
+                new Error('original'),
+                { getSignal: signalFactory, customInvestigation: { investigate } },
+                new Logger(),
+                mockMethodDescriptor(),
+                undefined,
+                [{ signal: controller.signal }],
+            )
+
+            expect(signalFactory).toHaveBeenCalledTimes(1)
+            expect(signalFactory).toHaveBeenCalledWith(expect.objectContaining({ args: [{ signal: controller.signal }] }))
+            expect(investigate).toHaveBeenCalledWith(expect.anything(), { signal: controller.signal })
+        })
+
+        it('should swallow and log an error thrown by the signal factory', async () => {
+            const loggerLike = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+            }
+            const investigate = jest.fn(() => Promise.resolve('done'))
+
+            const result = await runInvestigation(
+                new Error('original'),
+                {
+                    getSignal: () => {
+                        throw new Error('no signal')
+                    },
+                    customInvestigation: { investigate },
+                },
+                new Logger({
+                    logger: loggerLike,
+                    verbosity: 'high',
+                }),
+                mockMethodDescriptor(),
+                undefined,
+                [],
+            )
+
+            expect(result).toBeUndefined()
+            expect(investigate).not.toHaveBeenCalled()
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.objectContaining({ message: 'no signal' }))
         })
 
         it('should let a TrypatchFatalError propagate instead of swallowing it', async () => {
@@ -287,6 +415,78 @@ describe('runInvestigation', () => {
             )
 
             expect(result).toEqual({ rootCause: 'custom' })
+        })
+
+        it('should pass the given signal to custom investigate', async () => {
+            const controller = new AbortController()
+            const investigate = jest.fn(() => Promise.resolve('done'))
+            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+
+            await investigateError(ctx, { customInvestigation: { investigate } }, undefined, controller.signal)
+
+            expect(investigate).toHaveBeenCalledWith(ctx, { signal: controller.signal })
+        })
+
+        it('should pass empty options to custom investigate when no signal is resolved', async () => {
+            const investigate = jest.fn(() => Promise.resolve('done'))
+            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+
+            await investigateError(ctx, { customInvestigation: { investigate } }, undefined, undefined)
+
+            expect(investigate).toHaveBeenCalledWith(ctx, {})
+        })
+
+        it('should not start a custom investigation when the signal is already aborted', async () => {
+            const investigate = jest.fn(() => Promise.resolve('done'))
+            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+
+            await expect(investigateError(ctx, {
+                customInvestigation: { investigate },
+            }, undefined, AbortSignal.abort(new Error('cancelled')))).rejects.toThrow('cancelled')
+            expect(investigate).not.toHaveBeenCalled()
+        })
+
+        it('should not call the AI provider when the signal is already aborted', async () => {
+            const model = useOutcome({ type: 'result', result: 'unused' })
+            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+
+            await expect(investigateError(ctx, {
+                aiInvestigation: {
+                    investigationProvider: {
+                        provider: 'openai',
+                        apiKey: 'test-key',
+                    },
+                },
+            }, undefined, AbortSignal.abort(new Error('cancelled')))).rejects.toThrow('cancelled')
+            expect(model.doGenerateCalls).toHaveLength(0)
+        })
+
+        it('should hand result tools the caller signal', async () => {
+            const controller = new AbortController()
+            let resultToolSignal: AbortSignal | undefined
+            useOutcome({ type: 'resultTool', toolName: 'submit', input: {} })
+            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+
+            await investigateError(ctx, {
+                aiInvestigation: {
+                    investigationProvider: {
+                        provider: 'openai',
+                        apiKey: 'test-key',
+                    },
+                    resultTools: [new Tool({
+                        name: 'submit',
+                        description: 'Submit the result',
+                        execute: (_input, _context, { signal }) => {
+                            resultToolSignal = signal
+                            return 'submitted'
+                        },
+                    })],
+                },
+            }, undefined, controller.signal)
+
+            expect(resultToolSignal?.aborted).toBe(false)
+            controller.abort()
+            expect(resultToolSignal?.aborted).toBe(true)
         })
 
         it('should parse a JSON-encoded result when no resultSchema is given', async () => {

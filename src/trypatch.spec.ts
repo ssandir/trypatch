@@ -308,7 +308,7 @@ describe('trypatch', () => {
             expect(investigate).toHaveBeenCalledWith(expect.objectContaining({
                 methodName: 'run',
                 args: ['fail'],
-            }))
+            }), {})
         })
 
         it('should resolve className and static from the real receiver at call time', async () => {
@@ -336,14 +336,89 @@ describe('trypatch', () => {
             await expect(new BillingService().run('fail')).resolves.toBeDefined()
             expect(investigate).toHaveBeenCalledWith(expect.objectContaining({
                 methodMetadata: { className: 'BillingService', static: false, private: false },
-            }))
+            }), {})
 
             investigate.mockClear()
 
             await expect(BillingService.runStatic('fail')).resolves.toBeDefined()
             expect(investigate).toHaveBeenCalledWith(expect.objectContaining({
                 methodMetadata: { className: 'BillingService', static: true, private: false },
-            }))
+            }), {})
+        })
+
+        it('should resolve the signal per call from the call arguments for instance and static methods', async () => {
+            const investigate = jest.fn((_ctx: InvestigationContext, _options: { signal?: AbortSignal }) => Promise.resolve('investigated'))
+            const signalOptions = {
+                getSignal: (ctx: InvestigationContext) => (ctx.args[1] as { signal?: AbortSignal } | undefined)?.signal,
+                customInvestigation: { investigate },
+            } satisfies TryPatchOptions
+
+            class ReportService {
+                @trypatch(signalOptions)
+                run (_value: string, _options?: { signal?: AbortSignal }): string {
+                    throw new Error('failed')
+                }
+
+                @trypatch(signalOptions)
+                static runStatic (_value: string, _options?: { signal?: AbortSignal }): string {
+                    throw new Error('failed')
+                }
+            }
+
+            const first = new AbortController()
+            const second = new AbortController()
+
+            await expect(new ReportService().run('fail', { signal: first.signal })).resolves.toBe('investigated')
+            await expect(ReportService.runStatic('fail', { signal: second.signal })).resolves.toBe('investigated')
+            await expect(new ReportService().run('fail')).resolves.toBe('investigated')
+
+            expect(investigate.mock.calls.map(([, options]) => options)).toEqual([
+                { signal: first.signal },
+                { signal: second.signal },
+                {},
+            ])
+        })
+
+        it('should reject with the abort reason and skip the investigation when the call signal is already aborted', async () => {
+            const investigate = jest.fn(() => Promise.resolve('investigated'))
+
+            class ReportService {
+                @trypatch({
+                    getSignal: ctx => (ctx.args[0] as { signal: AbortSignal }).signal,
+                    customInvestigation: { investigate },
+                })
+                run (_options: { signal: AbortSignal }): string {
+                    throw new Error('failed')
+                }
+            }
+
+            const reason = new Error('cancelled')
+
+            await expect(new ReportService().run({ signal: AbortSignal.abort(reason) })).rejects.toBe(reason)
+            expect(investigate).not.toHaveBeenCalled()
+        })
+
+        it('should reject with the abort reason when the call signal fires mid-investigation', async () => {
+            const controller = new AbortController()
+            const reason = new Error('cancelled')
+
+            class ReportService {
+                @trypatch({
+                    getSignal: ctx => (ctx.args[0] as { signal: AbortSignal }).signal,
+                    customInvestigation: {
+                        investigate: () => {
+                            controller.abort(reason)
+                            // A handler reacting to the abort with its own error must not mask the caller's reason.
+                            return Promise.reject(new Error('investigation gave up'))
+                        },
+                    },
+                })
+                run (_options: { signal: AbortSignal }): string {
+                    throw new Error('failed')
+                }
+            }
+
+            await expect(new ReportService().run({ signal: controller.signal })).rejects.toBe(reason)
         })
 
         it('should apply AiInvestigationOptions via @trypatch with heterogeneous tools when the method throws', async () => {

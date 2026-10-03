@@ -56,6 +56,7 @@ export type LanguageModelInvestigationOptions = {
     vault?: Vault | undefined
     mcpServers?: McpServerConfig[] | undefined
     logger?: Logger | undefined
+    signal?: AbortSignal | undefined
 }
 
 export type McpConnection = {

@@ -1,3 +1,4 @@
+import { withDeadline } from '../abort/withDeadline'
 import { getParser, getSchema, toFunctionToolName, type ToolParametersSchema } from './schema'
 import type {
     ToolDefinition,
@@ -6,33 +7,6 @@ import type {
     ToolInputValue,
 } from './types'
 
-
-async function callWithOptionalTimeout<Result> (
-    call: () => Promise<Result>,
-    timeoutMs: number | undefined,
-    toolName: string,
-): Promise<Result> {
-    if (timeoutMs === undefined) {
-        return call()
-    }
-
-    let timeoutId: ReturnType<typeof setTimeout> | undefined
-    try {
-        return await Promise.race([
-            call(),
-            new Promise<Result>((_resolve, reject) => {
-                timeoutId = setTimeout(() => {
-                    reject(new Error(`Tool ${toolName} timed out after ${timeoutMs}ms`))
-                    return toolName
-                }, timeoutMs)
-            }),
-        ])
-    } finally {
-        if (timeoutId !== undefined) {
-            clearTimeout(timeoutId)
-        }
-    }
-}
 
 export class Tool<
     TSchema extends ToolInput = undefined,
@@ -60,10 +34,14 @@ export class Tool<
         }
     }
 
-    async call (input: string, context?: Context): Promise<Awaited<Result>> {
-        return callWithOptionalTimeout<Awaited<Result>>(async (): Promise<Awaited<Result>> => {
+    // TBD: make Tool.call  an internal function only the lib sees that is not exposed and make it's parameters required, consumer has no business calling this
+    async call (input: string, context?: Context, options: { signal?: AbortSignal | undefined } = {}): Promise<Awaited<Result>> {
+        return await withDeadline(async (signal): Promise<Awaited<Result>> => {
             const parsed = this.parser(input)
-            return await this.execute(parsed, context)
-        }, this.timeoutMs, this.name)
+            return await this.execute(parsed, context, { signal })
+        }, {
+            signal: options.signal,
+            timeout: this.timeoutMs === undefined ? undefined : { ms: this.timeoutMs, label: `Tool ${this.name}` },
+        })
     }
 }
