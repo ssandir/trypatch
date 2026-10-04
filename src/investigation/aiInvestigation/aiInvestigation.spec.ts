@@ -32,6 +32,7 @@ describe('aiInvestigation', () => {
                 methodMetadata: { className: 'BillingService', static: true, private: true },
             }, ctx.args, outcomeSchema, {})
             expect(prompts.userPrompt).toContain('Method: BillingService.charge')
+            expect(prompts.userPrompt).toContain('Your outcome replaces this failed call to BillingService.charge')
             expect(prompts.userPrompt).toContain('Method metadata: {"className":"BillingService","static":true,"private":true}')
         })
     })

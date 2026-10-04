@@ -21,6 +21,7 @@ export function errorOutcomeVariant (definition: CustomErrorDefinition) {
 export function resultToolOutcomeVariant (tool: LooseTool) {
     return {
         type: 'object',
+        description: `Call the "${tool.name}" result tool; its return value is returned from the method in place of the error. Tool description: ${tool.description}`,
         properties: {
             type: { enum: ['resultTool'] },
             toolName: { enum: [tool.name] },
@@ -34,13 +35,14 @@ export function resultToolOutcomeVariant (tool: LooseTool) {
 export function explicitResultOutcomeVariant (resultSchema: Schema | undefined) {
     return {
         type: 'object',
+        description: 'Return this value from the method in place of the error. It must be a correct return value for this call.',
         properties: {
             type: { enum: ['result'] },
             result: resultSchema !== undefined
                 ? toJsonSchemaObject(resultSchema)
                 : {
                     type: 'string',
-                    description: 'A JSON-encoded string representing the investigation result. It will be parsed with JSON.parse.',
+                    description: 'The method\'s return value, JSON-encoded. It is parsed with JSON.parse and returned in place of the error.',
                 },
         },
         required: ['type', 'result'],
@@ -50,10 +52,10 @@ export function explicitResultOutcomeVariant (resultSchema: Schema | undefined) 
 
 export const cannotDetermineOutcomeVariant = {
     type: 'object',
-    description: 'The investigation genuinely could not determine what happened — there is not enough information to identify a cause or produce a meaningful result. Use this instead of fabricating one.',
+    description: 'There is not enough information to work out a correct return value for this call. Use this instead of fabricating one.',
     properties: {
         type: { enum: ['cannotDetermine'] },
-        reason: { type: 'string', description: 'Brief explanation of why no result could be determined.' },
+        reason: { type: 'string', description: 'Brief explanation of why no return value could be determined.' },
     },
     required: ['type', 'reason'],
     additionalProperties: false,
@@ -62,10 +64,10 @@ export type InvestigationCannotDetermineOutcome = FromSchema<typeof cannotDeterm
 
 export const uncertainOutcomeVariant = {
     type: 'object',
-    description: 'A plausible result exists, but confidence in it is too low to state as fact. Use this instead of guessing.',
+    description: 'A plausible return value exists, but confidence that it is correct is too low to return it. Use this instead of guessing.',
     properties: {
         type: { enum: ['uncertain'] },
-        reason: { type: 'string', description: 'The plausible result considered, and why confidence in it was too low to return.' },
+        reason: { type: 'string', description: 'Why a return value cannot be determined with sufficient confidence.' },
     },
     required: ['type', 'reason'],
     additionalProperties: false,
