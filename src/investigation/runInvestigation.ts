@@ -1,3 +1,4 @@
+import { withDeadline } from '../abort/withDeadline'
 import { runAiInvestigation } from './aiInvestigation/runAiInvestigation'
 import { buildInvestigationContext } from './investigationContext'
 import { TrypatchFatalError } from '../errors'
@@ -16,11 +17,18 @@ export async function investigateError<
 ): Promise<unknown> {
     signal?.throwIfAborted()
 
+    const { timeoutMs } = options
+
     if ('customInvestigation' in options) {
-        return await options.customInvestigation.investigate(ctx, signal ? { signal } : {})
+        const { investigate } = options.customInvestigation
+
+        return await withDeadline(
+            deadlineSignal => investigate(ctx, { signal: deadlineSignal }),
+            { signal, timeout: { ms: timeoutMs, label: 'Investigation' } },
+        )
     }
 
-    return await runAiInvestigation(ctx, options.aiInvestigation, logger, signal)
+    return await runAiInvestigation(ctx, options.aiInvestigation, timeoutMs, logger, signal)
 }
 
 function shouldPropagateCustomError (investigationError: unknown, options: TryPatchOptions<any, any>): boolean {

@@ -108,12 +108,12 @@ describe('runInvestigation', () => {
                 originalError,
                 {
                     getSignal: () => new AbortController().signal,
+                    timeoutMs: 20,
                     aiInvestigation: {
                         investigationProvider: {
                             provider: 'openai',
                             apiKey: 'test-key',
                         },
-                        investigationBehavior: { timeoutMs: 20 },
                     },
                 },
                 new Logger({
@@ -182,7 +182,7 @@ describe('runInvestigation', () => {
 
             expect(signalFactory).toHaveBeenCalledTimes(1)
             expect(signalFactory).toHaveBeenCalledWith(expect.objectContaining({ args: [{ signal: controller.signal }] }))
-            expect(investigate).toHaveBeenCalledWith(expect.anything(), { signal: controller.signal })
+            expect(investigate).toHaveBeenCalledWith(expect.anything(), { signal: expect.any(AbortSignal) })
         })
 
         it('should log an error thrown by the signal factory and rethrow the original error', async () => {
@@ -405,23 +405,28 @@ describe('runInvestigation', () => {
             expect(result).toEqual({ inStock: true })
         })
 
-        it('should pass the given signal to custom investigate', async () => {
+        it('should abort the signal passed to custom investigate when the caller aborts', async () => {
             const controller = new AbortController()
-            const investigate = jest.fn(() => Promise.resolve('done'))
+            let received: AbortSignal | undefined
+            const investigate = jest.fn((_ctx: unknown, { signal }: { signal?: AbortSignal }) => {
+                received = signal
+                return Promise.resolve('done')
+            })
             const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
 
             await investigateError(ctx, { customInvestigation: { investigate } }, undefined, controller.signal)
+            controller.abort()
 
-            expect(investigate).toHaveBeenCalledWith(ctx, { signal: controller.signal })
+            expect(received?.aborted).toBe(true)
         })
 
-        it('should pass empty options to custom investigate when no signal is resolved', async () => {
-            const investigate = jest.fn(() => Promise.resolve('done'))
+        it('should time out a custom investigation that ignores the signal', async () => {
             const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
 
-            await investigateError(ctx, { customInvestigation: { investigate } }, undefined, undefined)
-
-            expect(investigate).toHaveBeenCalledWith(ctx, {})
+            await expect(investigateError(ctx, {
+                timeoutMs: 10,
+                customInvestigation: { investigate: () => new Promise(() => undefined) },
+            })).rejects.toBeInstanceOf(TrypatchTimeoutError)
         })
 
         it('should not start a custom investigation when the signal is already aborted', async () => {

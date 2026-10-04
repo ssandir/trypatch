@@ -48,7 +48,7 @@ export type LanguageModelInvestigationConfig
         | OpenAiCompatibleInvestigationConfig
 
 export type LanguageModelInvestigationOptions = {
-    timeoutMs: number
+    timeoutMs?: number | undefined
     maxTokens?: number | undefined
     maxToolIterations?: number | undefined
     investigationTools?: LooseTool[] | undefined

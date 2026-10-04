@@ -275,7 +275,7 @@ describe('trypatch', () => {
             expect(investigate).toHaveBeenCalledWith(expect.objectContaining({
                 methodName: 'run',
                 args: ['fail'],
-            }), {})
+            }), { signal: expect.any(AbortSignal) })
         })
 
         it('should reject with the method\'s own error when the investigation produces no value', async () => {
@@ -317,14 +317,14 @@ describe('trypatch', () => {
             await expect(new BillingService().run('fail')).resolves.toBeDefined()
             expect(investigate).toHaveBeenCalledWith(expect.objectContaining({
                 methodMetadata: { className: 'BillingService', static: false, private: false },
-            }), {})
+            }), { signal: expect.any(AbortSignal) })
 
             investigate.mockClear()
 
             await expect(BillingService.runStatic('fail')).resolves.toBeDefined()
             expect(investigate).toHaveBeenCalledWith(expect.objectContaining({
                 methodMetadata: { className: 'BillingService', static: true, private: false },
-            }), {})
+            }), { signal: expect.any(AbortSignal) })
         })
 
         it('should resolve the signal per call from the call arguments for instance and static methods', async () => {
@@ -353,11 +353,10 @@ describe('trypatch', () => {
             await expect(ReportService.runStatic('fail', { signal: second.signal })).resolves.toBe('investigated')
             await expect(new ReportService().run('fail')).resolves.toBe('investigated')
 
-            expect(investigate.mock.calls.map(([, options]) => options)).toEqual([
-                { signal: first.signal },
-                { signal: second.signal },
-                {},
-            ])
+            const signals = investigate.mock.calls.map(([, options]) => (options as { signal: AbortSignal }).signal)
+            first.abort()
+
+            expect(signals.map(signal => signal.aborted)).toEqual([true, false, false])
         })
 
         it('should reject with the abort reason and skip the investigation when the call signal is already aborted', async () => {
@@ -421,7 +420,6 @@ describe('trypatch', () => {
                     investigationBehavior: {
                         systemPrompt: 'Investigate production errors.',
                         prompt: (ctx: InvestigationContext) => `Method ${ctx.methodName} failed with ${ctx.error}`,
-                        timeoutMs: 30_000,
                         maxTokens: 512,
                         sanitizeArgs: (args: unknown[]) => args.map(String),
                     },
