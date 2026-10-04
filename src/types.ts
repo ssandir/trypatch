@@ -86,7 +86,10 @@ export type CustomErrorDefinition<S extends Schema = Schema> = {
     description?: string
     /** Zod or JSON Schema describing the error constructor parameter type. */
     errorParameterSchema: S
-    /** Whether this error propagates out of trypatch instead of being logged and swallowed. Defaults to `false`. */
+    /**
+     * Whether this error propagates out of trypatch. Defaults to `false`: it is logged and the
+     * decorated method rethrows its original error instead.
+     */
     propagate?: boolean
 }
 

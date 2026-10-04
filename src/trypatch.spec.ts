@@ -311,6 +311,23 @@ describe('trypatch', () => {
             }), {})
         })
 
+        it('should reject with the method\'s own error when the investigation produces no value', async () => {
+            const methodError = new Error('failed')
+
+            class FailingInvestigationService {
+                @trypatch({
+                    customInvestigation: {
+                        investigate: () => Promise.reject(new Error('investigation failed')),
+                    },
+                })
+                run (): Promise<DecoratorResult> {
+                    return Promise.reject(methodError)
+                }
+            }
+
+            await expect(new FailingInvestigationService().run()).rejects.toBe(methodError)
+        })
+
         it('should resolve className and static from the real receiver at call time', async () => {
             const investigate = jest.fn((ctx: InvestigationContext): Promise<DecoratorResult> => Promise.resolve({
                 rootCause: `custom:${ctx.methodName}`,
