@@ -9,6 +9,7 @@
 - Import the library only as `@ssandir/trypatch`, never from `../src`. The point is to exercise the packed tarball a consumer installs: `scripts/setup.mjs` runs `npm pack` on the root and installs the result from `.pack/trypatch.tgz`. There's no lockfile here (`package-lock=false`), since the tarball's contents change on every build and a lockfile would pin its integrity hash; this also means the library's dependencies resolve fresh, like for a consumer installing today.
 - Each run makes real, paid API calls. Don't run it in loops, and don't add it to the root `npm test`.
 - A missing `ANTHROPIC_API_KEY` must fail the run, not skip it: a skipped e2e reads as a pass.
+- CI runs this only when the repository owner comments `[e2e]` on a PR (`.github/workflows/e2e.yml`); never make it run automatically on push or PR events.
 
 ## Running
 

@@ -24,6 +24,12 @@ npm test
 
 `npm test` builds the library, packs it, reinstalls the tarball here, type-checks, and runs the test. Each run costs one investigation's worth of tokens (a few requests, since the model calls a tool). The test fails if the key is missing.
 
+## Running in CI
+
+Comment `[e2e]` on a pull request. Only the repository owner can trigger it, since the job runs the PR's code with the API key and that code can read it. `.github/workflows/e2e.yml` reacts 👀 to the comment, tests the PR's head commit as it was at that moment, and reports an `e2e` status on that commit (then 🚀 or 😕 on the comment). Reports are uploaded as the `e2e-reports` artifact, also on failure.
+
+The key comes from the `ANTHROPIC_API_KEY` secret of the `e2e` GitHub environment. Like every `issue_comment` workflow, it only runs once the workflow file is on the default branch.
+
 ## Reading the output
 
 Every run writes `output/claude-<timestamp>.json`, even when the test fails:

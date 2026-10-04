@@ -1,0 +1,83 @@
+name: E2E
+
+# Comment "[e2e]" on a PR to run e2e/ against real providers. It makes paid API calls, so it never
+# runs on its own. The result shows up as an "e2e" status on the PR's head commit.
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: E2E (Claude)
+    # issue_comment runs with this repo's secrets, and this job executes the PR's code, which can
+    # read the key. Only the owner can trigger it: their comment vouches for the code.
+    if: >-
+      github.event.issue.pull_request
+      && contains(github.event.comment.body, '[e2e]')
+      && github.event.comment.author_association == 'OWNER'
+    concurrency:
+      group: e2e-${{ github.event.issue.number }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: e2e
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.issue.number }}
+      COMMENT_ID: ${{ github.event.comment.id }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Acknowledge comment
+        run: gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID/reactions" -f content=eyes --silent
+
+      # issue_comment checks out the default branch by default. Pin the PR head as it is now, so
+      # the status lands on the commit that was tested even if the PR moves on mid-run.
+      - name: Resolve PR head
+        id: pr
+        run: |
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .head.sha)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$sha" --silent \
+            -f state=pending -f context=e2e -f description="Running (requested in a comment)" -f target_url="$RUN_URL"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.pr.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm --prefix e2e test
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: e2e-reports
+          path: e2e/output/
+          if-no-files-found: ignore
+
+      - name: Report result
+        if: ${{ always() && steps.pr.outputs.sha }}
+        env:
+          SHA: ${{ steps.pr.outputs.sha }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          case "$JOB_STATUS" in
+            success) state=success; reaction=rocket; description="Passed" ;;
+            cancelled) state=error; reaction=confused; description="Cancelled" ;;
+            *) state=failure; reaction=confused; description="Failed, see the run and its e2e-reports artifact" ;;
+          esac
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" --silent \
+            -f state="$state" -f context=e2e -f description="$description" -f target_url="$RUN_URL"
+          gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID/reactions" -f content="$reaction" --silent
