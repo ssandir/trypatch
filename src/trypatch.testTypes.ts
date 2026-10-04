@@ -11,8 +11,7 @@ import { mockMethodDecoratorContext } from './test/mockMethodDecoratorContext'
  */
 
 const resultSchema = z.object({
-    rootCause: z.string(),
-    retryable: z.boolean(),
+    inStock: z.boolean(),
 })
 
 const investigationProvider = {
@@ -20,7 +19,7 @@ const investigationProvider = {
     apiKey: 'test-key',
 } as const
 
-const mismatchedReturnMethod = (): Promise<{ rootCause: string, retryable: string }> => Promise.resolve({ rootCause: 'x', retryable: 'no' })
+const mismatchedReturnMethod = (): Promise<{ inStock: string }> => Promise.resolve({ inStock: 'no' })
 
 trypatch({
     aiInvestigation: { resultSchema, investigationProvider },
@@ -30,7 +29,7 @@ trypatch({
     mockMethodDecoratorContext('run'),
 )
 
-const syncMethod = (): { rootCause: string, retryable: boolean } => ({ rootCause: 'x', retryable: false })
+const syncMethod = (): { inStock: boolean } => ({ inStock: false })
 
 trypatch({
     aiInvestigation: { resultSchema, investigationProvider },

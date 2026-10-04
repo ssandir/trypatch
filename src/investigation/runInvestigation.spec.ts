@@ -32,12 +32,11 @@ describe('runInvestigation', () => {
     describe('runInvestigation', () => {
         const originalError = new Error('original')
         const schema = z.object({
-            rootCause: z.string(),
-            retryable: z.boolean(),
+            inStock: z.boolean(),
         })
 
         it('should return parsed investigation results', async () => {
-            useOutcome({ type: 'result', explanation: 'test explanation', result: { rootCause: 'timeout', retryable: true } })
+            useOutcome({ type: 'result', explanation: 'test explanation', result: { inStock: true } })
 
             const result = await runInvestigation(
                 new Error('original'),
@@ -56,7 +55,7 @@ describe('runInvestigation', () => {
                 [],
             )
 
-            expect(result).toEqual({ rootCause: 'timeout', retryable: true })
+            expect(result).toEqual({ inStock: true })
         })
 
         it('should log investigation failures and rethrow the original error', async () => {
@@ -75,7 +74,7 @@ describe('runInvestigation', () => {
                 originalError,
                 {
                     aiInvestigation: {
-                        resultSchema: z.object({ rootCause: z.string() }),
+                        resultSchema: z.object({ inStock: z.boolean() }),
                         investigationProvider: {
                             provider: 'openai',
                             apiKey: 'test-key',
@@ -394,7 +393,7 @@ describe('runInvestigation', () => {
         it('should use custom investigate override when provided', async () => {
             const options: TryPatchOptions = {
                 customInvestigation: {
-                    investigate: () => Promise.resolve({ rootCause: 'custom' }),
+                    investigate: () => Promise.resolve({ inStock: true }),
                 },
             }
 
@@ -403,7 +402,7 @@ describe('runInvestigation', () => {
                 options,
             )
 
-            expect(result).toEqual({ rootCause: 'custom' })
+            expect(result).toEqual({ inStock: true })
         })
 
         it('should pass the given signal to custom investigate', async () => {
@@ -483,7 +482,7 @@ describe('runInvestigation', () => {
             useOutcome({
                 type: 'result',
                 explanation: 'test explanation',
-                result: JSON.stringify({ rootCause: 'timeout', retryable: true }),
+                result: JSON.stringify({ inStock: true }),
             })
 
             const result = await investigateError(ctx, {
@@ -495,20 +494,19 @@ describe('runInvestigation', () => {
                 },
             })
 
-            expect(result).toEqual({ rootCause: 'timeout', retryable: true })
+            expect(result).toEqual({ inStock: true })
         })
 
         it('should invoke result tools when the provider returns a resultTool outcome', async () => {
             const schema = z.object({
-                rootCause: z.string(),
-                retryable: z.boolean(),
+                inStock: z.boolean(),
             })
             const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
             useOutcome({
                 type: 'resultTool',
                 explanation: 'test explanation',
                 toolName: 'submit_investigation',
-                input: { rootCause: 'network', retryable: true },
+                input: { inStock: true },
             })
 
             const resultTool = new Tool({
@@ -529,7 +527,7 @@ describe('runInvestigation', () => {
                 },
             })
 
-            expect(result).toEqual({ rootCause: 'network', retryable: true })
+            expect(result).toEqual({ inStock: true })
         })
 
         it('should log the outcome\'s explanation and pass it to onInvestigationResult', async () => {
@@ -608,8 +606,7 @@ describe('runInvestigation', () => {
 
         it('should redact investigation prompts before calling the provider', async () => {
             const schema = z.object({
-                rootCause: z.string(),
-                retryable: z.boolean(),
+                inStock: z.boolean(),
             })
             const secret = 'sk-live-abcdefghijklmnopqrstuvwx'
             const ctx = buildInvestigationContext(
@@ -618,7 +615,7 @@ describe('runInvestigation', () => {
                 undefined,
                 [{ authorization: secret }],
             )
-            const model = useOutcome({ type: 'result', explanation: 'test explanation', result: { rootCause: 'invalid token', retryable: false } })
+            const model = useOutcome({ type: 'result', explanation: 'test explanation', result: { inStock: false } })
 
             await investigateError(ctx, {
                 aiInvestigation: {
