@@ -1,5 +1,6 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import type { InvestigationContext } from '../../types'
+import { qualifiedMethodName } from '../investigationContext'
 
 const DEFAULT_SYSTEM_PROMPT = [
     'A method call in application code threw an error, and you stand in for that call.',
@@ -21,14 +22,14 @@ export function buildInvestigationPrompt (
         ? `${ctx.error.name}: ${ctx.error.message}\n${ctx.error.stack ?? ''}`
         : String(ctx.error)
 
-    const qualifiedMethodName = `${ctx.methodMetadata.className ? `${ctx.methodMetadata.className}.` : ''}${ctx.methodName}`
+    const methodName = qualifiedMethodName(ctx)
 
     const defaultUserPrompt = [
-        `Method: ${qualifiedMethodName}`,
+        `Method: ${methodName}`,
         `Method metadata: ${JSON.stringify(ctx.methodMetadata)}`,
         `Arguments: ${JSON.stringify(sanitizedArgs)}`,
         `Error:\n${errorMessage}`,
-        `Your outcome replaces this failed call to ${qualifiedMethodName}: a result you construct, or the return value of a result tool you invoke, is what the call returns to its caller. Return JSON matching this schema:\n${JSON.stringify(outcomeSchema, null, 2)}`,
+        `Your outcome replaces this failed call to ${methodName}: a result you construct, or the return value of a result tool you invoke, is what the call returns to its caller. Return JSON matching this schema:\n${JSON.stringify(outcomeSchema, null, 2)}`,
     ].join('\n\n')
 
     const userPrompt = typeof options.prompt === 'function'

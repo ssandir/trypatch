@@ -37,7 +37,7 @@ describe('runInvestigation', () => {
         })
 
         it('should return parsed investigation results', async () => {
-            useOutcome({ type: 'result', result: { rootCause: 'timeout', retryable: true } })
+            useOutcome({ type: 'result', explanation: 'test explanation', result: { rootCause: 'timeout', retryable: true } })
 
             const result = await runInvestigation(
                 new Error('original'),
@@ -436,7 +436,7 @@ describe('runInvestigation', () => {
         })
 
         it('should not call the AI provider when the signal is already aborted', async () => {
-            const model = useOutcome({ type: 'result', result: 'unused' })
+            const model = useOutcome({ type: 'result', explanation: 'test explanation', result: 'unused' })
             const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
 
             await expect(investigateError(ctx, {
@@ -453,7 +453,7 @@ describe('runInvestigation', () => {
         it('should hand result tools the caller signal', async () => {
             const controller = new AbortController()
             let resultToolSignal: AbortSignal | undefined
-            useOutcome({ type: 'resultTool', toolName: 'submit', input: {} })
+            useOutcome({ type: 'resultTool', explanation: 'test explanation', toolName: 'submit', input: {} })
             const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
 
             await investigateError(ctx, {
@@ -482,6 +482,7 @@ describe('runInvestigation', () => {
             const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
             useOutcome({
                 type: 'result',
+                explanation: 'test explanation',
                 result: JSON.stringify({ rootCause: 'timeout', retryable: true }),
             })
 
@@ -505,6 +506,7 @@ describe('runInvestigation', () => {
             const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
             useOutcome({
                 type: 'resultTool',
+                explanation: 'test explanation',
                 toolName: 'submit_investigation',
                 input: { rootCause: 'network', retryable: true },
             })
@@ -528,6 +530,33 @@ describe('runInvestigation', () => {
             })
 
             expect(result).toEqual({ rootCause: 'network', retryable: true })
+        })
+
+        it('should log the outcome\'s explanation and pass it to onInvestigationResult', async () => {
+            const loggerLike = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+            }
+            const onInvestigationResult = jest.fn()
+            useOutcome({ type: 'result', explanation: 'upstream renamed price', result: 'ok' })
+            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), new (class Billing {})(), [])
+
+            await investigateError(ctx, {
+                aiInvestigation: {
+                    resultSchema: z.string(),
+                    investigationProvider: {
+                        provider: 'openai',
+                        apiKey: 'test-key',
+                    },
+                    onInvestigationResult,
+                },
+            }, new Logger({ logger: loggerLike, verbosity: 'high' }))
+
+            expect(loggerLike.info).toHaveBeenCalledWith('[ssandir/trypatch] Investigation of Billing.run returned a result', 'upstream renamed price')
+            expect(onInvestigationResult).toHaveBeenCalledWith('ok', { explanation: 'upstream renamed price' })
         })
 
         it('should throw the matching custom error when the provider returns an error outcome', async () => {
@@ -589,7 +618,7 @@ describe('runInvestigation', () => {
                 undefined,
                 [{ authorization: secret }],
             )
-            const model = useOutcome({ type: 'result', result: { rootCause: 'invalid token', retryable: false } })
+            const model = useOutcome({ type: 'result', explanation: 'test explanation', result: { rootCause: 'invalid token', retryable: false } })
 
             await investigateError(ctx, {
                 aiInvestigation: {

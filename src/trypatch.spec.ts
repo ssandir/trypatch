@@ -43,7 +43,7 @@ describe('trypatch', () => {
     }
 
     function mockInvestigationResponse (result: InvestigationResult): ReturnType<typeof mockLanguageModel> {
-        const model = mockLanguageModel(mockOutcomeTurn({ type: 'result', result }))
+        const model = mockLanguageModel(mockOutcomeTurn({ type: 'result', explanation: 'test explanation', result }))
         jest.mocked(createLanguageModel).mockReturnValue(model)
         return model
     }
@@ -93,7 +93,7 @@ describe('trypatch', () => {
             expect(onInvestigationResult).toHaveBeenCalledWith({
                 rootCause: 'bad input',
                 retryable: false,
-            })
+            }, { explanation: 'test explanation' })
         })
 
         it('should return investigation results when the method throws with a JSON schema', async () => {
@@ -125,7 +125,7 @@ describe('trypatch', () => {
             expect(onInvestigationResult).toHaveBeenCalledWith({
                 rootCause: 'schema mismatch',
                 retryable: true,
-            })
+            }, { explanation: 'test explanation' })
         })
 
         it('should resolve sync success values through a promise', async () => {
@@ -176,7 +176,7 @@ describe('trypatch', () => {
             expect(onInvestigationResult).toHaveBeenCalledWith({
                 rootCause: 'async failure',
                 retryable: true,
-            })
+            }, { explanation: 'test explanation' })
         })
     })
 
@@ -517,7 +517,7 @@ describe('trypatch', () => {
             expect(onInvestigationResult).toHaveBeenCalledWith({
                 rootCause: 'provider root cause',
                 retryable: false,
-            })
+            }, { explanation: 'test explanation' })
 
             expect(model.doGenerateCalls[0]?.tools?.map(tool => tool.name)).toEqual([
                 'search_logs',

@@ -149,8 +149,16 @@ export type AiInvestigationOptions<
      * Throws {@link TrypatchNoApplicableOutcomeError}. Defaults to `true`.
      */
     allowNoApplicableOutcome?: boolean
-    /** Callback invoked with the parsed investigation result before it is returned from the wrapped method. */
-    onInvestigationResult?: (result: SchemaInfer<S>) => void | Promise<void>
+    /**
+     * Callback invoked with the value the wrapped method is about to return in place of its error,
+     * plus the AI's explanation of why the call failed and why that value is correct.
+     */
+    onInvestigationResult?: (result: SchemaInfer<S>, details: InvestigationResultDetails) => void | Promise<void>
+}
+
+export type InvestigationResultDetails = {
+    /** The AI's explanation of why the call failed and why the returned value is correct for it. */
+    explanation: string
 }
 
 export type CustomInvestigationErrorDefinition = {

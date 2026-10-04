@@ -64,7 +64,7 @@ describe('aiInvestigation', () => {
                     json: () => Promise.resolve({
                         status: 'FINISHED',
                         result: JSON.stringify({
-                            outcome: { type: 'result', result: { rootCause: 'invalid payload', retryable: false } },
+                            outcome: { type: 'result', explanation: 'test explanation', result: { rootCause: 'invalid payload', retryable: false } },
                         }),
                     }),
                 })
@@ -90,6 +90,7 @@ describe('aiInvestigation', () => {
 
             expect(result).toEqual({
                 type: 'result',
+                explanation: 'test explanation',
                 result: { rootCause: 'invalid payload', retryable: false },
             })
             expect(fetchMock).toHaveBeenNthCalledWith(
@@ -219,7 +220,7 @@ describe('aiInvestigation', () => {
             resultSchema: z.object({ rootCause: z.string(), retryable: z.boolean() }),
         })
         const outcomeText = JSON.stringify({
-            outcome: { type: 'result', result: { rootCause: 'rate limited', retryable: true } },
+            outcome: { type: 'result', explanation: 'test explanation', result: { rootCause: 'rate limited', retryable: true } },
         })
         const prompts = { systemPrompt: 'Investigate', userPrompt: 'Something failed' }
 
@@ -261,6 +262,7 @@ describe('aiInvestigation', () => {
 
             expect(result).toEqual({
                 type: 'result',
+                explanation: 'test explanation',
                 result: { rootCause: 'rate limited', retryable: true },
             })
             expect(fetchMock).toHaveBeenCalledWith(
@@ -298,6 +300,7 @@ describe('aiInvestigation', () => {
 
             expect(result).toEqual({
                 type: 'result',
+                explanation: 'test explanation',
                 result: { rootCause: 'rate limited', retryable: true },
             })
             expect(fetchMock).toHaveBeenCalledWith(

@@ -34,6 +34,7 @@ export type {
     InvestigationBehavior,
     InvestigationContext,
     InvestigationProviderConfig,
+    InvestigationResultDetails,
     InvestigationTool,
     ResultTool,
     TryPatchOptions,

@@ -4,6 +4,13 @@ import type { Schema } from '../../../schema/types'
 import { toJsonSchemaObject } from '../../../schema/utils'
 import type { LooseTool } from '../toolAdapter'
 
+const explanationProperties = {
+    explanation: {
+        type: 'string',
+        description: 'Why the call failed, and why this outcome gives a correct return value for it.',
+    },
+} as const satisfies Record<string, JSONSchema>
+
 export function errorOutcomeVariant (definition: CustomErrorDefinition) {
     return {
         type: 'object',
@@ -24,10 +31,11 @@ export function resultToolOutcomeVariant (tool: LooseTool) {
         description: `Call the "${tool.name}" result tool; its return value is returned from the method in place of the error. Tool description: ${tool.description}`,
         properties: {
             type: { enum: ['resultTool'] },
+            ...explanationProperties,
             toolName: { enum: [tool.name] },
             input: tool.parameters,
         },
-        required: ['type', 'toolName', 'input'],
+        required: ['type', 'explanation', 'toolName', 'input'],
         additionalProperties: false,
     } as const satisfies JSONSchema
 }
@@ -38,6 +46,7 @@ export function explicitResultOutcomeVariant (resultSchema: Schema | undefined) 
         description: 'Return this value from the method in place of the error. It must be a correct return value for this call.',
         properties: {
             type: { enum: ['result'] },
+            ...explanationProperties,
             result: resultSchema !== undefined
                 ? toJsonSchemaObject(resultSchema)
                 : {
@@ -45,7 +54,7 @@ export function explicitResultOutcomeVariant (resultSchema: Schema | undefined) 
                     description: 'The method\'s return value, JSON-encoded. It is parsed with JSON.parse and returned in place of the error.',
                 },
         },
-        required: ['type', 'result'],
+        required: ['type', 'explanation', 'result'],
         additionalProperties: false,
     } as const satisfies JSONSchema
 }

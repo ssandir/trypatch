@@ -12,6 +12,10 @@ function resolveClassName (receiver: unknown): string | undefined {
     return undefined
 }
 
+export function qualifiedMethodName (ctx: InvestigationContext): string {
+    return `${ctx.methodMetadata.className ? `${ctx.methodMetadata.className}.` : ''}${ctx.methodName}`
+}
+
 export function buildInvestigationContext (
     error: unknown,
     methodDescriptor: MethodDescriptor,
