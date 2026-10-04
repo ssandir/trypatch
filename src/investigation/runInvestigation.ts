@@ -58,7 +58,7 @@ export async function runInvestigation<
             throw investigationError
         }
 
-        logger.error('[ssandir/trypatch] Investigation failed', investigationError)
-        return undefined
+        logger.error('[ssandir/trypatch] Investigation failed, rethrowing the original error', investigationError)
+        throw error
     }
 }

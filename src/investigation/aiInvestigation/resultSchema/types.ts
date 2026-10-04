@@ -15,12 +15,14 @@ export type InvestigationErrorOutcome = {
 
 export type InvestigationResultToolOutcome = {
     type: 'resultTool'
+    explanation: string
     toolName: string
     input: unknown
 }
 
 export type InvestigationExplicitResultOutcome<S extends Schema = Schema> = {
     type: 'result'
+    explanation: string
     result: SchemaInfer<S>
 }
 

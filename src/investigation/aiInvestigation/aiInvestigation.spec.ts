@@ -9,7 +9,7 @@ import { buildInvestigationResultSchema } from './resultSchema'
 
 describe('aiInvestigation', () => {
     describe('buildInvestigationPrompt', () => {
-        const schema = z.object({ rootCause: z.string() })
+        const schema = z.object({ inStock: z.boolean() })
         const ctx: InvestigationContext = {
             error: new Error('boom'),
             methodName: 'charge',
@@ -22,7 +22,7 @@ describe('aiInvestigation', () => {
             const prompts = buildInvestigationPrompt(ctx, ctx.args, outcomeSchema, {})
             expect(prompts.userPrompt).toContain('Method: charge')
             expect(prompts.userPrompt).toContain('boom')
-            expect(prompts.userPrompt).toContain('rootCause')
+            expect(prompts.userPrompt).toContain('inStock')
         })
 
         it('should include class name and method metadata in the default prompt', () => {
@@ -32,13 +32,14 @@ describe('aiInvestigation', () => {
                 methodMetadata: { className: 'BillingService', static: true, private: true },
             }, ctx.args, outcomeSchema, {})
             expect(prompts.userPrompt).toContain('Method: BillingService.charge')
+            expect(prompts.userPrompt).toContain('Your outcome replaces this failed call to BillingService.charge')
             expect(prompts.userPrompt).toContain('Method metadata: {"className":"BillingService","static":true,"private":true}')
         })
     })
 
     describe('investigateWithCursor', () => {
         const outcomeSchema = buildInvestigationResultSchema({
-            resultSchema: z.object({ rootCause: z.string(), retryable: z.boolean() }),
+            resultSchema: z.object({ inStock: z.boolean() }),
         })
 
         const fetchMock = jest.fn()
@@ -63,7 +64,7 @@ describe('aiInvestigation', () => {
                     json: () => Promise.resolve({
                         status: 'FINISHED',
                         result: JSON.stringify({
-                            outcome: { type: 'result', result: { rootCause: 'invalid payload', retryable: false } },
+                            outcome: { type: 'result', explanation: 'test explanation', result: { inStock: false } },
                         }),
                     }),
                 })
@@ -89,7 +90,8 @@ describe('aiInvestigation', () => {
 
             expect(result).toEqual({
                 type: 'result',
-                result: { rootCause: 'invalid payload', retryable: false },
+                explanation: 'test explanation',
+                result: { inStock: false },
             })
             expect(fetchMock).toHaveBeenNthCalledWith(
                 1,
@@ -215,10 +217,10 @@ describe('aiInvestigation', () => {
 
     describe('investigateWithLanguageModel', () => {
         const outcomeSchema = buildInvestigationResultSchema({
-            resultSchema: z.object({ rootCause: z.string(), retryable: z.boolean() }),
+            resultSchema: z.object({ inStock: z.boolean() }),
         })
         const outcomeText = JSON.stringify({
-            outcome: { type: 'result', result: { rootCause: 'rate limited', retryable: true } },
+            outcome: { type: 'result', explanation: 'test explanation', result: { inStock: true } },
         })
         const prompts = { systemPrompt: 'Investigate', userPrompt: 'Something failed' }
 
@@ -260,7 +262,8 @@ describe('aiInvestigation', () => {
 
             expect(result).toEqual({
                 type: 'result',
-                result: { rootCause: 'rate limited', retryable: true },
+                explanation: 'test explanation',
+                result: { inStock: true },
             })
             expect(fetchMock).toHaveBeenCalledWith(
                 'https://api.anthropic.com/v1/messages',
@@ -297,7 +300,8 @@ describe('aiInvestigation', () => {
 
             expect(result).toEqual({
                 type: 'result',
-                result: { rootCause: 'rate limited', retryable: true },
+                explanation: 'test explanation',
+                result: { inStock: true },
             })
             expect(fetchMock).toHaveBeenCalledWith(
                 'https://api.openai.com/v1/responses',

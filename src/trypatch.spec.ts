@@ -11,9 +11,8 @@ import { createLanguageModel } from './investigation/aiInvestigation/providers/l
 jest.mock('./investigation/aiInvestigation/providers/languageModel/createLanguageModel')
 
 describe('trypatch', () => {
-    type InvestigationResult = {
-        rootCause: string
-        retryable: boolean
+    type Product = {
+        inStock: boolean
     }
 
     const investigationProvider = {
@@ -25,7 +24,7 @@ describe('trypatch', () => {
         jest.restoreAllMocks()
     })
 
-    function trypatchMethod<This, Args extends unknown[], Return> (
+    function trypatchMethod<This, Args extends unknown[], Return extends Promise<unknown>> (
         prototype: This,
         methodName: string,
         options: TryPatchOptions,
@@ -42,38 +41,36 @@ describe('trypatch', () => {
         })
     }
 
-    function mockInvestigationResponse (result: InvestigationResult): ReturnType<typeof mockLanguageModel> {
-        const model = mockLanguageModel(mockOutcomeTurn({ type: 'result', result }))
+    function mockInvestigationResponse (result: Product): ReturnType<typeof mockLanguageModel> {
+        const model = mockLanguageModel(mockOutcomeTurn({ type: 'result', explanation: 'test explanation', result }))
         jest.mocked(createLanguageModel).mockReturnValue(model)
         return model
     }
 
     describe('as a plain function', () => {
         const zodSchema = z.object({
-            rootCause: z.string(),
-            retryable: z.boolean(),
+            inStock: z.boolean(),
         })
 
         const jsonSchema = {
             type: 'object',
             properties: {
-                rootCause: { type: 'string' },
-                retryable: { type: 'boolean' },
+                inStock: { type: 'boolean' },
             },
-            required: ['rootCause', 'retryable'],
+            required: ['inStock'],
             additionalProperties: false,
         } as const satisfies JSONSchema
 
         it('should return investigation results when the method throws', async () => {
             const onInvestigationResult = jest.fn()
-            mockInvestigationResponse({ rootCause: 'bad input', retryable: false })
+            mockInvestigationResponse({ inStock: false })
 
             class ExampleService {
-                run (value: string): InvestigationResult {
+                run (value: string): Promise<Product> {
                     if (value === 'fail') {
                         throw new Error('failed')
                     }
-                    return { rootCause: value, retryable: false }
+                    return Promise.resolve({ inStock: false })
                 }
             }
 
@@ -87,25 +84,23 @@ describe('trypatch', () => {
 
             const service = new ExampleService()
             await expect(service.run('fail')).resolves.toEqual({
-                rootCause: 'bad input',
-                retryable: false,
+                inStock: false,
             })
             expect(onInvestigationResult).toHaveBeenCalledWith({
-                rootCause: 'bad input',
-                retryable: false,
-            })
+                inStock: false,
+            }, { explanation: 'test explanation' })
         })
 
         it('should return investigation results when the method throws with a JSON schema', async () => {
             const onInvestigationResult = jest.fn()
-            mockInvestigationResponse({ rootCause: 'schema mismatch', retryable: true })
+            mockInvestigationResponse({ inStock: true })
 
             class ExampleService {
-                run (value: string): InvestigationResult {
+                run (value: string): Promise<Product> {
                     if (value === 'fail') {
                         throw new Error('failed')
                     }
-                    return { rootCause: value, retryable: false }
+                    return Promise.resolve({ inStock: false })
                 }
             }
 
@@ -119,44 +114,24 @@ describe('trypatch', () => {
 
             const service = new ExampleService()
             await expect(service.run('fail')).resolves.toEqual({
-                rootCause: 'schema mismatch',
-                retryable: true,
+                inStock: true,
             })
             expect(onInvestigationResult).toHaveBeenCalledWith({
-                rootCause: 'schema mismatch',
-                retryable: true,
-            })
-        })
-
-        it('should resolve sync success values through a promise', async () => {
-            class ExampleService {
-                run (value: string): InvestigationResult {
-                    return { rootCause: value, retryable: false }
-                }
-            }
-
-            trypatchMethod(ExampleService.prototype, 'run', {
-                aiInvestigation: {
-                    resultSchema: zodSchema,
-                    investigationProvider,
-                },
-            })
-
-            const service = new ExampleService()
-            await expect(service.run('ok')).resolves.toEqual({ rootCause: 'ok', retryable: false })
+                inStock: true,
+            }, { explanation: 'test explanation' })
         })
 
         it('should await investigation for async methods before returning the fallback result', async () => {
             const onInvestigationResult = jest.fn()
-            mockInvestigationResponse({ rootCause: 'async failure', retryable: true })
+            mockInvestigationResponse({ inStock: true })
 
             class ExampleService {
-                async run (value: string): Promise<InvestigationResult> {
+                async run (value: string): Promise<Product> {
                     await Promise.resolve()
                     if (value === 'fail') {
                         throw new Error('failed')
                     }
-                    return { rootCause: value, retryable: false }
+                    return { inStock: false }
                 }
             }
 
@@ -170,13 +145,11 @@ describe('trypatch', () => {
 
             const service = new ExampleService()
             await expect(service.run('fail')).resolves.toEqual({
-                rootCause: 'async failure',
-                retryable: true,
+                inStock: true,
             })
             expect(onInvestigationResult).toHaveBeenCalledWith({
-                rootCause: 'async failure',
-                retryable: true,
-            })
+                inStock: true,
+            }, { explanation: 'test explanation' })
         })
     })
 
@@ -241,8 +214,7 @@ describe('trypatch', () => {
 
     describe('trypatch as decorator', () => {
         type DecoratorResult = {
-            rootCause: string
-            retryable: boolean
+            inStock: boolean
         }
 
         type ServiceToolContext = {
@@ -250,8 +222,7 @@ describe('trypatch', () => {
         }
 
         const resultSchema = z.object({
-            rootCause: z.string(),
-            retryable: z.boolean(),
+            inStock: z.boolean(),
         })
 
         const investigationQuerySchema = z.object({
@@ -281,10 +252,7 @@ describe('trypatch', () => {
         } as const satisfies JSONSchema
 
         it('should apply CustomInvestigateTryPatchOptions via @trypatch when the method throws', async () => {
-            const investigate = jest.fn((ctx: InvestigationContext): Promise<DecoratorResult> => Promise.resolve({
-                rootCause: `custom:${ctx.methodName}`,
-                retryable: true,
-            }))
+            const investigate = jest.fn((): Promise<DecoratorResult> => Promise.resolve({ inStock: true }))
 
             const customOptions = {
                 logging: { verbosity: 'low' },
@@ -295,15 +263,14 @@ describe('trypatch', () => {
 
             class CustomInvestigateService {
                 @trypatch(customOptions)
-                run (_value: string): DecoratorResult {
+                run (_value: string): Promise<DecoratorResult> {
                     throw new Error('failed')
                 }
             }
 
             const service = new CustomInvestigateService()
             await expect(service.run('fail')).resolves.toEqual({
-                rootCause: 'custom:run',
-                retryable: true,
+                inStock: true,
             })
             expect(investigate).toHaveBeenCalledWith(expect.objectContaining({
                 methodName: 'run',
@@ -311,11 +278,25 @@ describe('trypatch', () => {
             }), {})
         })
 
+        it('should reject with the method\'s own error when the investigation produces no value', async () => {
+            const methodError = new Error('failed')
+
+            class FailingInvestigationService {
+                @trypatch({
+                    customInvestigation: {
+                        investigate: () => Promise.reject(new Error('investigation failed')),
+                    },
+                })
+                run (): Promise<DecoratorResult> {
+                    return Promise.reject(methodError)
+                }
+            }
+
+            await expect(new FailingInvestigationService().run()).rejects.toBe(methodError)
+        })
+
         it('should resolve className and static from the real receiver at call time', async () => {
-            const investigate = jest.fn((ctx: InvestigationContext): Promise<DecoratorResult> => Promise.resolve({
-                rootCause: `custom:${ctx.methodName}`,
-                retryable: true,
-            }))
+            const investigate = jest.fn((): Promise<DecoratorResult> => Promise.resolve({ inStock: true }))
 
             const customOptions = {
                 customInvestigation: { investigate },
@@ -323,12 +304,12 @@ describe('trypatch', () => {
 
             class BillingService {
                 @trypatch(customOptions)
-                run (_value: string): DecoratorResult {
+                run (_value: string): Promise<DecoratorResult> {
                     throw new Error('failed')
                 }
 
                 @trypatch(customOptions)
-                static runStatic (_value: string): DecoratorResult {
+                static runStatic (_value: string): Promise<DecoratorResult> {
                     throw new Error('failed')
                 }
             }
@@ -355,12 +336,12 @@ describe('trypatch', () => {
 
             class ReportService {
                 @trypatch(signalOptions)
-                run (_value: string, _options?: { signal?: AbortSignal }): string {
+                run (_value: string, _options?: { signal?: AbortSignal }): Promise<string> {
                     throw new Error('failed')
                 }
 
                 @trypatch(signalOptions)
-                static runStatic (_value: string, _options?: { signal?: AbortSignal }): string {
+                static runStatic (_value: string, _options?: { signal?: AbortSignal }): Promise<string> {
                     throw new Error('failed')
                 }
             }
@@ -387,7 +368,7 @@ describe('trypatch', () => {
                     getSignal: ctx => (ctx.args[0] as { signal: AbortSignal }).signal,
                     customInvestigation: { investigate },
                 })
-                run (_options: { signal: AbortSignal }): string {
+                run (_options: { signal: AbortSignal }): Promise<string> {
                     throw new Error('failed')
                 }
             }
@@ -413,7 +394,7 @@ describe('trypatch', () => {
                         },
                     },
                 })
-                run (_options: { signal: AbortSignal }): string {
+                run (_options: { signal: AbortSignal }): Promise<string> {
                     throw new Error('failed')
                 }
             }
@@ -464,43 +445,35 @@ describe('trypatch', () => {
                             name: 'submit_summary',
                             description: 'Submit investigation summary as the result',
                             parameters: resultSummarySchema,
-                            execute: (input) => ({
-                                rootCause: input.summary,
-                                retryable: true,
-                            }),
+                            execute: () => ({ inStock: true }),
                         }),
                         new Tool({
                             name: 'submit_note',
                             description: 'Submit investigation note as the result',
                             parameters: resultNoteSchema,
-                            execute: (input: unknown) => ({
-                                rootCause: (input as { note: string }).note,
-                                retryable: false,
-                            }),
+                            execute: () => ({ inStock: false }),
                         }),
                     ],
                     onInvestigationResult,
                 },
             } satisfies TryPatchOptions<typeof resultSchema, ServiceToolContext>
 
-            const model = mockInvestigationResponse({ rootCause: 'provider root cause', retryable: false })
+            const model = mockInvestigationResponse({ inStock: false })
 
             class AiInvestigateService {
                 @trypatch(aiOptions)
-                run (_value: string): DecoratorResult {
+                run (_value: string): Promise<DecoratorResult> {
                     throw new Error('failed')
                 }
             }
 
             const service = new AiInvestigateService()
             await expect(service.run('fail')).resolves.toEqual({
-                rootCause: 'provider root cause',
-                retryable: false,
+                inStock: false,
             })
             expect(onInvestigationResult).toHaveBeenCalledWith({
-                rootCause: 'provider root cause',
-                retryable: false,
-            })
+                inStock: false,
+            }, { explanation: 'test explanation' })
 
             expect(model.doGenerateCalls[0]?.tools?.map(tool => tool.name)).toEqual([
                 'search_logs',

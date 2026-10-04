@@ -13,6 +13,7 @@ import type {
 } from '../../types'
 import type { Logger } from '../../logger'
 import { buildInvestigationPrompt } from './buildPrompt'
+import { qualifiedMethodName } from '../investigationContext'
 import { validateMcpServers } from './mcp/servers'
 import type { Schema, SchemaInfer } from '../../schema/types'
 import { parseWithSchema } from '../../schema/utils'
@@ -42,7 +43,7 @@ async function resolveOutcome<S extends Schema, C> (
     resultTools: ResultTool<S, C>[] | undefined,
     toolContext: C | undefined,
     signal: AbortSignal | undefined,
-): Promise<unknown> {
+): Promise<{ result: unknown, explanation: string }> {
     switch (outcome.type) {
         case 'error': {
             const definition = customErrors?.find(candidate => candidate.errorConstructor.name === outcome.error)
@@ -60,10 +61,16 @@ async function resolveOutcome<S extends Schema, C> (
                 throw new Error(`Result tool ${outcome.toolName} is not registered`)
             }
 
-            return await callResultTool(tool, outcome.input, toolContext, signal)
+            return {
+                result: await callResultTool(tool, outcome.input, toolContext, signal),
+                explanation: outcome.explanation,
+            }
         }
         case 'result':
-            return parseWithSchema(resultSchema, outcome.result, 'investigation result')
+            return {
+                result: parseWithSchema(resultSchema, outcome.result, 'investigation result'),
+                explanation: outcome.explanation,
+            }
         case 'cannotDetermine':
             throw new TrypatchCannotDetermineError(outcome.reason)
         case 'uncertain':
@@ -136,10 +143,12 @@ export async function runAiInvestigation<S extends Schema, C> (
     })
 
     const outcome = restoreInvestigationResponse(rawOutcome, vault)
-    const result = await resolveOutcome(outcome, resultSchema, customErrors, resultTools, toolContext, signal)
+    const { result, explanation } = await resolveOutcome(outcome, resultSchema, customErrors, resultTools, toolContext, signal)
+
+    logger?.info(`[ssandir/trypatch] Investigation of ${qualifiedMethodName(ctx)} returned a result`, explanation)
 
     if (onInvestigationResult) {
-        await Promise.resolve(onInvestigationResult(result as SchemaInfer<S>))
+        await Promise.resolve(onInvestigationResult(result as SchemaInfer<S>, { explanation }))
     }
 
     return result

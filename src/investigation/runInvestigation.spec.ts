@@ -30,13 +30,13 @@ describe('runInvestigation', () => {
     })
 
     describe('runInvestigation', () => {
+        const originalError = new Error('original')
         const schema = z.object({
-            rootCause: z.string(),
-            retryable: z.boolean(),
+            inStock: z.boolean(),
         })
 
         it('should return parsed investigation results', async () => {
-            useOutcome({ type: 'result', result: { rootCause: 'timeout', retryable: true } })
+            useOutcome({ type: 'result', explanation: 'test explanation', result: { inStock: true } })
 
             const result = await runInvestigation(
                 new Error('original'),
@@ -55,10 +55,10 @@ describe('runInvestigation', () => {
                 [],
             )
 
-            expect(result).toEqual({ rootCause: 'timeout', retryable: true })
+            expect(result).toEqual({ inStock: true })
         })
 
-        it('should swallow investigation failures and log them', async () => {
+        it('should log investigation failures and rethrow the original error', async () => {
             const loggerLike = {
                 log: jest.fn(),
                 info: jest.fn(),
@@ -70,11 +70,11 @@ describe('runInvestigation', () => {
                 doGenerate: () => Promise.reject(new Error('provider down')),
             }))
 
-            const result = await runInvestigation(
-                new Error('original'),
+            await expect(runInvestigation(
+                originalError,
                 {
                     aiInvestigation: {
-                        resultSchema: z.object({ rootCause: z.string() }),
+                        resultSchema: z.object({ inStock: z.boolean() }),
                         investigationProvider: {
                             provider: 'openai',
                             apiKey: 'test-key',
@@ -88,13 +88,11 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
-            )
-
-            expect(result).toBeUndefined()
-            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.any(Error))
+            )).rejects.toBe(originalError)
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed, rethrowing the original error', expect.any(Error))
         })
 
-        it('should log and swallow our own investigation timeout', async () => {
+        it('should log our own investigation timeout and rethrow the original error', async () => {
             const loggerLike = {
                 log: jest.fn(),
                 info: jest.fn(),
@@ -106,8 +104,8 @@ describe('runInvestigation', () => {
                 doGenerate: () => new Promise<never>(() => undefined),
             }))
 
-            const result = await runInvestigation(
-                new Error('original'),
+            await expect(runInvestigation(
+                originalError,
                 {
                     getSignal: () => new AbortController().signal,
                     aiInvestigation: {
@@ -125,10 +123,8 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
-            )
-
-            expect(result).toBeUndefined()
-            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.any(TrypatchTimeoutError))
+            )).rejects.toBe(originalError)
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed, rethrowing the original error', expect.any(TrypatchTimeoutError))
         })
 
         it('should propagate the caller abort reason from an AI investigation instead of logging it', async () => {
@@ -189,7 +185,7 @@ describe('runInvestigation', () => {
             expect(investigate).toHaveBeenCalledWith(expect.anything(), { signal: controller.signal })
         })
 
-        it('should swallow and log an error thrown by the signal factory', async () => {
+        it('should log an error thrown by the signal factory and rethrow the original error', async () => {
             const loggerLike = {
                 log: jest.fn(),
                 info: jest.fn(),
@@ -199,8 +195,8 @@ describe('runInvestigation', () => {
             }
             const investigate = jest.fn(() => Promise.resolve('done'))
 
-            const result = await runInvestigation(
-                new Error('original'),
+            await expect(runInvestigation(
+                originalError,
                 {
                     getSignal: () => {
                         throw new Error('no signal')
@@ -214,14 +210,12 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
-            )
-
-            expect(result).toBeUndefined()
+            )).rejects.toBe(originalError)
             expect(investigate).not.toHaveBeenCalled()
-            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.objectContaining({ message: 'no signal' }))
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed, rethrowing the original error', expect.objectContaining({ message: 'no signal' }))
         })
 
-        it('should let a TrypatchFatalError propagate instead of swallowing it', async () => {
+        it('should let a TrypatchFatalError propagate instead of the original error', async () => {
             await expect(runInvestigation(
                 new Error('original'),
                 {
@@ -238,7 +232,7 @@ describe('runInvestigation', () => {
             )).rejects.toThrow(TrypatchFatalError)
         })
 
-        it('should let a registered custom investigation error propagate instead of swallowing it', async () => {
+        it('should let a registered custom investigation error propagate instead of the original error', async () => {
             class RetryableError extends Error {}
 
             await expect(runInvestigation(
@@ -258,7 +252,7 @@ describe('runInvestigation', () => {
             )).rejects.toThrow(RetryableError)
         })
 
-        it('should swallow an unregistered error thrown from a custom investigation', async () => {
+        it('should log an unregistered error thrown from a custom investigation and rethrow the original error', async () => {
             const loggerLike = {
                 log: jest.fn(),
                 info: jest.fn(),
@@ -267,8 +261,8 @@ describe('runInvestigation', () => {
                 debug: jest.fn(),
             }
 
-            const result = await runInvestigation(
-                new Error('original'),
+            await expect(runInvestigation(
+                originalError,
                 {
                     customInvestigation: {
                         investigate: () => {
@@ -283,10 +277,8 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
-            )
-
-            expect(result).toBeUndefined()
-            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.any(Error))
+            )).rejects.toBe(originalError)
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed, rethrowing the original error', expect.any(Error))
         })
 
         it('should let an AI investigation custom error propagate when propagate is true', async () => {
@@ -320,7 +312,7 @@ describe('runInvestigation', () => {
             )).rejects.toThrow(RetryableError)
         })
 
-        it('should swallow an AI investigation custom error when propagate is not set', async () => {
+        it('should log an AI investigation custom error and rethrow the original error when propagate is not set', async () => {
             class RetryableError extends Error {
                 constructor (public readonly param: { reason: string }) {
                     super(param.reason)
@@ -336,8 +328,8 @@ describe('runInvestigation', () => {
             }
             useOutcome({ type: 'error', error: 'RetryableError', errorSchema: { reason: 'network blip' } })
 
-            const result = await runInvestigation(
-                new Error('original'),
+            await expect(runInvestigation(
+                originalError,
                 {
                     aiInvestigation: {
                         investigationProvider: {
@@ -357,16 +349,14 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
-            )
-
-            expect(result).toBeUndefined()
-            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.any(Error))
+            )).rejects.toBe(originalError)
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed, rethrowing the original error', expect.any(Error))
         })
         it.each([
             ['cannotDetermine', 'allowCannotDetermine', TrypatchCannotDetermineError],
             ['uncertain', 'allowUncertainResult', TrypatchUncertainResultError],
             ['noApplicableOutcome', 'allowNoApplicableOutcome', TrypatchNoApplicableOutcomeError],
-        ] as const)('should swallow a %s outcome and log it by default', async (outcomeType, allowOption, errorClass) => {
+        ] as const)('should log a %s outcome and rethrow the original error by default', async (outcomeType, allowOption, errorClass) => {
             const loggerLike = {
                 log: jest.fn(),
                 info: jest.fn(),
@@ -376,8 +366,8 @@ describe('runInvestigation', () => {
             }
             useOutcome({ type: outcomeType, reason: 'not enough information' })
 
-            const result = await runInvestigation(
-                new Error('original'),
+            await expect(runInvestigation(
+                originalError,
                 {
                     aiInvestigation: {
                         investigationProvider: {
@@ -394,10 +384,8 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
-            )
-
-            expect(result).toBeUndefined()
-            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed', expect.any(errorClass))
+            )).rejects.toBe(originalError)
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed, rethrowing the original error', expect.any(errorClass))
         })
     })
 
@@ -405,7 +393,7 @@ describe('runInvestigation', () => {
         it('should use custom investigate override when provided', async () => {
             const options: TryPatchOptions = {
                 customInvestigation: {
-                    investigate: () => Promise.resolve({ rootCause: 'custom' }),
+                    investigate: () => Promise.resolve({ inStock: true }),
                 },
             }
 
@@ -414,7 +402,7 @@ describe('runInvestigation', () => {
                 options,
             )
 
-            expect(result).toEqual({ rootCause: 'custom' })
+            expect(result).toEqual({ inStock: true })
         })
 
         it('should pass the given signal to custom investigate', async () => {
@@ -447,7 +435,7 @@ describe('runInvestigation', () => {
         })
 
         it('should not call the AI provider when the signal is already aborted', async () => {
-            const model = useOutcome({ type: 'result', result: 'unused' })
+            const model = useOutcome({ type: 'result', explanation: 'test explanation', result: 'unused' })
             const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
 
             await expect(investigateError(ctx, {
@@ -464,7 +452,7 @@ describe('runInvestigation', () => {
         it('should hand result tools the caller signal', async () => {
             const controller = new AbortController()
             let resultToolSignal: AbortSignal | undefined
-            useOutcome({ type: 'resultTool', toolName: 'submit', input: {} })
+            useOutcome({ type: 'resultTool', explanation: 'test explanation', toolName: 'submit', input: {} })
             const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
 
             await investigateError(ctx, {
@@ -493,7 +481,8 @@ describe('runInvestigation', () => {
             const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
             useOutcome({
                 type: 'result',
-                result: JSON.stringify({ rootCause: 'timeout', retryable: true }),
+                explanation: 'test explanation',
+                result: JSON.stringify({ inStock: true }),
             })
 
             const result = await investigateError(ctx, {
@@ -505,19 +494,19 @@ describe('runInvestigation', () => {
                 },
             })
 
-            expect(result).toEqual({ rootCause: 'timeout', retryable: true })
+            expect(result).toEqual({ inStock: true })
         })
 
         it('should invoke result tools when the provider returns a resultTool outcome', async () => {
             const schema = z.object({
-                rootCause: z.string(),
-                retryable: z.boolean(),
+                inStock: z.boolean(),
             })
             const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
             useOutcome({
                 type: 'resultTool',
+                explanation: 'test explanation',
                 toolName: 'submit_investigation',
-                input: { rootCause: 'network', retryable: true },
+                input: { inStock: true },
             })
 
             const resultTool = new Tool({
@@ -538,7 +527,34 @@ describe('runInvestigation', () => {
                 },
             })
 
-            expect(result).toEqual({ rootCause: 'network', retryable: true })
+            expect(result).toEqual({ inStock: true })
+        })
+
+        it('should log the outcome\'s explanation and pass it to onInvestigationResult', async () => {
+            const loggerLike = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+            }
+            const onInvestigationResult = jest.fn()
+            useOutcome({ type: 'result', explanation: 'upstream renamed price', result: 'ok' })
+            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), new (class Billing {})(), [])
+
+            await investigateError(ctx, {
+                aiInvestigation: {
+                    resultSchema: z.string(),
+                    investigationProvider: {
+                        provider: 'openai',
+                        apiKey: 'test-key',
+                    },
+                    onInvestigationResult,
+                },
+            }, new Logger({ logger: loggerLike, verbosity: 'high' }))
+
+            expect(loggerLike.info).toHaveBeenCalledWith('[ssandir/trypatch] Investigation of Billing.run returned a result', 'upstream renamed price')
+            expect(onInvestigationResult).toHaveBeenCalledWith('ok', { explanation: 'upstream renamed price' })
         })
 
         it('should throw the matching custom error when the provider returns an error outcome', async () => {
@@ -590,8 +606,7 @@ describe('runInvestigation', () => {
 
         it('should redact investigation prompts before calling the provider', async () => {
             const schema = z.object({
-                rootCause: z.string(),
-                retryable: z.boolean(),
+                inStock: z.boolean(),
             })
             const secret = 'sk-live-abcdefghijklmnopqrstuvwx'
             const ctx = buildInvestigationContext(
@@ -600,7 +615,7 @@ describe('runInvestigation', () => {
                 undefined,
                 [{ authorization: secret }],
             )
-            const model = useOutcome({ type: 'result', result: { rootCause: 'invalid token', retryable: false } })
+            const model = useOutcome({ type: 'result', explanation: 'test explanation', result: { inStock: false } })
 
             await investigateError(ctx, {
                 aiInvestigation: {

@@ -11,8 +11,7 @@ import { mockMethodDecoratorContext } from './test/mockMethodDecoratorContext'
  */
 
 const resultSchema = z.object({
-    rootCause: z.string(),
-    retryable: z.boolean(),
+    inStock: z.boolean(),
 })
 
 const investigationProvider = {
@@ -20,13 +19,23 @@ const investigationProvider = {
     apiKey: 'test-key',
 } as const
 
-const mismatchedReturnMethod = (): { rootCause: string, retryable: string } => ({ rootCause: 'x', retryable: 'no' })
+const mismatchedReturnMethod = (): Promise<{ inStock: string }> => Promise.resolve({ inStock: 'no' })
 
 trypatch({
     aiInvestigation: { resultSchema, investigationProvider },
 })(
     // @ts-expect-error - method return type must match resultSchema
     mismatchedReturnMethod,
+    mockMethodDecoratorContext('run'),
+)
+
+const syncMethod = (): { inStock: boolean } => ({ inStock: false })
+
+trypatch({
+    aiInvestigation: { resultSchema, investigationProvider },
+})(
+    // @ts-expect-error - the wrapper always returns a Promise, so the method must too
+    syncMethod,
     mockMethodDecoratorContext('run'),
 )
 

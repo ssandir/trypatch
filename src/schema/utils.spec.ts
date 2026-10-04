@@ -3,8 +3,7 @@ import { extractJsonFromText, parseWithSchema, toJsonSchemaObject } from './util
 
 describe('schemaUtils', () => {
     const schema = z.object({
-        rootCause: z.string(),
-        retryable: z.boolean(),
+        inStock: z.boolean(),
     })
 
     it('should convert zod schemas to json schema objects', () => {
@@ -12,30 +11,26 @@ describe('schemaUtils', () => {
         expect(jsonSchema).toMatchObject({
             type: 'object',
             properties: {
-                rootCause: { type: 'string' },
-                retryable: { type: 'boolean' },
+                inStock: { type: 'boolean' },
             },
         })
     })
 
-    it('should parse zod investigation results', () => {
-        expect(parseWithSchema(schema, { rootCause: 'timeout', retryable: true })).toEqual({
-            rootCause: 'timeout',
-            retryable: true,
+    it('should parse values with a zod schema', () => {
+        expect(parseWithSchema(schema, { inStock: true })).toEqual({
+            inStock: true,
         })
     })
 
     it('should parse a JSON-encoded string when no schema is given', () => {
-        expect(parseWithSchema(undefined, '{"rootCause":"timeout","retryable":true}')).toEqual({
-            rootCause: 'timeout',
-            retryable: true,
+        expect(parseWithSchema(undefined, '{"inStock":true}')).toEqual({
+            inStock: true,
         })
     })
 
     it('should extract json from fenced text', () => {
-        expect(extractJsonFromText('```json\n{"rootCause":"x","retryable":false}\n```')).toEqual({
-            rootCause: 'x',
-            retryable: false,
+        expect(extractJsonFromText('```json\n{"inStock":false}\n```')).toEqual({
+            inStock: false,
         })
     })
 })

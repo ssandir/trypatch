@@ -13,7 +13,7 @@ type LegacyMethodDecorator = (
 type Stage3MethodDecorator<S extends Schema> = <
     This,
     Args extends unknown[],
-    Return extends SchemaInfer<S> | Promise<SchemaInfer<S>>,
+    Return extends Promise<SchemaInfer<S>>,
 > (
     originalMethod: (this: This, ...args: Args) => Return,
     context: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Return>,

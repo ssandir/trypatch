@@ -35,11 +35,13 @@ The AI SDK is ESM-only; `jest.config.cjs` lists it among the ESM dependencies th
 
 `@trypatch` supports both TC39 stage-3 decorators (TS 5 default) and TypeScript's legacy `experimentalDecorators` (NestJS/TypeORM's default), since a lot of real-world consumers are still on legacy. `trypatch.ts` detects which dialect called it at runtime by argument shape and dispatches to a matching implementation; see the comment on `trypatch()` there for details. `jest.config.cjs` runs `trypatch.spec.ts` twice — once compiled per dialect — to cover both runtime paths; this project's own `tsconfig.json` intentionally omits `experimentalDecorators` since the source is authored against stage-3.
 
-On method failure, `@trypatch(...)` can call an external provider to analyze the error. The provider's structured output must match one of three outcomes, described to it as a JSON Schema built from `resultSchema`/`customErrors`/`resultTools`: an explicit `result` matching `resultSchema`, a call into one of `resultTools`, or a thrown `customErrors` entry. Set `allowDirectResultCreation: false` to drop the explicit-`result` outcome from that schema, forcing every outcome through a `resultTool` or `customErrors` entry; `buildInvestigationResultSchema` throws if that leaves no possible outcome at all. By default a thrown `customErrors` entry is logged and swallowed like any other investigation failure; set `propagate: true` on that entry to have `runInvestigation` rethrow it instead — same treatment as `TrypatchFatalError`.
+On method failure, `@trypatch(...)` can call an external provider to produce the value the method should have returned. `resultSchema` is the method's return type, not a diagnosis: the stage-3 decorator type requires `Return extends Promise<SchemaInfer<S>>`. It must be a `Promise` because the wrapper always returns one (recovering a value is async) and a decorator can't change a member's declared type. Legacy decorators can't check the return type at all. The prompts in `buildPrompt.ts` and the outcome variant descriptions tell the model that its outcome replaces the failed call. The provider's structured output must match one of three outcomes, described to it as a JSON Schema built from `resultSchema`/`customErrors`/`resultTools`: an explicit `result` matching `resultSchema` (returned as the method's value), a call into one of `resultTools` (trypatch runs it and returns its value), or a thrown `customErrors` entry. Both value outcomes carry a required `explanation` (why the call failed, why the value is correct), logged with `logger.info` as the second argument (so only shown at `verbosity: 'high'`) and passed as `onInvestigationResult(result, { explanation })`. Set `allowDirectResultCreation: false` to drop the explicit-`result` outcome from that schema, forcing every outcome through a `resultTool` or `customErrors` entry; `buildInvestigationResultSchema` throws if that leaves no possible outcome at all.
 
-Three more outcomes exist to steer the AI away from fabricating a result when nothing fits, each behind its own boolean (all default `true`, additive to the outcomes above; set to `false` to remove that escape hatch) and each throwing its own error class: `allowCannotDetermine` (there isn't enough information to identify a cause at all → `TrypatchCannotDetermineError`), `allowUncertainResult` (a candidate result exists but confidence is too low to state as fact → `TrypatchUncertainResultError`), and `allowNoApplicableOutcome` (none of the configured `result`/`resultTools`/`customErrors` fit the situation → `TrypatchNoApplicableOutcomeError`). The AI supplies a `reason` string that becomes the thrown error's message. Like `customErrors`, these are logged and swallowed by default in `runInvestigation`'s `catch (investigationError)` block; they have no `propagate` option of their own.
+An investigation that ends without a value is logged in `runInvestigation`'s `catch (investigationError)` block, and the method rethrows its original error. It never resolves `undefined`, since a method typed `Promise<Quote>` must not hand callers something that isn't a `Quote`. Only three errors replace the original: the caller's abort reason, `TrypatchFatalError`, and a `customErrors` entry with `propagate: true`.
 
-`getSignal` on `TryPatchOptions` is a function `(ctx) => AbortSignal | undefined`, since a call's signal doesn't exist yet at decoration time. `runInvestigation` resolves it once per call (no per-dialect code; both dialects end up there) and passes it to `investigateError`. `src/abort/withDeadline.ts` combines it with our own timeouts (`investigationBehavior.timeoutMs` in both providers, a tool's `timeoutMs` in `Tool.call`) and stops waiting for work that ignores the signal. Whoever controls a signal handles its abort: our timeout becomes `TrypatchTimeoutError`, logged and swallowed like any investigation failure; the caller's abort is rethrown as its own reason by `signal?.throwIfAborted()` at the top of `runInvestigation`'s `catch`, ahead of every other check. Custom `investigate`, investigation tools, MCP connects and tools, and result tools all receive the signal; result tools get only the caller's signal, outside `timeoutMs`.
+Three more outcomes exist to steer the AI away from fabricating a result when nothing fits, each behind its own boolean (all default `true`, additive to the outcomes above; set to `false` to remove that escape hatch) and each throwing its own error class: `allowCannotDetermine` (there isn't enough information to work out a correct return value → `TrypatchCannotDetermineError`), `allowUncertainResult` (a candidate value exists but confidence is too low to return it → `TrypatchUncertainResultError`), and `allowNoApplicableOutcome` (none of the configured `result`/`resultTools`/`customErrors` fit the situation → `TrypatchNoApplicableOutcomeError`). The AI supplies a `reason` string that becomes the thrown error's message. Like `customErrors` without `propagate`, these are logged and the method rethrows its original error; they have no `propagate` option of their own.
+
+`getSignal` on `TryPatchOptions` is a function `(ctx) => AbortSignal | undefined`, since a call's signal doesn't exist yet at decoration time. `runInvestigation` resolves it once per call (no per-dialect code; both dialects end up there) and passes it to `investigateError`. `src/abort/withDeadline.ts` combines it with our own timeouts (`investigationBehavior.timeoutMs` in both providers, a tool's `timeoutMs` in `Tool.call`) and stops waiting for work that ignores the signal. Whoever controls a signal handles its abort: our timeout becomes `TrypatchTimeoutError`, logged like any investigation failure before the method rethrows its original error; the caller's abort is rethrown as its own reason by `signal?.throwIfAborted()` at the top of `runInvestigation`'s `catch`, ahead of every other check. Custom `investigate`, investigation tools, MCP connects and tools, and result tools all receive the signal; result tools get only the caller's signal, outside `timeoutMs`.
 
 `customInvestigation.investigate` bypasses the AI provider flow entirely with a user-supplied handler. Its own `customErrors` is a distinct, lighter-weight list of `{ errorConstructor }` entries: since `investigate` throws these directly rather than an AI constructing them from JSON, no `errorParameterSchema`/`description` is needed, and matching one always propagates.
 
@@ -64,15 +66,16 @@ Example:
 import { z } from 'zod'
 import { trypatch } from '@ssandir/trypatch'
 
-const schema = z.object({
-  rootCause: z.string(),
-  retryable: z.boolean(),
+const QuoteSchema = z.object({
+  price: z.number(),
+  currency: z.string(),
 })
+type Quote = z.infer<typeof QuoteSchema>
 
-class Service {
+class PricingService {
   @trypatch({
     aiInvestigation: {
-      resultSchema: schema,
+      resultSchema: QuoteSchema,
       investigationProvider: {
         provider: 'openai',
         apiKey: process.env.OPENAI_API_KEY!,
@@ -80,9 +83,9 @@ class Service {
       redactConfig: {
         terms: ['super-secret-value-from-env'],
       },
-      onInvestigationResult: (result) => console.warn(result),
+      onInvestigationResult: (quote, { explanation }) => console.warn('getQuote recovered', quote, explanation),
     },
   })
-  async run () { /* ... */ }
+  async getQuote (productId: string): Promise<Quote> { /* ... */ }
 }
 ```

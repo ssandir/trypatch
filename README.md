@@ -1,60 +1,77 @@
 # @ssandir/trypatch
 
-**Production-ready error investigation and automatic resolution.** When your functions fail, `trypatch` investigates the error in your production environment and either recovers it with custom tools or returns a structured diagnosis—all while keeping sensitive data local.
+**Production-ready error recovery.** When a method fails, `trypatch` investigates the error in your production environment and recovers from it by either running provided tools or generating the return value. Sensitive data stays local throughout. If no correct value can be produced, the method rethrows its original error.
 
 ## What You Get
 
-- 🔍 **On-the-fly Investigation**: When a method fails, AI analyzes the error context and generates actionable results
-- 🛡️ **Schema-Based Guarantees**: All investigation results conform to a schema you define (Zod or JSON Schema)
+- 🔍 **On-the-fly Recovery**: When a method fails, AI investigates the error context and produces the value the method should have returned
+- 🛡️ **Schema-Based Guarantees**: `resultSchema` describes your method's return type (Zod or JSON Schema), and a value the AI builds is validated against it before it reaches the caller
 - 🔐 **Automatic Credential Censoring**: Sensitive data is redacted before leaving your instance; placeholders are restored in responses
-- 🔧 **Tool-Based Recovery**: Provide tools (e.g., `executeExternalApiCall`,`retryWithExponentialBackoff`, `fetchFromBackupService`) that trypatch can execute to resolve transient failures
+- 🔧 **Tool-Based Recovery**: Provide result tools (e.g. `retryWithBackoff`, `fetchFromBackupService`) whose return value becomes the method's return value, and investigation tools the AI can use to look around first
+- 🧾 **No Silent Fallbacks**: If the investigation can't produce a correct value, callers get the method's original error
 - 🤖 **Multiple Providers**: OpenAI, Claude (Anthropic), any OpenAI-compatible endpoint (Gemini, Mistral, Groq, Ollama, OpenRouter, vLLM, ...), or Cursor Cloud Agents for investigation logic
 
-Requires Node.js 22 or later.
+Requires Node.js 22 or later. Decorated methods must be `async` (or return a `Promise`): recovering a value takes network calls, so the decorated method always returns a Promise.
 
 ---
 
-## Quick Start: Schema-Based Error Handling
+## Quick Start: Recover the Return Value
 
-Define what a resolved error should look like, and `@trypatch` ensures you always get that shape:
+`resultSchema` is the shape your method returns. When the method fails, `@trypatch` asks the AI for the value it should have returned:
 
 ```typescript
 import { z } from 'zod'
 import { trypatch } from '@ssandir/trypatch'
 
-const ResolutionSchema = z.object({
-  rootCause: z.string().describe('Why the error occurred'),
-  retryable: z.boolean().describe('Can this error be retried?'),
-  suggestedAction: z.string().describe('What to do next'),
+const QuoteSchema = z.object({
+  price: z.number().describe('Price in the smallest currency unit, e.g. cents'),
+  currency: z.string().describe('ISO 4217 currency code'),
 })
+type Quote = z.infer<typeof QuoteSchema>
 
-class PaymentService {
+class PricingService {
   @trypatch({
     aiInvestigation: {
-      resultSchema: ResolutionSchema,
+      resultSchema: QuoteSchema,
       investigationProvider: {
         provider: 'openai',
         apiKey: process.env.OPENAI_API_KEY!,
       },
     },
   })
-  async processPayment(cardToken: string): Promise<z.infer<typeof ResolutionSchema>> {
-    // If this fails, @trypatch investigates and returns a structured result
-    const response = await fetch('https://api.payment.com/charge', {
-      method: 'POST',
-      body: JSON.stringify({ token: cardToken, amount: 100 }),
-    })
-    if (!response.ok) throw new Error(`Payment failed: ${response.statusText}`)
-    return { rootCause: 'success', retryable: false, suggestedAction: 'none' }
+  async getQuote(productId: string): Promise<Quote> {
+    const response = await fetch(`https://pricing.example.com/products/${productId}/quote`)
+    if (!response.ok) throw new Error(`Pricing API returned ${response.status}`)
+    // Throws if the upstream changes its response shape
+    return QuoteSchema.parse(await response.json())
   }
 }
 ```
 
-When `processPayment` fails:
-- `@trypatch` captures the error and context
-- OpenAI investigates: *"Why did the payment API return 503?"*
-- Result always matches the schema: `{ rootCause, retryable, suggestedAction }`
-- No guessing about failure reasons—you get structured answers
+When `getQuote` fails:
+- `@trypatch` captures the error, the method name and its arguments
+- The AI works out the `Quote` this call should have returned, using the error context and any [tools](#tool-based-recovery-resolve-errors-automatically) you give it
+- The value is validated against `QuoteSchema` and returned to the caller as if `getQuote` had succeeded
+- If the AI can't produce a correct `Quote`, `getQuote` rethrows its original error (see [Fallback Outcomes](#fallback-outcomes-avoiding-fabricated-results))
+
+The type of `getQuote` is checked against `resultSchema`: with standard (stage-3) decorators, a method that doesn't return `Promise<Quote>` is a compile error.
+
+### Explanations: Why a Value Was Returned
+
+Along with the value, the AI explains why the call failed and why its value is correct. Callers only get the value. trypatch logs the explanation with `logger.info`, as the argument after the message, so it only shows at `verbosity: 'high'`. It also passes the explanation to `onInvestigationResult`:
+
+```typescript
+aiInvestigation: {
+  resultSchema: QuoteSchema,
+  investigationProvider: { provider: 'openai', apiKey: process.env.OPENAI_API_KEY! },
+  onInvestigationResult: (quote, { explanation }) => {
+    metrics.increment('pricing.quote_recovered')
+    console.warn(`getQuote recovered ${quote.price} ${quote.currency}: ${explanation}`)
+  },
+}
+```
+
+With `redactConfig`, placeholders in the explanation are restored like the rest of the response, so treat it as sensitive.
 
 ---
 
@@ -63,12 +80,20 @@ When `processPayment` fails:
 Automatically redact API keys, tokens, and PII before they leave your instance:
 
 ```typescript
+import { z } from 'zod'
 import { trypatch } from '@ssandir/trypatch'
 
-class DatabaseService {
+const CustomerSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  tier: z.enum(['free', 'pro', 'enterprise']),
+})
+type Customer = z.infer<typeof CustomerSchema>
+
+class CustomerRepository {
   @trypatch({
     aiInvestigation: {
-      resultSchema: ErrorResolutionSchema,
+      resultSchema: CustomerSchema,
       investigationProvider: {
         provider: 'openai',
         apiKey: process.env.OPENAI_API_KEY!,
@@ -83,10 +108,10 @@ class DatabaseService {
       },
     },
   })
-  async queryDatabase(query: string) {
-    // Even if query or password appears in error, it won't reach OpenAI
-    const result = await db.query(query)
-    return result
+  async getCustomer(customerId: string): Promise<Customer> {
+    // Even if the password appears in the error, it won't reach OpenAI
+    const [row] = await db.query('SELECT id, name, tier FROM customers WHERE id = $1', [customerId])
+    return CustomerSchema.parse(row)
   }
 }
 ```
@@ -96,65 +121,66 @@ class DatabaseService {
 2. Placeholders (e.g., `[REDACTED_0]`) replace the sensitive values
 3. OpenAI investigates with redacted data: *"Query failed at `[REDACTED_0]`..."*
 4. When the AI calls an investigation tool, placeholders in its input are restored before the tool runs, and the tool's output is redacted before it goes back to the AI
-5. Response placeholders are restored locally before returning
+5. Response placeholders are restored locally before the value is returned
 6. **Original secrets never leave your infrastructure**
 
 ---
 
 ## Tool-Based Recovery: Resolve Errors Automatically
 
-Provide tools that trypatch can invoke to retry or recover from transient failures:
+There are two kinds of tools:
+
+- **Investigation tools** (`investigationTools`): the AI calls them while investigating and reads their output. Their output only goes back to the AI, never to your caller. Keep them read-only.
+- **Result tools** (`resultTools`): the AI picks one as its outcome, together with its input. trypatch calls it once the investigation is done, and **its return value is what the decorated method returns**. This is where recovery actions belong: retries, fallbacks, cache reads.
 
 ```typescript
 import { Tool, trypatch } from '@ssandir/trypatch'
 import { z } from 'zod'
 
-const RetrySchema = z.object({
-  success: z.boolean(),
-  message: z.string(),
+// Investigation tool: lets the AI see what the upstream actually sent
+const fetchRawQuote = new Tool({
+  name: 'fetchRawQuote',
+  description: 'Fetch the raw, unparsed pricing API response for a product',
+  parameters: z.object({ productId: z.string() }),
+  execute: async ({ productId }) => {
+    const response = await fetch(`https://pricing.example.com/products/${productId}/quote`)
+    return `${response.status}\n${await response.text()}`
+  },
 })
 
-const retryTool = new Tool({
+// Result tool: its return value becomes getQuote's return value
+const retryWithBackoff = new Tool({
   name: 'retryWithBackoff',
-  description: 'Retry the operation with exponential backoff',
-  parameters: {
-    type: 'object',
-    properties: {
-      delayMs: { type: 'number' },
-      maxAttempts: { type: 'number' },
-    },
-    required: ['delayMs', 'maxAttempts'],
-  },
-  execute: async (input: { delayMs: number; maxAttempts: number }) => {
-    // Your retry logic here
-    for (let i = 0; i < input.maxAttempts; i++) {
+  description: 'Fetch the quote again with exponential backoff. Use for transient failures (timeouts, 5xx).',
+  parameters: z.object({ productId: z.string(), delayMs: z.number(), maxAttempts: z.number() }),
+  execute: async ({ productId, delayMs, maxAttempts }): Promise<Quote> => {
+    for (let attempt = 0; ; attempt++) {
       try {
-        return await executeOriginalOperation()
-      } catch (e) {
-        if (i === input.maxAttempts - 1) throw e
-        await sleep(input.delayMs * (2 ** i)) // exponential backoff
+        return await pricingClient.fetchQuote(productId)
+      } catch (error) {
+        if (attempt >= maxAttempts - 1) throw error
+        await sleep(delayMs * 2 ** attempt)
       }
     }
   },
 })
 
-class ThirdPartyApiClient {
+class PricingService {
   @trypatch({
     aiInvestigation: {
-      resultSchema: RetrySchema,
+      resultSchema: QuoteSchema,
       investigationProvider: {
         provider: 'claude',
         apiKey: process.env.ANTHROPIC_API_KEY!,
       },
-      // Tools the AI can call during investigation
-      investigationTools: [retryTool],
+      investigationTools: [fetchRawQuote],
+      resultTools: [retryWithBackoff],
     },
   })
-  async fetchData(endpoint: string) {
-    // If this fails, Claude investigates and may invoke retryWithBackoff
-    const response = await fetch(`https://api.example.com${endpoint}`)
-    if (!response.ok) throw new Error('API returned ' + response.status)
-    return response.json()
+  async getQuote(productId: string): Promise<Quote> {
+    const response = await fetch(`https://pricing.example.com/products/${productId}/quote`)
+    if (!response.ok) throw new Error(`Pricing API returned ${response.status}`)
+    return QuoteSchema.parse(await response.json())
   }
 }
 ```
@@ -164,15 +190,17 @@ The AI can call investigation tools over several turns: it calls a tool, reads t
 - `investigationBehavior.maxToolIterations` caps the number of tool turns (default 20)
 - `investigationBehavior.timeoutMs` covers the whole investigation, including every tool turn; a tool still running at the deadline is abandoned, and can listen to the `signal` it receives to actually stop (see [Cancellation](#cancellation-abort-signals))
 - `toolContext` is passed to every tool's `execute` as its second argument, and `{ signal }` as its third
-- If a tool throws, the error is sent back to the AI so it can try something else, instead of failing the investigation
+- If an investigation tool throws, the error is sent back to the AI so it can try something else, instead of failing the investigation
+- A result tool runs after the investigation, outside `investigationBehavior.timeoutMs`; its own `timeoutMs` still applies. If it throws, the investigation fails, and the method rethrows its original error.
+- A result tool's return type is checked against `resultSchema` at compile time. Its value isn't validated at runtime, because it's your code.
 
 Investigation tools work with `openai`, `claude` and `openai-compatible`. The `cursor` provider ignores them, because Cursor's cloud agent runs its own tools remotely; use [`mcpServers`](#mcp-servers-give-the-ai-your-existing-tooling) to give it tools.
 
 **Use cases:**
-- **Volatile APIs**: `@trypatch` detects transient timeouts and retries automatically
-- **Database connection pools**: Tools can wait for a connection to become available
-- **Fallback services**: Tools can switch to a backup endpoint
-- **Rate limiting**: Tools can apply backoff and retry intelligently
+- **Volatile APIs**: a result tool retries with backoff, and the retried value is returned
+- **Changed upstream formats**: an investigation tool fetches the raw response, and the AI returns a valid value built from it
+- **Fallback services**: a result tool reads from a backup endpoint or cache
+- **Database connection pools**: a result tool waits for a connection and runs the query again
 
 ---
 
@@ -224,13 +252,19 @@ aiInvestigation: {
 
 ## Fallback Outcomes: Avoiding Fabricated Results
 
-Besides returning a `result`, calling a `resultTool`, or throwing a `customErrors` entry, the AI can report that it has nothing good to offer — instead of guessing. Three booleans control this, all defaulting to `true`:
+Besides returning a `result`, calling a `resultTool`, or throwing a `customErrors` entry, the AI can report that it has no correct value to offer, instead of guessing one. Three booleans control this, all defaulting to `true`:
 
-- `allowCannotDetermine` — not enough information to identify a cause at all → throws `TrypatchCannotDetermineError`
-- `allowUncertainResult` — a candidate answer exists but confidence is too low to state as fact → throws `TrypatchUncertainResultError`
-- `allowNoApplicableOutcome` — none of the configured `result`/`resultTools`/`customErrors` fit the situation → throws `TrypatchNoApplicableOutcomeError`
+- `allowCannotDetermine`: not enough information to work out a correct return value → `TrypatchCannotDetermineError`
+- `allowUncertainResult`: a candidate value exists, but confidence is too low to return it → `TrypatchUncertainResultError`
+- `allowNoApplicableOutcome`: none of the configured `result`/`resultTools`/`customErrors` fit the situation → `TrypatchNoApplicableOutcomeError`
 
-The AI supplies a `reason` string, which becomes the thrown error's message. Like `customErrors`, these are logged and swallowed. Set the corresponding boolean to `false` to remove that escape hatch.
+The AI supplies a `reason` string, which becomes that error's message. Set the corresponding boolean to `false` to remove that escape hatch.
+
+**When no value is produced, callers get the original error.** That covers a fallback outcome, a `customErrors` entry without `propagate`, our timeout, a provider failure or a failing result tool. trypatch logs why the investigation failed, and the method rethrows the error it originally threw, so callers see the same failure they'd see without trypatch. Only three errors replace it:
+
+- the abort reason of the signal returned by `getSignal` (see [Cancellation](#cancellation-abort-signals))
+- `TrypatchFatalError`
+- a `customErrors` entry with `propagate: true`
 
 ---
 
@@ -247,14 +281,14 @@ class ReportService {
       investigationBehavior: { timeoutMs: 60_000 },
     },
   })
-  async generate(reportId: string, options?: { signal?: AbortSignal }) { /* ... */ }
+  async generate(reportId: string, options?: { signal?: AbortSignal }): Promise<Report> { /* ... */ }
 }
 ```
 
 For a signal not tied to a call, such as app shutdown: `getSignal: () => shutdownController.signal`.
 
 - **Your abort, your error.** The decorated method rejects with the signal's `reason`, like `fetch` does. An already-aborted signal skips the investigation.
-- **Our timeout, our error.** `investigationBehavior.timeoutMs` and your signal are combined. If the timeout fires first, trypatch throws `TrypatchTimeoutError`, which is logged and swallowed like any investigation failure.
+- **Our timeout, our error.** `investigationBehavior.timeoutMs` and your signal are combined. If the timeout fires first, trypatch logs a `TrypatchTimeoutError` and the method rethrows its original error, like any investigation failure.
 - **Tools** get `{ signal }` as `execute`'s third argument; it also fires on the tool's own `timeoutMs` (throwing `TrypatchTimeoutError`). A tool still running is abandoned; listen to `signal` to actually stop it. Result tools get your signal but aren't covered by `investigationBehavior.timeoutMs`.
 - **MCP** connections and tool calls share the combined signal.
 - **Custom investigations** get `investigate(ctx, { signal })`; trypatch adds no timeout of its own.
@@ -274,39 +308,37 @@ For JSON Schema, define the shape locally and cast in handlers:
 import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
 import { Tool, trypatch } from '@ssandir/trypatch'
 
-const schema = {
+const quoteSchema = {
   type: 'object',
-  properties: { rootCause: { type: 'string' }, retryable: { type: 'boolean' } },
-  required: ['rootCause', 'retryable'],
+  properties: { price: { type: 'number' }, currency: { type: 'string' } },
+  required: ['price', 'currency'],
   additionalProperties: false,
 } as const satisfies JSONSchema
-type Result = FromSchema<typeof schema>
+type Quote = FromSchema<typeof quoteSchema>
 
 // Tool — cast execute input
-new Tool({
-  name: 'investigate',
-  description: 'Investigate',
-  parameters: schema,
-  execute: (input: unknown) => {
-    const { rootCause, retryable } = input as Result
-    return { summary: rootCause, retryable }
-  },
+const convertQuote = new Tool({
+  name: 'convertQuote',
+  description: 'Return the given quote converted to EUR',
+  parameters: quoteSchema,
+  execute: (input: unknown): Promise<Quote> => currencyClient.toEur(input as Quote),
 })
 
-// @trypatch — cast result / return type
-class Service {
+// @trypatch — declare the return type, cast the callback result
+class PricingService {
   @trypatch({
     aiInvestigation: {
-      resultSchema: schema,
+      resultSchema: quoteSchema,
       investigationProvider: { provider: 'openai', apiKey: process.env.OPENAI_API_KEY! },
-      onInvestigationResult: (result) => console.warn((result as Result).rootCause),
+      resultTools: [convertQuote],
+      onInvestigationResult: (result, { explanation }) => console.warn(`Recovered ${(result as Quote).price}: ${explanation}`),
     },
   })
-  async run (): Promise<Result> { /* ... */ }
+  async getQuote (productId: string): Promise<Quote> { /* ... */ }
 }
 ```
 
-Use `as const satisfies JSONSchema` so `FromSchema<typeof schema>` stays precise.
+Use `as const satisfies JSONSchema` so `FromSchema<typeof quoteSchema>` stays precise.
 
 ---
 
@@ -378,10 +410,10 @@ Optional fields: `model`, `repository` (`url`, `startingRef`, `prUrl`), `baseURL
 Every provider config accepts an optional `fetch`, used instead of the global one for every HTTP call that provider makes. It's the same pattern the Anthropic and OpenAI SDKs use — supply a function with `fetch`'s signature and do whatever you need before (or instead of) calling through to a real `fetch`: route through a proxy, inject a freshly refreshed token, add retries, log requests, etc.
 
 ```typescript
-class Service {
+class PricingService {
   @trypatch({
     aiInvestigation: {
-      resultSchema: ResolutionSchema,
+      resultSchema: QuoteSchema,
       investigationProvider: {
         provider: 'openai',
         apiKey: process.env.OPENAI_API_KEY!,
@@ -392,7 +424,7 @@ class Service {
       },
     },
   })
-  async run() { /* ... */ }
+  async getQuote(productId: string): Promise<Quote> { /* ... */ }
 }
 ```
 
@@ -404,5 +436,7 @@ Cursor's provider calls this for both the agent-creation and run-polling request
 <summary>Decorator dialect compatibility</summary>
 
 `@trypatch` works whether your project compiles with TypeScript's legacy `experimentalDecorators` (the default for NestJS, TypeORM, and similar frameworks) or with the standard stage-3 decorators TS 5 uses by default. No configuration needed — it detects which dialect is calling it at runtime.
+
+With stage-3 decorators, TypeScript checks that the method returns `Promise<…>` of your `resultSchema` type. Legacy decorators don't see the method's return type, so that check can't happen there: declare decorated methods `async` and give them the schema's type yourself. Under both dialects, the decorated method always returns a Promise.
 
 </details>

@@ -70,7 +70,8 @@ export type InvestigationBehavior = {
 export type InvestigationTool<C = unknown> = Tool<any, C, unknown>
 
 /**
- * Final-step tool whose return value becomes the investigation result.
+ * Tool the AI may pick as its outcome; trypatch calls it after the investigation and its return value
+ * is returned from the decorated method in place of the error.
  * When {@link TryPatchOptions} includes {@link resultSchema}, execute must return {@link SchemaInfer} for that schema.
  *
  * `any` on the parameter schema erases {@link Tool}'s invariant `TSchema` generic so heterogeneous
@@ -86,7 +87,10 @@ export type CustomErrorDefinition<S extends Schema = Schema> = {
     description?: string
     /** Zod or JSON Schema describing the error constructor parameter type. */
     errorParameterSchema: S
-    /** Whether this error propagates out of trypatch instead of being logged and swallowed. Defaults to `false`. */
+    /**
+     * Whether this error propagates out of trypatch. Defaults to `false`: it is logged and the
+     * decorated method rethrows its original error instead.
+     */
     propagate?: boolean
 }
 
@@ -94,7 +98,11 @@ export type AiInvestigationOptions<
     S extends Schema = Schema,
     C = unknown,
 > = {
-    /** JSON Schema or Zod schema that structured investigation results must match. */
+    /**
+     * JSON Schema or Zod schema of the decorated method's return value. A recovered value (a direct
+     * `result` or a {@link resultTools} return value) is returned in place of the error, so it must
+     * match what the method returns.
+     */
     resultSchema?: S
     /** External AI provider that runs the investigation. */
     investigationProvider: InvestigationProviderConfig
@@ -120,8 +128,8 @@ export type AiInvestigationOptions<
      */
     mcpServers?: McpServerConfig[]
     /**
-     * Tools invoked as the final step once investigation completes.
-     * The return value of the invoked result tool is returned directly as the investigation result.
+     * Tools the AI may pick as its outcome. trypatch calls the picked tool once the investigation
+     * completes, and its return value is returned from the decorated method in place of the error.
      */
     resultTools?: ResultTool<S, C>[]
     /** Custom error classes the AI can throw during investigation. */
@@ -132,22 +140,33 @@ export type AiInvestigationOptions<
      */
     allowDirectResultCreation?: boolean
     /**
-     * Whether the AI may report that it could not determine any result — there isn't enough
-     * information to identify a cause. Throws {@link TrypatchCannotDetermineError}. Defaults to `true`.
+     * Whether the AI may report that there isn't enough information to work out a correct return value.
+     * Ends the investigation with {@link TrypatchCannotDetermineError}, which is logged; the method then
+     * rethrows its original error. Defaults to `true`.
      */
     allowCannotDetermine?: boolean
     /**
-     * Whether the AI may report a plausible result exists but its confidence in it is too low to
-     * state as fact, instead of guessing. Throws {@link TrypatchUncertainResultError}. Defaults to `true`.
+     * Whether the AI may report that a plausible return value exists but its confidence in it is too low
+     * to return it, instead of guessing. Ends the investigation with {@link TrypatchUncertainResultError},
+     * which is logged; the method then rethrows its original error. Defaults to `true`.
      */
     allowUncertainResult?: boolean
     /**
      * Whether the AI may report that none of the configured outcomes actually fit the situation.
-     * Throws {@link TrypatchNoApplicableOutcomeError}. Defaults to `true`.
+     * Ends the investigation with {@link TrypatchNoApplicableOutcomeError}, which is logged; the method
+     * then rethrows its original error. Defaults to `true`.
      */
     allowNoApplicableOutcome?: boolean
-    /** Callback invoked with the parsed investigation result before it is returned from the wrapped method. */
-    onInvestigationResult?: (result: SchemaInfer<S>) => void | Promise<void>
+    /**
+     * Callback invoked with the value the wrapped method is about to return in place of its error,
+     * plus the AI's explanation of why the call failed and why that value is correct.
+     */
+    onInvestigationResult?: (result: SchemaInfer<S>, details: InvestigationResultDetails) => void | Promise<void>
+}
+
+export type InvestigationResultDetails = {
+    /** The AI's explanation of why the call failed and why the returned value is correct for it. */
+    explanation: string
 }
 
 export type CustomInvestigationErrorDefinition = {
@@ -155,9 +174,12 @@ export type CustomInvestigationErrorDefinition = {
 }
 
 type CustomInvestigateTryPatchOptions = {
-    /** Custom investigation handler; replaces the built-in AI provider flow when provided. */
+    /**
+     * Custom investigation handler; replaces the built-in AI provider flow when provided. Its resolved
+     * value is returned from the decorated method in place of the error.
+     */
     investigate: (ctx: InvestigationContext, options: { signal?: AbortSignal }) => Promise<unknown>
-    /** Error classes that, when thrown by {@link investigate}, propagate instead of being swallowed. */
+    /** Error classes that, when thrown by {@link investigate}, propagate instead of the method's original error. */
     customErrors?: CustomInvestigationErrorDefinition[]
 }
 

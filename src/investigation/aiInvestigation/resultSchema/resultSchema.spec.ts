@@ -45,6 +45,16 @@ describe('buildInvestigationResultSchema', () => {
         expect(variant!.properties.result).toMatchObject({ type: 'string' })
     })
 
+    it('should describe the result and result tool variants as the method\'s return value', () => {
+        const schema = buildInvestigationResultSchema({ resultTools: [resultTool], ...disableFallbackOutcomes })
+        const variants = outcomeVariants(schema) as { description: string }[]
+        expect(variants.map(variant => variant.description)).toEqual([
+            expect.stringContaining('returned from the method in place of the error'),
+            expect.stringContaining('from the method in place of the error'),
+        ])
+        expect(variants[0]!.description).toContain('Submit the final investigation result')
+    })
+
     it('should exclude the result variant when allowDirectResultCreation is false and a result tool is provided', () => {
         const schema = buildInvestigationResultSchema({ allowDirectResultCreation: false, resultTools: [resultTool], ...disableFallbackOutcomes })
         expect(variantTypes(schema)).toEqual(['resultTool'])

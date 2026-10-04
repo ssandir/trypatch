@@ -1,10 +1,12 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import type { InvestigationContext } from '../../types'
+import { qualifiedMethodName } from '../investigationContext'
 
 const DEFAULT_SYSTEM_PROMPT = [
-    'You investigate runtime errors in application code.',
-    'Analyze the provided error context and return a JSON object that matches the supplied schema exactly.',
-    'Do not include markdown fences or explanatory text outside the JSON object.',
+    'A method call in application code threw an error, and you stand in for that call.',
+    'Your outcome decides what the call returns to its caller in place of the error.',
+    'Investigate the error, then choose an outcome from the supplied schema. Only return a result or invoke a result tool when that gives a correct return value for this call; if neither does, choose one of the other outcomes instead of inventing one.',
+    'Respond with a single JSON object that matches the supplied schema exactly.',
 ].join(' ')
 
 export function buildInvestigationPrompt (
@@ -20,12 +22,14 @@ export function buildInvestigationPrompt (
         ? `${ctx.error.name}: ${ctx.error.message}\n${ctx.error.stack ?? ''}`
         : String(ctx.error)
 
+    const methodName = qualifiedMethodName(ctx)
+
     const defaultUserPrompt = [
-        `Method: ${ctx.methodMetadata.className ? `${ctx.methodMetadata.className}.` : ''}${ctx.methodName}`,
+        `Method: ${methodName}`,
         `Method metadata: ${JSON.stringify(ctx.methodMetadata)}`,
         `Arguments: ${JSON.stringify(sanitizedArgs)}`,
         `Error:\n${errorMessage}`,
-        `Return JSON matching this schema:\n${JSON.stringify(outcomeSchema, null, 2)}`,
+        `Your outcome replaces this failed call to ${methodName}: a result you construct, or the return value of a result tool you invoke, is what the call returns to its caller. Return JSON matching this schema:\n${JSON.stringify(outcomeSchema, null, 2)}`,
     ].join('\n\n')
 
     const userPrompt = typeof options.prompt === 'function'

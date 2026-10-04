@@ -23,13 +23,13 @@ jest.mock('@ai-sdk/mcp/mcp-stdio', () => ({ Experimental_StdioMCPTransport: jest
 
 describe('investigateWithLanguageModel', () => {
     const outcomeSchema = buildInvestigationResultSchema({
-        resultSchema: z.object({ rootCause: z.string() }),
+        resultSchema: z.object({ status: z.string() }),
     })
     const prompts = { systemPrompt: 'Investigate', userPrompt: 'Something failed' }
     const config = { provider: 'claude', apiKey: 'key' } as const
 
-    function finalOutcome (rootCause: string): MockGenerateResult {
-        return mockOutcomeTurn({ type: 'result', result: { rootCause } })
+    function finalOutcome (status: string): MockGenerateResult {
+        return mockOutcomeTurn({ type: 'result', explanation: 'test explanation', result: { status } })
     }
 
     function useModel (...turns: MockGenerateResult[]): ReturnType<typeof mockLanguageModel> {
@@ -66,7 +66,7 @@ describe('investigateWithLanguageModel', () => {
 
         const result = await investigateWithLanguageModel(config, outcomeSchema, prompts, { timeoutMs: 5_000 })
 
-        expect(result).toEqual({ type: 'result', result: { rootCause: 'rate limited' } })
+        expect(result).toEqual({ type: 'result', explanation: 'test explanation', result: { status: 'rate limited' } })
         expect(model.doGenerateCalls).toHaveLength(1)
         expect(model.doGenerateCalls[0]?.tools).toBeUndefined()
     })
@@ -83,7 +83,7 @@ describe('investigateWithLanguageModel', () => {
             toolContext: { region: 'eu' },
         })
 
-        expect(result).toEqual({ type: 'result', result: { rootCause: 'order o-1 is stuck' } })
+        expect(result).toEqual({ type: 'result', explanation: 'test explanation', result: { status: 'order o-1 is stuck' } })
         expect(lookupOrder).toHaveBeenCalledWith({ orderId: 'o-1' }, { region: 'eu' }, { signal: expect.any(AbortSignal) })
         expect(model.doGenerateCalls).toHaveLength(2)
         expect(toolResultsSentIn(model.doGenerateCalls[1])).toEqual([
@@ -106,7 +106,7 @@ describe('investigateWithLanguageModel', () => {
             investigationTools: [failingTool],
         })
 
-        expect(result).toEqual({ type: 'result', result: { rootCause: 'database outage' } })
+        expect(result).toEqual({ type: 'result', explanation: 'test explanation', result: { status: 'database outage' } })
         expect(JSON.stringify(toolResultsSentIn(model.doGenerateCalls[1]))).toContain('db unavailable')
     })
 
@@ -255,7 +255,7 @@ describe('investigateWithLanguageModel', () => {
                 logger,
             })
 
-            expect(result).toEqual({ type: 'result', result: { rootCause: 'checkout timed out' } })
+            expect(result).toEqual({ type: 'result', explanation: 'test explanation', result: { status: 'checkout timed out' } })
             expect(model.doGenerateCalls[0]?.tools?.map(sentTool => sentTool.name)).toEqual(['lookup_order', 'grafana__query_logs'])
             expect(queryLogs).toHaveBeenCalledWith({ query: 'checkout' }, expect.anything())
             expect(jest.mocked(createMCPClient)).toHaveBeenCalledWith(expect.objectContaining({
@@ -318,7 +318,7 @@ describe('investigateWithLanguageModel', () => {
                 logger,
             })
 
-            expect(result).toEqual({ type: 'result', result: { rootCause: 'probably a timeout' } })
+            expect(result).toEqual({ type: 'result', explanation: 'test explanation', result: { status: 'probably a timeout' } })
             expect(warn).toHaveBeenCalledWith('[ssandir/trypatch] MCP server "grafana" is unavailable and was skipped', expect.any(Error))
             expect(model.doGenerateCalls[0]?.tools?.map(sentTool => sentTool.name)).toEqual(['loki__loki_query'])
             expect(loki.close).toHaveBeenCalledTimes(1)
@@ -334,7 +334,7 @@ describe('investigateWithLanguageModel', () => {
                 logger,
             })
 
-            expect(result).toEqual({ type: 'result', result: { rootCause: 'rate limited' } })
+            expect(result).toEqual({ type: 'result', explanation: 'test explanation', result: { status: 'rate limited' } })
             expect(model.doGenerateCalls[0]?.tools).toBeUndefined()
         })
 
@@ -383,7 +383,7 @@ describe('investigateWithLanguageModel', () => {
                 logger,
             })
 
-            expect(result).toEqual({ type: 'result', result: { rootCause: 'rate limited' } })
+            expect(result).toEqual({ type: 'result', explanation: 'test explanation', result: { status: 'rate limited' } })
             expect(warn).toHaveBeenCalledWith('[ssandir/trypatch] Failed to close MCP client for server "grafana"', expect.any(Error))
         })
 
