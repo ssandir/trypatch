@@ -25,7 +25,7 @@ describe('trypatch', () => {
         jest.restoreAllMocks()
     })
 
-    function trypatchMethod<This, Args extends unknown[], Return> (
+    function trypatchMethod<This, Args extends unknown[], Return extends Promise<unknown>> (
         prototype: This,
         methodName: string,
         options: TryPatchOptions,
@@ -69,11 +69,11 @@ describe('trypatch', () => {
             mockInvestigationResponse({ rootCause: 'bad input', retryable: false })
 
             class ExampleService {
-                run (value: string): InvestigationResult {
+                run (value: string): Promise<InvestigationResult> {
                     if (value === 'fail') {
                         throw new Error('failed')
                     }
-                    return { rootCause: value, retryable: false }
+                    return Promise.resolve({ rootCause: value, retryable: false })
                 }
             }
 
@@ -101,11 +101,11 @@ describe('trypatch', () => {
             mockInvestigationResponse({ rootCause: 'schema mismatch', retryable: true })
 
             class ExampleService {
-                run (value: string): InvestigationResult {
+                run (value: string): Promise<InvestigationResult> {
                     if (value === 'fail') {
                         throw new Error('failed')
                     }
-                    return { rootCause: value, retryable: false }
+                    return Promise.resolve({ rootCause: value, retryable: false })
                 }
             }
 
@@ -126,24 +126,6 @@ describe('trypatch', () => {
                 rootCause: 'schema mismatch',
                 retryable: true,
             }, { explanation: 'test explanation' })
-        })
-
-        it('should resolve sync success values through a promise', async () => {
-            class ExampleService {
-                run (value: string): InvestigationResult {
-                    return { rootCause: value, retryable: false }
-                }
-            }
-
-            trypatchMethod(ExampleService.prototype, 'run', {
-                aiInvestigation: {
-                    resultSchema: zodSchema,
-                    investigationProvider,
-                },
-            })
-
-            const service = new ExampleService()
-            await expect(service.run('ok')).resolves.toEqual({ rootCause: 'ok', retryable: false })
         })
 
         it('should await investigation for async methods before returning the fallback result', async () => {
@@ -295,7 +277,7 @@ describe('trypatch', () => {
 
             class CustomInvestigateService {
                 @trypatch(customOptions)
-                run (_value: string): DecoratorResult {
+                run (_value: string): Promise<DecoratorResult> {
                     throw new Error('failed')
                 }
             }
@@ -340,12 +322,12 @@ describe('trypatch', () => {
 
             class BillingService {
                 @trypatch(customOptions)
-                run (_value: string): DecoratorResult {
+                run (_value: string): Promise<DecoratorResult> {
                     throw new Error('failed')
                 }
 
                 @trypatch(customOptions)
-                static runStatic (_value: string): DecoratorResult {
+                static runStatic (_value: string): Promise<DecoratorResult> {
                     throw new Error('failed')
                 }
             }
@@ -372,12 +354,12 @@ describe('trypatch', () => {
 
             class ReportService {
                 @trypatch(signalOptions)
-                run (_value: string, _options?: { signal?: AbortSignal }): string {
+                run (_value: string, _options?: { signal?: AbortSignal }): Promise<string> {
                     throw new Error('failed')
                 }
 
                 @trypatch(signalOptions)
-                static runStatic (_value: string, _options?: { signal?: AbortSignal }): string {
+                static runStatic (_value: string, _options?: { signal?: AbortSignal }): Promise<string> {
                     throw new Error('failed')
                 }
             }
@@ -404,7 +386,7 @@ describe('trypatch', () => {
                     getSignal: ctx => (ctx.args[0] as { signal: AbortSignal }).signal,
                     customInvestigation: { investigate },
                 })
-                run (_options: { signal: AbortSignal }): string {
+                run (_options: { signal: AbortSignal }): Promise<string> {
                     throw new Error('failed')
                 }
             }
@@ -430,7 +412,7 @@ describe('trypatch', () => {
                         },
                     },
                 })
-                run (_options: { signal: AbortSignal }): string {
+                run (_options: { signal: AbortSignal }): Promise<string> {
                     throw new Error('failed')
                 }
             }
@@ -504,7 +486,7 @@ describe('trypatch', () => {
 
             class AiInvestigateService {
                 @trypatch(aiOptions)
-                run (_value: string): DecoratorResult {
+                run (_value: string): Promise<DecoratorResult> {
                     throw new Error('failed')
                 }
             }

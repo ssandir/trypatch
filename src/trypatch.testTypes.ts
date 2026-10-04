@@ -20,13 +20,23 @@ const investigationProvider = {
     apiKey: 'test-key',
 } as const
 
-const mismatchedReturnMethod = (): { rootCause: string, retryable: string } => ({ rootCause: 'x', retryable: 'no' })
+const mismatchedReturnMethod = (): Promise<{ rootCause: string, retryable: string }> => Promise.resolve({ rootCause: 'x', retryable: 'no' })
 
 trypatch({
     aiInvestigation: { resultSchema, investigationProvider },
 })(
     // @ts-expect-error - method return type must match resultSchema
     mismatchedReturnMethod,
+    mockMethodDecoratorContext('run'),
+)
+
+const syncMethod = (): { rootCause: string, retryable: boolean } => ({ rootCause: 'x', retryable: false })
+
+trypatch({
+    aiInvestigation: { resultSchema, investigationProvider },
+})(
+    // @ts-expect-error - the wrapper always returns a Promise, so the method must too
+    syncMethod,
     mockMethodDecoratorContext('run'),
 )
 
