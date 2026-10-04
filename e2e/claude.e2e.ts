@@ -101,6 +101,7 @@ class ShippingQuoteClient {
             investigationTools: [getRecentCarrierCalls],
             toolContext: { apmLog } satisfies ApmToolContext,
             redactConfig: { terms: [carrierApiKey, customerEmail] },
+            allowUncertainResult: false,
             onInvestigationResult: (result, { explanation }) => {
                 investigationResults.push({ result, explanation })
             },
