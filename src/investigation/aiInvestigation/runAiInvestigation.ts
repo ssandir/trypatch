@@ -109,7 +109,6 @@ export async function runAiInvestigation<S extends Schema, C> (
         allowNoApplicableOutcome,
         onInvestigationResult,
     }: AiInvestigationOptions<S, C>,
-    timeoutMs: number | undefined,
     logger?: Logger,
     signal?: AbortSignal,
 ): Promise<unknown> {
@@ -130,7 +129,6 @@ export async function runAiInvestigation<S extends Schema, C> (
     const builtPrompts = buildInvestigationPrompt(ctx, sanitizedArgs, outcomeSchema, investigationBehavior)
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)
     const rawOutcome = await callInvestigationProvider(investigationProvider, outcomeSchema, prompts, {
-        timeoutMs,
         maxTokens: investigationBehavior.maxTokens,
         maxToolIterations: investigationBehavior.maxToolIterations,
         investigationTools,

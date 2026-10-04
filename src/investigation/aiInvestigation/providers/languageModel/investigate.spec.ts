@@ -10,7 +10,6 @@ import {
     type MockCallOptions,
     type MockGenerateResult,
 } from '../../../../test/mockLanguageModel'
-import { TrypatchTimeoutError } from '../../../../errors'
 import { Logger } from '../../../../logger'
 import { Tool } from '../../../../tools'
 import { buildInvestigationResultSchema } from '../../resultSchema'
@@ -64,7 +63,7 @@ describe('investigateWithLanguageModel', () => {
     it('should return the outcome directly when the model calls no tools', async () => {
         const model = useModel(finalOutcome('rate limited'))
 
-        const result = await investigateWithLanguageModel(config, outcomeSchema, prompts, { timeoutMs: 5_000 })
+        const result = await investigateWithLanguageModel(config, outcomeSchema, prompts, {})
 
         expect(result).toEqual({ type: 'result', explanation: 'test explanation', result: { status: 'rate limited' } })
         expect(model.doGenerateCalls).toHaveLength(1)
@@ -78,7 +77,6 @@ describe('investigateWithLanguageModel', () => {
         )
 
         const result = await investigateWithLanguageModel(config, outcomeSchema, prompts, {
-            timeoutMs: 5_000,
             investigationTools: [orderTool],
             toolContext: { region: 'eu' },
         })
@@ -102,7 +100,6 @@ describe('investigateWithLanguageModel', () => {
         const model = useModel(mockToolCallTurn('flaky', {}), finalOutcome('database outage'))
 
         const result = await investigateWithLanguageModel(config, outcomeSchema, prompts, {
-            timeoutMs: 5_000,
             investigationTools: [failingTool],
         })
 
@@ -118,7 +115,6 @@ describe('investigateWithLanguageModel', () => {
         )
 
         await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
-            timeoutMs: 5_000,
             investigationTools: [orderTool],
             maxToolIterations: 1,
         })).rejects.toThrow('Investigation did not reach an outcome within 1 tool iterations')
@@ -134,7 +130,6 @@ describe('investigateWithLanguageModel', () => {
         )
 
         await investigateWithLanguageModel(config, outcomeSchema, prompts, {
-            timeoutMs: 5_000,
             investigationTools: [orderTool],
             vault,
         })
@@ -142,39 +137,6 @@ describe('investigateWithLanguageModel', () => {
         expect(placeholder).not.toBe('secret-order')
         expect(lookupOrder).toHaveBeenCalledWith({ orderId: 'secret-order' }, undefined, { signal: expect.any(AbortSignal) })
         expect(JSON.stringify(model.doGenerateCalls[1]?.prompt)).not.toContain('secret-order')
-    })
-
-    it('should abort tools that run past the investigation deadline', async () => {
-        const hangingTool = new Tool({
-            name: 'hang',
-            description: 'Never resolves',
-            execute: () => new Promise<never>(() => undefined),
-        })
-        useModel(mockToolCallTurn('hang', {}), finalOutcome('unreachable'))
-
-        await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
-            timeoutMs: 50,
-            investigationTools: [hangingTool],
-        })).rejects.toThrow(TrypatchTimeoutError)
-    })
-
-    it('should abort the investigation when the caller signal fires before the deadline', async () => {
-        const hangingTool = new Tool({
-            name: 'hang',
-            description: 'Never resolves',
-            execute: () => new Promise<never>(() => undefined),
-        })
-        useModel(mockToolCallTurn('hang', {}), finalOutcome('unreachable'))
-        const controller = new AbortController()
-        setTimeout(() => {
-            controller.abort(new Error('cancelled'))
-        }, 20)
-
-        await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
-            timeoutMs: 5_000,
-            investigationTools: [hangingTool],
-            signal: controller.signal,
-        })).rejects.toThrow('cancelled')
     })
 
     it('should hand investigation tools a signal that fires when the caller aborts', async () => {
@@ -194,22 +156,12 @@ describe('investigateWithLanguageModel', () => {
         useModel(mockToolCallTurn('hang', {}), finalOutcome('unreachable'))
 
         await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
-            timeoutMs: 5_000,
             investigationTools: [hangingTool],
             signal: controller.signal,
         })).rejects.toThrow('cancelled')
         expect(toolSignal?.aborted).toBe(true)
     })
 
-    it('should not call the model when the caller signal is already aborted', async () => {
-        const model = useModel(finalOutcome('unreachable'))
-
-        await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
-            timeoutMs: 5_000,
-            signal: AbortSignal.abort(new Error('cancelled')),
-        })).rejects.toThrow('cancelled')
-        expect(model.doGenerateCalls).toHaveLength(0)
-    })
     describe('mcpServers', () => {
         const warn = jest.fn()
         const logger = new Logger({ logger: { ...console, warn } })
@@ -249,7 +201,6 @@ describe('investigateWithLanguageModel', () => {
             )
 
             const result = await investigateWithLanguageModel(config, outcomeSchema, prompts, {
-                timeoutMs: 5_000,
                 investigationTools: [orderTool],
                 mcpServers: [{ ...grafana, headers: { Authorization: 'Bearer t' }, allowedTools: ['query_logs'] }],
                 logger,
@@ -270,7 +221,6 @@ describe('investigateWithLanguageModel', () => {
             useModel(finalOutcome('unknown'))
 
             await investigateWithLanguageModel(config, outcomeSchema, prompts, {
-                timeoutMs: 5_000,
                 mcpServers: [{ ...grafana, allowedTools: ['query_logs', 'query_metrics', 'get_alerts'] }],
                 logger,
             })
@@ -283,7 +233,6 @@ describe('investigateWithLanguageModel', () => {
             useModel(finalOutcome('unknown'))
 
             await investigateWithLanguageModel(config, outcomeSchema, prompts, {
-                timeoutMs: 5_000,
                 mcpServers: [{ name: 'db', type: 'stdio', command: 'npx', args: ['db-mcp'], env: { DB_URL: 'x' } }],
             })
 
@@ -297,7 +246,6 @@ describe('investigateWithLanguageModel', () => {
 
             for (let i = 0; i < 2; i++) {
                 await investigateWithLanguageModel(config, outcomeSchema, prompts, {
-                    timeoutMs: 5_000,
                     mcpServers: [{ ...grafana, headers }],
                 })
             }
@@ -313,7 +261,6 @@ describe('investigateWithLanguageModel', () => {
             const model = useModel(finalOutcome('probably a timeout'))
 
             const result = await investigateWithLanguageModel(config, outcomeSchema, prompts, {
-                timeoutMs: 5_000,
                 mcpServers: [grafana, { name: 'loki', type: 'http', url: 'https://loki.example.com/mcp' }],
                 logger,
             })
@@ -329,7 +276,6 @@ describe('investigateWithLanguageModel', () => {
             const model = useModel(finalOutcome('rate limited'))
 
             const result = await investigateWithLanguageModel(config, outcomeSchema, prompts, {
-                timeoutMs: 5_000,
                 mcpServers: [grafana],
                 logger,
             })
@@ -349,7 +295,6 @@ describe('investigateWithLanguageModel', () => {
             )
 
             await investigateWithLanguageModel(config, outcomeSchema, prompts, {
-                timeoutMs: 5_000,
                 mcpServers: [grafana],
                 vault,
             })
@@ -364,7 +309,6 @@ describe('investigateWithLanguageModel', () => {
             useModel(mockToolCallTurn('grafana__query_logs', { query: 'a' }), mockToolCallTurn('grafana__query_logs', { query: 'b' }, 'call-2'))
 
             await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
-                timeoutMs: 5_000,
                 mcpServers: [grafana],
                 maxToolIterations: 1,
             })).rejects.toThrow('did not reach an outcome')
@@ -378,7 +322,6 @@ describe('investigateWithLanguageModel', () => {
             useModel(finalOutcome('rate limited'))
 
             const result = await investigateWithLanguageModel(config, outcomeSchema, prompts, {
-                timeoutMs: 5_000,
                 mcpServers: [grafana],
                 logger,
             })
@@ -393,7 +336,6 @@ describe('investigateWithLanguageModel', () => {
             useModel(finalOutcome('x'))
 
             await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
-                timeoutMs: 5_000,
                 investigationTools: [new Tool({ name: 'grafana__lookup', description: 'x', execute: () => null })],
                 mcpServers: [grafana],
             })).rejects.toThrow('MCP tool "grafana__lookup" has the same name as an investigation tool')

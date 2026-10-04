@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { TrypatchTimeoutError } from '../../errors'
 import { Logger } from '../../logger'
 import type { InvestigationContext } from '../../types'
 import { buildInvestigationPrompt } from './buildPrompt'
@@ -85,7 +84,7 @@ describe('aiInvestigation', () => {
                     systemPrompt: 'Investigate',
                     userPrompt: 'Something failed',
                 },
-                { timeoutMs: 5_000 },
+                {},
             )
 
             expect(result).toEqual({
@@ -115,7 +114,6 @@ describe('aiInvestigation', () => {
                 outcomeSchema,
                 { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
                 {
-                    timeoutMs: 5_000,
                     mcpServers: [
                         { name: 'linear', type: 'http', url: 'https://mcp.linear.app/mcp', headers: () => ({ Authorization: 'Bearer token' }) },
                         { name: 'github', type: 'stdio', command: 'npx', args: ['-y', 'server-github'], env: { GITHUB_TOKEN: 'gh' }, cwd: '/ignored' },
@@ -138,7 +136,6 @@ describe('aiInvestigation', () => {
                 outcomeSchema,
                 { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
                 {
-                    timeoutMs: 5_000,
                     mcpServers: [{
                         name: 'linear',
                         type: 'http',
@@ -177,7 +174,7 @@ describe('aiInvestigation', () => {
                     { provider: 'cursor', apiKey: 'cursor-key' },
                     outcomeSchema,
                     { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
-                    { timeoutMs: 5_000, signal: controller.signal },
+                    { signal: controller.signal },
                 )
 
                 const signals = fetchMock.mock.calls.map(([, init]) => (init as RequestInit).signal)
@@ -198,19 +195,8 @@ describe('aiInvestigation', () => {
                     { provider: 'cursor', apiKey: 'cursor-key', pollIntervalMs: 60_000 },
                     outcomeSchema,
                     { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
-                    { timeoutMs: 5_000, signal: controller.signal },
-                )).rejects.toThrow('cancelled')
-            })
-
-            it('should report the timeout when it fires before the caller aborts', async () => {
-                useRunningAgent()
-
-                await expect(investigateWithCursor(
-                    { provider: 'cursor', apiKey: 'cursor-key', pollIntervalMs: 60_000 },
-                    outcomeSchema,
-                    { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
-                    { timeoutMs: 20, signal: new AbortController().signal },
-                )).rejects.toThrow(TrypatchTimeoutError)
+                    { signal: controller.signal },
+                )).rejects.toThrow('aborted')
             })
         })
     })
@@ -257,7 +243,7 @@ describe('aiInvestigation', () => {
                 { provider: 'claude', apiKey: 'anthropic-key', fetch: fetchMock },
                 outcomeSchema,
                 prompts,
-                { timeoutMs: 5_000 },
+                {},
             )
 
             expect(result).toEqual({
@@ -295,7 +281,7 @@ describe('aiInvestigation', () => {
                 { provider: 'openai', apiKey: 'test-key', fetch: fetchMock },
                 outcomeSchema,
                 prompts,
-                { timeoutMs: 5_000 },
+                {},
             )
 
             expect(result).toEqual({
@@ -331,7 +317,7 @@ describe('aiInvestigation', () => {
                 },
                 outcomeSchema,
                 prompts,
-                { timeoutMs: 5_000 },
+                {},
             )
 
             expect(result.type).toBe('result')

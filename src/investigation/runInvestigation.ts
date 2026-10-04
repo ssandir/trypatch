@@ -15,20 +15,12 @@ export async function investigateError<
     logger?: Logger,
     signal?: AbortSignal,
 ): Promise<unknown> {
-    signal?.throwIfAborted()
-
-    const { timeoutMs } = options
-
-    if ('customInvestigation' in options) {
-        const { investigate } = options.customInvestigation
-
-        return await withDeadline(
-            deadlineSignal => investigate(ctx, { signal: deadlineSignal }),
-            { signal, timeout: { ms: timeoutMs, label: 'Investigation' } },
-        )
-    }
-
-    return await runAiInvestigation(ctx, options.aiInvestigation, timeoutMs, logger, signal)
+    return await withDeadline(
+        async deadlineSignal => 'customInvestigation' in options
+            ? await options.customInvestigation.investigate(ctx, { signal: deadlineSignal })
+            : await runAiInvestigation(ctx, options.aiInvestigation, logger, deadlineSignal),
+        { signal, timeout: { ms: options.timeoutMs, label: 'Investigation' } },
+    )
 }
 
 function shouldPropagateCustomError (investigationError: unknown, options: TryPatchOptions<any, any>): boolean {

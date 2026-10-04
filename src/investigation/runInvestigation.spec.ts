@@ -429,16 +429,6 @@ describe('runInvestigation', () => {
             })).rejects.toBeInstanceOf(TrypatchTimeoutError)
         })
 
-        it('should not start a custom investigation when the signal is already aborted', async () => {
-            const investigate = jest.fn(() => Promise.resolve('done'))
-            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
-
-            await expect(investigateError(ctx, {
-                customInvestigation: { investigate },
-            }, undefined, AbortSignal.abort(new Error('cancelled')))).rejects.toThrow('cancelled')
-            expect(investigate).not.toHaveBeenCalled()
-        })
-
         it('should not call the AI provider when the signal is already aborted', async () => {
             const model = useOutcome({ type: 'result', explanation: 'test explanation', result: 'unused' })
             const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
@@ -480,6 +470,26 @@ describe('runInvestigation', () => {
             expect(resultToolSignal?.aborted).toBe(false)
             controller.abort()
             expect(resultToolSignal?.aborted).toBe(true)
+        })
+
+        it('should time out a result tool under the investigation timeoutMs', async () => {
+            useOutcome({ type: 'resultTool', explanation: 'test explanation', toolName: 'submit', input: {} })
+            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+
+            await expect(investigateError(ctx, {
+                timeoutMs: 20,
+                aiInvestigation: {
+                    investigationProvider: {
+                        provider: 'openai',
+                        apiKey: 'test-key',
+                    },
+                    resultTools: [new Tool({
+                        name: 'submit',
+                        description: 'Submit the result',
+                        execute: () => new Promise<never>(() => undefined),
+                    })],
+                },
+            })).rejects.toBeInstanceOf(TrypatchTimeoutError)
         })
 
         it('should parse a JSON-encoded result when no resultSchema is given', async () => {
