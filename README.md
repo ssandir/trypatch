@@ -335,7 +335,7 @@ For a signal not tied to a call, such as app shutdown: `getSignal: () => shutdow
 - **Tools** get `{ signal }` as `execute`'s third argument; it also fires on the tool's own `timeoutMs` (throwing `TrypatchTimeoutError`). A tool still running is abandoned; listen to `signal` to actually stop it. Result tools get the same combined signal, so `timeoutMs` covers them too.
 - **MCP** connections and tool calls share the combined signal.
 - **Custom investigations** get `investigate(ctx, { signal })`; the signal also fires on `timeoutMs` (if set, throwing `TrypatchTimeoutError`). An `investigate` that ignores the signal is abandoned.
-- **Cursor** stops polling on abort; the remote agent keeps running.
+- **Cursor** stops polling on abort and asks Cursor to cancel the remote run. That request is best effort: if it fails, trypatch logs a warning and the run may keep going.
 
 </details>
 
@@ -441,7 +441,7 @@ Set `supportsStructuredOutputs: true` if the endpoint enforces JSON Schema outpu
 
 ### Cursor Cloud Agents
 
-`provider: 'cursor'` starts a Cursor cloud agent and polls its run until it finishes. It doesn't support `investigationTools` or `maxToolIterations`, but it does support [`mcpServers`](#mcp-servers-give-the-ai-your-existing-tooling). A timeout or [abort](#cancellation-abort-signals) stops polling, but the remote agent keeps running.
+`provider: 'cursor'` starts a Cursor cloud agent and polls its run until it finishes. It doesn't support `investigationTools` or `maxToolIterations`, but it does support [`mcpServers`](#mcp-servers-give-the-ai-your-existing-tooling). A timeout or [abort](#cancellation-abort-signals) stops polling and cancels the remote run (best effort).
 
 ```typescript
 investigationProvider: {

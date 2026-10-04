@@ -54,7 +54,7 @@ Three more outcomes exist to steer the AI away from fabricating a result when no
 | `openai` | AI SDK (`@ai-sdk/openai`, Responses API) with strict JSON Schema output |
 | `claude` | AI SDK (`@ai-sdk/anthropic`, Messages API) with JSON Schema output |
 | `openai-compatible` | AI SDK (`@ai-sdk/openai-compatible`) for any OpenAI-compatible endpoint (Gemini, Mistral, Groq, Ollama, OpenRouter, vLLM, ...); set `supportsStructuredOutputs` if the endpoint enforces JSON Schema |
-| `cursor` | Raw `fetch` against the Cloud Agents API; polls run until finished. Does not use `investigationTools`, but supports `mcpServers` |
+| `cursor` | Raw `fetch` against the Cloud Agents API; polls run until finished, and on abort or timeout cancels the run via `POST /v1/agents/{id}/runs/{runId}/cancel` (best effort, a failure is only logged). Does not use `investigationTools`, but supports `mcpServers` |
 
 All providers except `cursor` go through `providers/languageModel/`, which maps our own provider configs onto [AI SDK](https://ai-sdk.dev) models and runs a single `generateText` call. No AI SDK type is part of the public API, so AI SDK major upgrades stay internal. That call runs the tool loop: the model may call `investigationTools` (executed via `Tool.call` with `toolContext`) over up to `investigationBehavior.maxToolIterations` turns (default 20) before returning its outcome, and `timeoutMs` covers the whole loop. Tool failures are sent back to the model rather than failing the investigation. With `redactConfig`, tool input is restored and tool output redacted, so tools see real values and the provider only sees placeholders. `resultTools` are not part of this loop: they stay outcome variants that trypatch executes after the model picks one.
 

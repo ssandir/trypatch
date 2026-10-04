@@ -5,7 +5,7 @@ import { extractJsonFromText } from '../../../../schema/utils'
 import { resolveMcpServers } from '../../mcp/servers'
 import type { ResolvedMcpServerConfig } from '../../mcp/types'
 import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
-import { DEFAULT_BASE_URL, DEFAULT_POLL_INTERVAL_MS, TERMINAL_RUN_STATUSES } from './constants'
+import { CANCEL_TIMEOUT_MS, DEFAULT_BASE_URL, DEFAULT_POLL_INTERVAL_MS, TERMINAL_RUN_STATUSES } from './constants'
 import type {
     CursorCreateAgentResponse,
     CursorInvestigationConfig,
@@ -177,6 +177,34 @@ async function pollCursorRun (
     }
 }
 
+// Best effort: the investigation has already failed, so a failed cancel is only logged. Not tied to the aborted
+// signal, which would cancel the cancel.
+async function cancelCursorRun (
+    baseURL: string,
+    authorization: string,
+    agentId: string,
+    runId: string,
+    doFetch: typeof fetch,
+    logger: Logger,
+): Promise<void> {
+    try {
+        const response = await doFetch(`${baseURL}/v1/agents/${agentId}/runs/${runId}/cancel`, {
+            method: 'POST',
+            headers: {
+                Authorization: authorization,
+            },
+            signal: AbortSignal.timeout(CANCEL_TIMEOUT_MS),
+        })
+
+        // 409 means the run already reached a terminal state, so there's nothing left to stop.
+        if (!response.ok && response.status !== 409) {
+            logger.warn(`[ssandir/trypatch] Cursor run ${runId} could not be cancelled and may keep running remotely, status ${response.status}`)
+        }
+    } catch (cancelError) {
+        logger.warn(`[ssandir/trypatch] Cursor run ${runId} could not be cancelled and may keep running remotely`, cancelError)
+    }
+}
+
 export async function investigateWithCursor (
     config: CursorInvestigationConfig,
     outcomeSchema: JSONSchema,
@@ -197,14 +225,22 @@ export async function investigateWithCursor (
         signal,
     )
 
-    return await pollCursorRun(
-        baseURL,
-        authorization,
-        agentId,
-        runId,
-        outcomeSchema,
-        pollIntervalMs,
-        doFetch,
-        signal,
-    )
+    try {
+        return await pollCursorRun(
+            baseURL,
+            authorization,
+            agentId,
+            runId,
+            outcomeSchema,
+            pollIntervalMs,
+            doFetch,
+            signal,
+        )
+    } catch (error) {
+        if (signal?.aborted) {
+            await cancelCursorRun(baseURL, authorization, agentId, runId, doFetch, options.logger ?? new Logger())
+        }
+
+        throw error
+    }
 }
