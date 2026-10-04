@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
 import { after, before, describe, it } from 'node:test'
+import { inspect, styleText } from 'node:util'
 import { Tool, trypatch, type InvestigationContext } from '@ssandir/trypatch'
 import { z } from 'zod'
 import { startCarrierStub, type ApmEntry, type CarrierStub } from './support/carrierStub.ts'
@@ -172,7 +173,6 @@ void describe('claude investigation', () => {
         const soft = {
             etaDaysIsRangeMax: quote?.etaDays === servedRemote.eta_range.max,
         }
-
         const reportPath = writeReport('claude', {
             scenario: 'carrier returns eta_days: null + eta_range for a remote route',
             model: exchanges[0]?.requestBody && (exchanges[0].requestBody as { model?: string }).model,
@@ -186,14 +186,23 @@ void describe('claude investigation', () => {
             soft,
         })
 
-        const firstRequest = exchanges[0]?.requestBody as { system?: unknown, messages?: { content: unknown }[] } | undefined
-        console.log(`\nReport: ${reportPath}`)
-        console.log(`Provider requests: ${exchanges.length}, tool calls: ${toolCalls.length}`)
-        console.log('System prompt sent:\n', JSON.stringify(firstRequest?.system, null, 2))
-        console.log('First user message sent:\n', JSON.stringify(firstRequest?.messages?.[0]?.content, null, 2))
-        console.log('Returned quote:', quote ?? thrown)
-        console.log('Explanation:', investigationResults[0]?.explanation)
-        console.log('Soft checks:', soft)
+        // Print prompt text as-is; JSON.stringify would escape every newline. Our labels stay bright,
+        // the captured output is dimmed so the labels are easy to scan.
+        type TextBlock = { text?: string }
+        const firstRequest = exchanges[0]?.requestBody as { system?: TextBlock[], messages?: { content: TextBlock[] }[] } | undefined
+        const text = (blocks: TextBlock[] | undefined): string => blocks?.map(block => block.text).join('\n\n') ?? '(none)'
+        // node --test runs this file in a child process whose stdout isn't a TTY, so styleText would strip colors.
+        const color = (format: Parameters<typeof styleText>[0], value: string): string =>
+            process.env.NO_COLOR ? value : styleText(format, value, { validateStream: false })
+        const label = (value: string): string => color(['bold', 'white'], value)
+        const output = (value: unknown): string => color('gray', typeof value === 'string' ? value : inspect(value, { depth: null }))
+        console.log(`\n${label('Report:')} ${output(reportPath)}`)
+        console.log(`${label('Provider requests:')} ${output(String(exchanges.length))}${label(', tool calls:')} ${output(String(toolCalls.length))}`)
+        console.log(`\n${label('--- System prompt ---')}\n${output(text(firstRequest?.system))}`)
+        console.log(`\n${label('--- First user message ---')}\n${output(text(firstRequest?.messages?.[0]?.content))}\n`)
+        console.log(`${label('Returned quote:')} ${output(quote ?? thrown)}`)
+        console.log(`${label('Explanation:')} ${output(investigationResults[0]?.explanation ?? '(none)')}`)
+        console.log(`${label('Soft checks:')} ${output(soft)}`)
 
         assert.equal(thrown, undefined, 'getQuote should resolve with a recovered Quote, not reject')
         assert.ok(quote)
