@@ -60,6 +60,9 @@ The type of `getQuote` is checked against `resultSchema`: with standard (stage-3
 
 Along with the value, the AI explains why the call failed and why its value is correct. Callers only get the value. trypatch logs the explanation with `logger.info`, as the argument after the message, so it only shows at `verbosity: 'high'`. It also passes the explanation to `onInvestigationResult`:
 
+<details>
+<summary>Example</summary>
+
 ```typescript
 aiInvestigation: {
   resultSchema: QuoteSchema,
@@ -71,6 +74,8 @@ aiInvestigation: {
 }
 ```
 
+</details>
+
 With `redactConfig`, placeholders in the explanation are restored like the rest of the response, so treat it as sensitive.
 
 ---
@@ -78,6 +83,9 @@ With `redactConfig`, placeholders in the explanation are restored like the rest 
 ## Credential Censoring: Keep Secrets Local
 
 Automatically redact API keys, tokens, and PII before they leave your instance:
+
+<details>
+<summary>Example</summary>
 
 ```typescript
 import { z } from 'zod'
@@ -116,6 +124,8 @@ class CustomerRepository {
 }
 ```
 
+</details>
+
 **How it works:**
 1. Before sending the investigation prompt to OpenAI, trypatch redacts all terms in `redactConfig.terms`
 2. Placeholders (e.g., `[REDACTED_0]`) replace the sensitive values
@@ -132,6 +142,9 @@ There are two kinds of tools:
 
 - **Investigation tools** (`investigationTools`): the AI calls them while investigating and reads their output. Their output only goes back to the AI, never to your caller. Keep them read-only.
 - **Result tools** (`resultTools`): the AI picks one as its outcome, together with its input. trypatch calls it once the investigation is done, and **its return value is what the decorated method returns**. This is where recovery actions belong: retries, fallbacks, cache reads.
+
+<details>
+<summary>Example</summary>
 
 ```typescript
 import { Tool, trypatch } from '@ssandir/trypatch'
@@ -185,6 +198,11 @@ class PricingService {
 }
 ```
 
+</details>
+
+<details>
+<summary>Tool loop details and limits</summary>
+
 The AI can call investigation tools over several turns: it calls a tool, reads the result, keeps investigating (possibly calling more tools), and then returns its outcome.
 
 - `investigationBehavior.maxToolIterations` caps the number of tool turns (default 20)
@@ -195,6 +213,8 @@ The AI can call investigation tools over several turns: it calls a tool, reads t
 - A result tool's return type is checked against `resultSchema` at compile time. Its value isn't validated at runtime, because it's your code.
 
 Investigation tools work with `openai`, `claude` and `openai-compatible`. The `cursor` provider ignores them, because Cursor's cloud agent runs its own tools remotely; use [`mcpServers`](#mcp-servers-give-the-ai-your-existing-tooling) to give it tools.
+
+</details>
 
 **Use cases:**
 - **Volatile APIs**: a result tool retries with backoff, and the retried value is returned
@@ -207,6 +227,9 @@ Investigation tools work with `openai`, `claude` and `openai-compatible`. The `c
 ## MCP Servers: Give the AI Your Existing Tooling
 
 `mcpServers` connects the investigation to [MCP](https://modelcontextprotocol.io) servers, and the AI can call their tools the same way it calls `investigationTools`. You define the servers; trypatch ships no presets.
+
+<details>
+<summary>Example</summary>
 
 ```typescript
 aiInvestigation: {
@@ -230,12 +253,22 @@ aiInvestigation: {
 }
 ```
 
+</details>
+
+<details>
+<summary>Server options and behavior</summary>
+
 - **Tool names:** the AI sees each tool as `<server name>__<tool name>` (`grafana__query_logs`), so two servers can't collide. Server names may only contain letters, digits, `_` and `-`.
 - **Auth:** static `headers`, or a `headers` function that is called once per investigation (short-lived tokens, secret managers, client-credentials OAuth where you fetch the token yourself). Stdio servers get secrets through `env`. Interactive OAuth isn't supported: nobody is around to complete a browser login when an error fires on a server.
 - **Recommended: read-only tools.** The AI decides which tools to call, and MCP servers often expose tools that change things (`delete_*`, `create_*`). Narrow each server with `allowedTools`. trypatch doesn't enforce this; which servers and tools to expose is your call.
 - **Connection lifetime:** servers are connected when an investigation starts and closed when it ends. For stdio that means starting a new process on every investigated failure.
 - **Unavailable servers don't fail the investigation.** A server that refuses to connect (or whose `headers` function throws) is logged as a warning and skipped. The AI investigates with the tools it has, and can fall back to one of the [fallback outcomes](#fallback-outcomes-avoiding-fabricated-results) if they aren't enough.
 - MCP tools share `maxToolIterations`, `timeoutMs` (which also covers connecting) and `redactConfig` with `investigationTools`: the AI only sees redacted values, and MCP tool output is redacted before it reaches the provider. Tool descriptions are sent unredacted.
+
+</details>
+
+<details>
+<summary>Why trypatch connects to MCP servers itself, and how Cursor differs</summary>
 
 **Why trypatch connects to MCP servers itself.** OpenAI and Anthropic can also connect to MCP servers from their own cloud. trypatch deliberately connects locally for `openai`, `claude` and `openai-compatible`:
 
@@ -247,6 +280,8 @@ aiInvestigation: {
 - **Failures are handled.** An unreachable server is skipped with a warning instead of failing the provider call.
 
 **Cursor** is the exception: its Cloud Agents API runs MCP itself, so trypatch passes the servers through. Stdio servers run inside Cursor's cloud VM (`cwd` and `fetch` are ignored), and `headers`/`env` are sent to Cursor, which stores them encrypted and deletes them with the agent. `redactConfig` doesn't cover MCP traffic there, `allowedTools` isn't supported (setting it throws a `TrypatchConfigError`), and a server Cursor can't reach is handled by Cursor, not reported by trypatch.
+
+</details>
 
 ---
 
@@ -272,6 +307,9 @@ The AI supplies a `reason` string, which becomes that error's message. Set the c
 
 A signal can abort an investigation, e.g. when the calling request is cancelled. Decorator options are evaluated once, but a caller's signal exists per call, so `getSignal` gets the investigation context (including the call's arguments) and returns that call's signal.
 
+<details>
+<summary>Example</summary>
+
 ```typescript
 class ReportService {
   @trypatch({
@@ -285,7 +323,12 @@ class ReportService {
 }
 ```
 
+</details>
+
 For a signal not tied to a call, such as app shutdown: `getSignal: () => shutdownController.signal`.
+
+<details>
+<summary>Details</summary>
 
 - **Your abort, your error.** The decorated method rejects with the signal's `reason`, like `fetch` does. An already-aborted signal skips the investigation.
 - **Our timeout, our error.** `investigationBehavior.timeoutMs` and your signal are combined. If the timeout fires first, trypatch logs a `TrypatchTimeoutError` and the method rethrows its original error, like any investigation failure.
@@ -294,9 +337,14 @@ For a signal not tied to a call, such as app shutdown: `getSignal: () => shutdow
 - **Custom investigations** get `investigate(ctx, { signal })`; trypatch adds no timeout of its own.
 - **Cursor** stops polling on abort; the remote agent keeps running.
 
+</details>
+
 ---
 
 ## JSON Schema and TypeScript
+
+<details>
+<summary>Details and example</summary>
 
 JSON Schema tool parameters and `@trypatch` result schemas map to `unknown`, not `FromSchema<T>`. Resolving
 `FromSchema` through generic `Tool` / `@trypatch` types triggers TS2589 (excessively deep instantiation).
@@ -339,6 +387,8 @@ class PricingService {
 ```
 
 Use `as const satisfies JSONSchema` so `FromSchema<typeof quoteSchema>` stays precise.
+
+</details>
 
 ---
 
@@ -409,6 +459,9 @@ Optional fields: `model`, `repository` (`url`, `startingRef`, `prUrl`), `baseURL
 
 Every provider config accepts an optional `fetch`, used instead of the global one for every HTTP call that provider makes. It's the same pattern the Anthropic and OpenAI SDKs use — supply a function with `fetch`'s signature and do whatever you need before (or instead of) calling through to a real `fetch`: route through a proxy, inject a freshly refreshed token, add retries, log requests, etc.
 
+<details>
+<summary>Example</summary>
+
 ```typescript
 class PricingService {
   @trypatch({
@@ -427,6 +480,8 @@ class PricingService {
   async getQuote(productId: string): Promise<Quote> { /* ... */ }
 }
 ```
+
+</details>
 
 Cursor's provider calls this for both the agent-creation and run-polling requests.
 
