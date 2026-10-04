@@ -23,6 +23,10 @@ Consumers can depend on it via a `file:` reference in their `package.json`:
 
 The AI SDK is ESM-only; `jest.config.cjs` lists it among the ESM dependencies that get compiled for Jest. Tests don't mock provider wire formats beyond one smoke test per provider in `aiInvestigation.spec.ts`: they `jest.mock` `createLanguageModel` and return a `MockLanguageModelV4` built with the helpers in `src/test/mockLanguageModel.ts`.
 
+## e2e
+
+`e2e/` is a vibecoded harness that runs real provider calls against the packed tarball; it has its own `AGENTS.md` and README, and its code is not a style reference for `src/`. It is not part of `npm test`, but root `npm run lint` covers it and needs `npm run e2e:setup` first.
+
 ## Type-checking
 
 `tsc` does not reject `await` on non-Promise values; type-aware ESLint (`@typescript-eslint/await-thenable`) catches those, so `npm run lint` is part of type safety, not just style. The `type-check` script runs `tsc` only. A husky pre-commit hook (installed by `npm install` through the `prepare` script; config in `lint-staged.config.js`) runs `lint:fix` on staged files and `type-check` on the whole project.
