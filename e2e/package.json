@@ -1,0 +1,20 @@
+{
+    "name": "trypatch-e2e",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "setup": "node scripts/setup.mjs",
+        "pretest": "npm --prefix .. run build && npm run setup && npm run type-check",
+        "test": "node --env-file-if-exists=.env --import tsx --test --test-reporter=spec claude.e2e.ts",
+        "type-check": "tsc --project tsconfig.json --noEmit"
+    },
+    "dependencies": {
+        "@ssandir/trypatch": "file:.pack/trypatch.tgz",
+        "zod": "^4.4.3"
+    },
+    "devDependencies": {
+        "@types/node": "^26.5.1",
+        "tsx": "^4.23.15",
+        "typescript": "^5.9.3"
+    }
+}

@@ -42,3 +42,7 @@ lerna-debug.log*
 
 # Package archive
 *.tgz
+
+# e2e (see e2e/AGENTS.md)
+e2e/.pack/
+e2e/output/
