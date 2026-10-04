@@ -52,8 +52,6 @@ export type InvestigationContext = {
 export type InvestigationBehavior = {
     prompt?: string | ((ctx: InvestigationContext) => string)
     systemPrompt?: string
-    /** Deadline for the whole investigation, including every tool round. */
-    timeoutMs?: number
     maxTokens?: number
     // TBD: should not be ignored by cursor
     /** Maximum model turns spent calling {@link AiInvestigationOptions.investigationTools}. Defaults to 20. Ignored by `cursor`. */ 
@@ -187,6 +185,8 @@ type TryPatchOptionsBase = {
     logging?: LoggingOptions
     /** Resolves an abort signal from the investigation context (including the call's arguments). Aborts the investigation when the signal fires. */
     getSignal?: (ctx: InvestigationContext) => AbortSignal | undefined
+    /** Deadline for the whole investigation, including every tool round. No deadline when unset. */
+    timeoutMs?: number
 }
 
 export type TryPatchOptions<

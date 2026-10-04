@@ -9,10 +9,10 @@ export async function withDeadline<Result> (
     run: (signal: AbortSignal) => Promise<Result>,
     { signal, timeout }: {
         signal?: AbortSignal | undefined
-        timeout?: { ms: number, label: string } | undefined
+        timeout?: { ms: number | undefined, label: string } | undefined
     },
 ): Promise<Result> {
-    const timeoutSignal = timeout ? AbortSignal.timeout(timeout.ms) : undefined
+    const timeoutSignal = timeout?.ms === undefined ? undefined : AbortSignal.timeout(timeout.ms)
     const combinedSignal = AbortSignal.any([timeoutSignal, signal].filter(source => source !== undefined))
 
     try {
@@ -20,7 +20,7 @@ export async function withDeadline<Result> (
         return await stopWaitingOnAbort(run(combinedSignal), combinedSignal)
     } catch (error) {
         // Our own deadline gets our own error, whatever `run` rejected with once it fired.
-        if (timeout && timeoutSignal?.aborted) {
+        if (timeout?.ms !== undefined && timeoutSignal?.aborted) {
             throw new TrypatchTimeoutError(`${timeout.label} timed out after ${timeout.ms}ms`, { cause: error })
         }
 

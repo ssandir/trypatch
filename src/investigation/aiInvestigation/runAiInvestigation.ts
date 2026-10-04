@@ -25,8 +25,6 @@ import type { InvestigationOutcome } from './resultSchema'
 import { buildInvestigationResultSchema } from './resultSchema'
 import { findToolByName } from './toolAdapter'
 
-const DEFAULT_TIMEOUT_MS = 300_000
-
 async function callResultTool<S extends Schema, C> (
     tool: ResultTool<S, C>,
     input: unknown,
@@ -131,7 +129,6 @@ export async function runAiInvestigation<S extends Schema, C> (
     const builtPrompts = buildInvestigationPrompt(ctx, sanitizedArgs, outcomeSchema, investigationBehavior)
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)
     const rawOutcome = await callInvestigationProvider(investigationProvider, outcomeSchema, prompts, {
-        timeoutMs: investigationBehavior.timeoutMs ?? DEFAULT_TIMEOUT_MS,
         maxTokens: investigationBehavior.maxTokens,
         maxToolIterations: investigationBehavior.maxToolIterations,
         investigationTools,

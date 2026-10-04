@@ -206,10 +206,10 @@ class PricingService {
 The AI can call investigation tools over several turns: it calls a tool, reads the result, keeps investigating (possibly calling more tools), and then returns its outcome.
 
 - `investigationBehavior.maxToolIterations` caps the number of tool turns (default 20)
-- `investigationBehavior.timeoutMs` covers the whole investigation, including every tool turn; a tool still running at the deadline is abandoned, and can listen to the `signal` it receives to actually stop (see [Cancellation](#cancellation-abort-signals))
+- `timeoutMs` covers the whole investigation, including every tool turn; a tool still running at the deadline is abandoned, and can listen to the `signal` it receives to actually stop (see [Cancellation](#cancellation-abort-signals))
 - `toolContext` is passed to every tool's `execute` as its second argument, and `{ signal }` as its third
 - If an investigation tool throws, the error is sent back to the AI so it can try something else, instead of failing the investigation
-- A result tool runs after the investigation, outside `investigationBehavior.timeoutMs`; its own `timeoutMs` still applies. If it throws, the investigation fails, and the method rethrows its original error.
+- A result tool runs after the model picks it, but within `timeoutMs`; its own `timeoutMs` still applies. If it throws, the investigation fails, and the method rethrows its original error.
 - A result tool's return type is checked against `resultSchema` at compile time. Its value isn't validated at runtime, because it's your code.
 
 Investigation tools work with `openai`, `claude` and `openai-compatible`. The `cursor` provider ignores them, because Cursor's cloud agent runs its own tools remotely; use [`mcpServers`](#mcp-servers-give-the-ai-your-existing-tooling) to give it tools.
@@ -314,9 +314,9 @@ A signal can abort an investigation, e.g. when the calling request is cancelled.
 class ReportService {
   @trypatch({
     getSignal: ctx => (ctx.args[1] as { signal?: AbortSignal } | undefined)?.signal,
+    timeoutMs: 60_000,
     aiInvestigation: {
       investigationProvider: { provider: 'claude', apiKey: process.env.ANTHROPIC_API_KEY! },
-      investigationBehavior: { timeoutMs: 60_000 },
     },
   })
   async generate(reportId: string, options?: { signal?: AbortSignal }): Promise<Report> { /* ... */ }
@@ -331,11 +331,11 @@ For a signal not tied to a call, such as app shutdown: `getSignal: () => shutdow
 <summary>Details</summary>
 
 - **Your abort, your error.** The decorated method rejects with the signal's `reason`, like `fetch` does. An already-aborted signal skips the investigation.
-- **Our timeout, our error.** `investigationBehavior.timeoutMs` and your signal are combined. If the timeout fires first, trypatch logs a `TrypatchTimeoutError` and the method rethrows its original error, like any investigation failure.
-- **Tools** get `{ signal }` as `execute`'s third argument; it also fires on the tool's own `timeoutMs` (throwing `TrypatchTimeoutError`). A tool still running is abandoned; listen to `signal` to actually stop it. Result tools get your signal but aren't covered by `investigationBehavior.timeoutMs`.
+- **Our timeout, our error.** `timeoutMs` and your signal are combined. If the timeout fires first, trypatch logs a `TrypatchTimeoutError` and the method rethrows its original error, like any investigation failure.
+- **Tools** get `{ signal }` as `execute`'s third argument; it also fires on the tool's own `timeoutMs` (throwing `TrypatchTimeoutError`). A tool still running is abandoned; listen to `signal` to actually stop it. Result tools get the same combined signal, so `timeoutMs` covers them too.
 - **MCP** connections and tool calls share the combined signal.
-- **Custom investigations** get `investigate(ctx, { signal })`; trypatch adds no timeout of its own.
-- **Cursor** stops polling on abort; the remote agent keeps running.
+- **Custom investigations** get `investigate(ctx, { signal })`; the signal also fires on `timeoutMs` (if set, throwing `TrypatchTimeoutError`). An `investigate` that ignores the signal is abandoned.
+- **Cursor** stops polling on abort and asks Cursor to cancel the remote run. That request is best effort: if it fails, trypatch logs a warning and the run may keep going.
 
 </details>
 
@@ -441,7 +441,7 @@ Set `supportsStructuredOutputs: true` if the endpoint enforces JSON Schema outpu
 
 ### Cursor Cloud Agents
 
-`provider: 'cursor'` starts a Cursor cloud agent and polls its run until it finishes. It doesn't support `investigationTools` or `maxToolIterations`, but it does support [`mcpServers`](#mcp-servers-give-the-ai-your-existing-tooling). A timeout or [abort](#cancellation-abort-signals) stops polling, but the remote agent keeps running.
+`provider: 'cursor'` starts a Cursor cloud agent and polls its run until it finishes. It doesn't support `investigationTools` or `maxToolIterations`, but it does support [`mcpServers`](#mcp-servers-give-the-ai-your-existing-tooling). A timeout or [abort](#cancellation-abort-signals) stops polling and cancels the remote run (best effort).
 
 ```typescript
 investigationProvider: {

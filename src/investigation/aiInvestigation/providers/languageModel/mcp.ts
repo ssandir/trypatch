@@ -27,13 +27,13 @@ function buildTransport (server: ResolvedMcpServerConfig): MCPClientConfig['tran
 
 async function connectMcpServer (
     server: ResolvedMcpServerConfig,
-    abortSignal: AbortSignal,
+    abortSignal: AbortSignal | undefined,
     logger: Logger,
 ): Promise<{ client: MCPClient, tools: ToolSet }> {
     const client = await createMCPClient({
         transport: buildTransport(server),
         clientName: '@ssandir/trypatch',
-        initializationOptions: { signal: abortSignal },
+        ...abortSignal ? { initializationOptions: { signal: abortSignal } } : {},
     })
 
     try {
@@ -74,7 +74,7 @@ async function closeClients (clients: ConnectedMcpClient[], logger: Logger): Pro
  */
 export async function connectMcpTools (
     servers: McpServerConfig[],
-    abortSignal: AbortSignal,
+    abortSignal: AbortSignal | undefined,
     logger: Logger,
 ): Promise<McpConnection> {
     const resolved = await resolveMcpServers(servers, logger)

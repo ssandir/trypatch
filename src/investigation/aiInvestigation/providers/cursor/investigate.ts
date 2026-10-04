@@ -1,12 +1,11 @@
 import { setTimeout as sleep } from 'node:timers/promises'
 import type { JSONSchema } from 'json-schema-to-ts'
-import { withDeadline } from '../../../../abort/withDeadline'
 import { Logger } from '../../../../logger'
 import { extractJsonFromText } from '../../../../schema/utils'
 import { resolveMcpServers } from '../../mcp/servers'
 import type { ResolvedMcpServerConfig } from '../../mcp/types'
 import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
-import { DEFAULT_BASE_URL, DEFAULT_POLL_INTERVAL_MS, TERMINAL_RUN_STATUSES } from './constants'
+import { CANCEL_TIMEOUT_MS, DEFAULT_BASE_URL, DEFAULT_POLL_INTERVAL_MS, TERMINAL_RUN_STATUSES } from './constants'
 import type {
     CursorCreateAgentResponse,
     CursorInvestigationConfig,
@@ -96,7 +95,7 @@ async function createCursorAgent (
     authorization: string,
     body: Record<string, unknown>,
     doFetch: typeof fetch,
-    signal: AbortSignal,
+    signal: AbortSignal | undefined,
 ): Promise<{ agentId: string, runId: string }> {
     const createResponse = await doFetch(`${baseURL}/v1/agents`, {
         method: 'POST',
@@ -105,7 +104,7 @@ async function createCursorAgent (
             Authorization: authorization,
         },
         body: JSON.stringify(body),
-        signal,
+        ...signal ? { signal } : {},
     })
 
     const createPayload = await createResponse.json() as CursorCreateAgentResponse
@@ -153,14 +152,14 @@ async function pollCursorRun (
     outcomeSchema: JSONSchema,
     pollIntervalMs: number,
     doFetch: typeof fetch,
-    signal: AbortSignal,
+    signal: AbortSignal | undefined,
 ): Promise<InvestigationOutcome> {
     for (;;) {
         const runResponse = await doFetch(`${baseURL}/v1/agents/${agentId}/runs/${runId}`, {
             headers: {
                 Authorization: authorization,
             },
-            signal,
+            ...signal ? { signal } : {},
         })
 
         const runPayload = await runResponse.json() as CursorRunResponse
@@ -178,6 +177,34 @@ async function pollCursorRun (
     }
 }
 
+// Best effort: the investigation has already failed, so a failed cancel is only logged. Not tied to the aborted
+// signal, which would cancel the cancel.
+async function cancelCursorRun (
+    baseURL: string,
+    authorization: string,
+    agentId: string,
+    runId: string,
+    doFetch: typeof fetch,
+    logger: Logger,
+): Promise<void> {
+    try {
+        const response = await doFetch(`${baseURL}/v1/agents/${agentId}/runs/${runId}/cancel`, {
+            method: 'POST',
+            headers: {
+                Authorization: authorization,
+            },
+            signal: AbortSignal.timeout(CANCEL_TIMEOUT_MS),
+        })
+
+        // 409 means the run already reached a terminal state, so there's nothing left to stop.
+        if (!response.ok && response.status !== 409) {
+            logger.warn(`[ssandir/trypatch] Cursor run ${runId} could not be cancelled and may keep running remotely, status ${response.status}`)
+        }
+    } catch (cancelError) {
+        logger.warn(`[ssandir/trypatch] Cursor run ${runId} could not be cancelled and may keep running remotely`, cancelError)
+    }
+}
+
 export async function investigateWithCursor (
     config: CursorInvestigationConfig,
     outcomeSchema: JSONSchema,
@@ -188,16 +215,17 @@ export async function investigateWithCursor (
     const authorization = buildAuthorizationHeader(config.apiKey)
     const pollIntervalMs = config.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
     const doFetch = config.fetch ?? fetch
+    const { signal } = options
 
-    return await withDeadline(async (signal) => {
-        const { agentId, runId } = await createCursorAgent(
-            baseURL,
-            authorization,
-            await buildCreateAgentBody(config, prompts, options),
-            doFetch,
-            signal,
-        )
+    const { agentId, runId } = await createCursorAgent(
+        baseURL,
+        authorization,
+        await buildCreateAgentBody(config, prompts, options),
+        doFetch,
+        signal,
+    )
 
+    try {
         return await pollCursorRun(
             baseURL,
             authorization,
@@ -208,5 +236,11 @@ export async function investigateWithCursor (
             doFetch,
             signal,
         )
-    }, { signal: options.signal, timeout: { ms: options.timeoutMs, label: 'Investigation' } })
+    } catch (error) {
+        if (signal?.aborted) {
+            await cancelCursorRun(baseURL, authorization, agentId, runId, doFetch, options.logger ?? new Logger())
+        }
+
+        throw error
+    }
 }

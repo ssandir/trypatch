@@ -90,6 +90,7 @@ class ShippingQuoteClient {
             capturedContexts.push(ctx)
             return undefined
         },
+        timeoutMs: 120_000,
         aiInvestigation: {
             resultSchema: QuoteSchema,
             investigationProvider: {
@@ -97,7 +98,6 @@ class ShippingQuoteClient {
                 apiKey: anthropicApiKey,
                 fetch: createRecordingFetch(exchanges),
             },
-            investigationBehavior: { timeoutMs: 120_000 },
             investigationTools: [getRecentCarrierCalls],
             toolContext: { apmLog } satisfies ApmToolContext,
             redactConfig: { terms: [carrierApiKey, customerEmail] },

@@ -40,7 +40,6 @@ export type CursorRunResponse = {
 }
 
 export type CursorInvestigationOptions = {
-    timeoutMs: number
     mcpServers?: McpServerConfig[] | undefined
     logger?: Logger | undefined
     signal?: AbortSignal | undefined

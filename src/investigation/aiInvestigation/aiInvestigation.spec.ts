@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { TrypatchTimeoutError } from '../../errors'
 import { Logger } from '../../logger'
 import type { InvestigationContext } from '../../types'
 import { buildInvestigationPrompt } from './buildPrompt'
@@ -85,7 +84,7 @@ describe('aiInvestigation', () => {
                     systemPrompt: 'Investigate',
                     userPrompt: 'Something failed',
                 },
-                { timeoutMs: 5_000 },
+                {},
             )
 
             expect(result).toEqual({
@@ -115,7 +114,6 @@ describe('aiInvestigation', () => {
                 outcomeSchema,
                 { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
                 {
-                    timeoutMs: 5_000,
                     mcpServers: [
                         { name: 'linear', type: 'http', url: 'https://mcp.linear.app/mcp', headers: () => ({ Authorization: 'Bearer token' }) },
                         { name: 'github', type: 'stdio', command: 'npx', args: ['-y', 'server-github'], env: { GITHUB_TOKEN: 'gh' }, cwd: '/ignored' },
@@ -138,7 +136,6 @@ describe('aiInvestigation', () => {
                 outcomeSchema,
                 { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
                 {
-                    timeoutMs: 5_000,
                     mcpServers: [{
                         name: 'linear',
                         type: 'http',
@@ -177,7 +174,7 @@ describe('aiInvestigation', () => {
                     { provider: 'cursor', apiKey: 'cursor-key' },
                     outcomeSchema,
                     { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
-                    { timeoutMs: 5_000, signal: controller.signal },
+                    { signal: controller.signal },
                 )
 
                 const signals = fetchMock.mock.calls.map(([, init]) => (init as RequestInit).signal)
@@ -198,19 +195,72 @@ describe('aiInvestigation', () => {
                     { provider: 'cursor', apiKey: 'cursor-key', pollIntervalMs: 60_000 },
                     outcomeSchema,
                     { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
-                    { timeoutMs: 5_000, signal: controller.signal },
-                )).rejects.toThrow('cancelled')
+                    { signal: controller.signal },
+                )).rejects.toThrow('aborted')
             })
 
-            it('should report the timeout when it fires before the caller aborts', async () => {
+            it('should cancel the remote run when the caller aborts', async () => {
                 useRunningAgent()
+                const controller = new AbortController()
+                setTimeout(() => {
+                    controller.abort(new Error('cancelled'))
+                }, 20)
 
                 await expect(investigateWithCursor(
                     { provider: 'cursor', apiKey: 'cursor-key', pollIntervalMs: 60_000 },
                     outcomeSchema,
                     { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
-                    { timeoutMs: 20, signal: new AbortController().signal },
-                )).rejects.toThrow(TrypatchTimeoutError)
+                    { signal: controller.signal },
+                )).rejects.toThrow('aborted')
+
+                const [url, init] = fetchMock.mock.calls.at(-1) as [string, RequestInit]
+                expect(url).toBe('https://api.cursor.com/v1/agents/bc-agent/runs/run-1/cancel')
+                expect(init.method).toBe('POST')
+                expect(init.signal?.aborted).toBe(false)
+            })
+
+            it('should still rethrow the abort and log a warning when cancelling the remote run fails', async () => {
+                useRunningAgent()
+                const warn = jest.fn()
+                const controller = new AbortController()
+                setTimeout(() => {
+                    controller.abort(new Error('cancelled'))
+                }, 20)
+                fetchMock.mockImplementation((url: string) => url.endsWith('/cancel')
+                    ? Promise.reject(new Error('network down'))
+                    : Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ status: 'RUNNING' }) }))
+
+                await expect(investigateWithCursor(
+                    { provider: 'cursor', apiKey: 'cursor-key', pollIntervalMs: 60_000 },
+                    outcomeSchema,
+                    { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
+                    { signal: controller.signal, logger: new Logger({ logger: { ...console, warn } }) },
+                )).rejects.toThrow('aborted')
+
+                expect(warn).toHaveBeenCalledWith(
+                    '[ssandir/trypatch] Cursor run run-1 could not be cancelled and may keep running remotely',
+                    expect.any(Error),
+                )
+            })
+
+            it('should not cancel the remote run when the investigation fails without an abort', async () => {
+                fetchMock.mockReset()
+                fetchMock
+                    .mockResolvedValueOnce({
+                        ok: true,
+                        status: 200,
+                        json: () => Promise.resolve({ agent: { id: 'bc-agent' }, run: { id: 'run-1' } }),
+                    })
+                    .mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({ status: 'ERROR' }) })
+
+                await expect(investigateWithCursor(
+                    { provider: 'cursor', apiKey: 'cursor-key' },
+                    outcomeSchema,
+                    { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
+                    { signal: new AbortController().signal },
+                )).rejects.toThrow('ended with status ERROR')
+
+                expect(fetchMock).toHaveBeenCalledTimes(2)
             })
         })
     })
@@ -257,7 +307,7 @@ describe('aiInvestigation', () => {
                 { provider: 'claude', apiKey: 'anthropic-key', fetch: fetchMock },
                 outcomeSchema,
                 prompts,
-                { timeoutMs: 5_000 },
+                {},
             )
 
             expect(result).toEqual({
@@ -295,7 +345,7 @@ describe('aiInvestigation', () => {
                 { provider: 'openai', apiKey: 'test-key', fetch: fetchMock },
                 outcomeSchema,
                 prompts,
-                { timeoutMs: 5_000 },
+                {},
             )
 
             expect(result).toEqual({
@@ -331,7 +381,7 @@ describe('aiInvestigation', () => {
                 },
                 outcomeSchema,
                 prompts,
-                { timeoutMs: 5_000 },
+                {},
             )
 
             expect(result.type).toBe('result')

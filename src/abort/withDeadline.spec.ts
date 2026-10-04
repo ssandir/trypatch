@@ -17,6 +17,12 @@ describe('withDeadline', () => {
         expect(run).toHaveBeenCalledWith(expect.any(AbortSignal))
     })
 
+    it('should not apply a deadline when the timeout has no ms', async () => {
+        const run = jest.fn((signal: AbortSignal) => Promise.resolve(signal.aborted))
+
+        await expect(withDeadline(run, { timeout: { ms: undefined, label: 'Investigation' } })).resolves.toBe(false)
+    })
+
     it('should reject with TrypatchTimeoutError when the timeout fires, with the signal reason as cause', async () => {
         let runSignal: AbortSignal | undefined
         const error = await withDeadline(async (signal) => {
