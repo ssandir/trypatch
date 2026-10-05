@@ -53,9 +53,6 @@ export type InvestigationBehavior = {
     prompt?: string | ((ctx: InvestigationContext) => string)
     systemPrompt?: string
     maxTokens?: number
-    // TBD: should not be ignored by cursor
-    /** Maximum model turns spent calling {@link AiInvestigationOptions.investigationTools}. Defaults to 20. Ignored by `cursor`. */ 
-    maxToolIterations?: number
     sanitizeArgs?: (args: unknown[]) => unknown[]
 }
 

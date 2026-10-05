@@ -130,7 +130,6 @@ export async function runAiInvestigation<S extends Schema, C> (
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)
     const rawOutcome = await callInvestigationProvider(investigationProvider, outcomeSchema, prompts, {
         maxTokens: investigationBehavior.maxTokens,
-        maxToolIterations: investigationBehavior.maxToolIterations,
         investigationTools,
         toolContext,
         vault,
