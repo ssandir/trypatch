@@ -25,15 +25,6 @@ import type { LanguageModelInvestigationOptions } from './providers/languageMode
 import type { InvestigationOutcome } from './resultSchema'
 import { buildInvestigationResultSchema } from './resultSchema'
 
-async function callResultTool<S extends Schema, C> (
-    tool: ResultTool<S, C>,
-    input: unknown,
-    toolContext: C | undefined,
-    signal: AbortSignal | undefined,
-): Promise<unknown> {
-    return await callTool(tool, input, toolContext, { signal })
-}
-
 async function resolveOutcome<S extends Schema, C> (
     outcome: InvestigationOutcome,
     resultSchema: S | undefined,
@@ -60,7 +51,7 @@ async function resolveOutcome<S extends Schema, C> (
             }
 
             return {
-                result: await callResultTool(tool, outcome.input, toolContext, signal),
+                result: await callTool(tool, outcome.input, toolContext, { signal }),
                 explanation: outcome.explanation,
             }
         }

@@ -19,7 +19,7 @@ import type { InvestigationOutcome } from './types'
  * under a property rather than at the schema root) describing the {@link InvestigationOutcome}
  * a provider's structured output must produce.
  */
-export function buildInvestigationResultSchema ({
+export function buildInvestigationResultSchema<C> ({
     resultSchema,
     customErrors,
     resultTools,
@@ -30,7 +30,7 @@ export function buildInvestigationResultSchema ({
 }: {
     resultSchema?: Schema | undefined
     customErrors?: CustomErrorDefinition[] | undefined
-    resultTools?: Pick<ResultTool, 'name' | 'description' | 'parameters'>[] | undefined
+    resultTools?: ResultTool<Schema, C>[] | undefined
     allowDirectResultCreation?: boolean | undefined
     allowCannotDetermine?: boolean | undefined
     allowUncertainResult?: boolean | undefined

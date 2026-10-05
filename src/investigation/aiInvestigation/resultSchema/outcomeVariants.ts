@@ -25,7 +25,7 @@ export function errorOutcomeVariant (definition: CustomErrorDefinition) {
     } as const satisfies JSONSchema
 }
 
-export function resultToolOutcomeVariant (tool: Pick<ResultTool, 'name' | 'description' | 'parameters'>) {
+export function resultToolOutcomeVariant<C> (tool: ResultTool<Schema, C>) {
     return {
         type: 'object',
         description: `Call the "${tool.name}" result tool; its return value is returned from the method in place of the error. Tool description: ${tool.description}`,
