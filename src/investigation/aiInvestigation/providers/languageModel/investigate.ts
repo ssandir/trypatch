@@ -24,11 +24,11 @@ function mergeTools (investigationTools: ToolSet | undefined, mcpTools: ToolSet)
     return Object.keys(tools).length > 0 ? tools : undefined
 }
 
-export async function investigateWithLanguageModel (
+export async function investigateWithLanguageModel<C> (
     config: LanguageModelInvestigationConfig,
     outcomeSchema: JSONSchema,
     prompts: { systemPrompt: string, userPrompt: string },
-    options: LanguageModelInvestigationOptions,
+    options: LanguageModelInvestigationOptions<C>,
 ): Promise<InvestigationOutcome> {
     const { maxToolIterations } = config
 

@@ -8,7 +8,7 @@ import {
 import type { Vault } from 'flare-redact'
 import { withDeadline } from '../../../../abort/withDeadline'
 import { restoreInvestigationResponse } from '../../redact/flareRedact'
-import type { LooseTool } from '../../toolAdapter'
+import type { InvestigationTool } from '../../../../types'
 
 type ToolExecute = (input: unknown, options: ToolExecutionOptions<unknown>) => unknown
 
@@ -25,9 +25,9 @@ function guardToolExecution (execute: ToolExecute, vault: Vault | undefined): (i
     }
 }
 
-export function toolsToAiSdkTools (
-    tools: LooseTool[] | undefined,
-    toolContext: unknown,
+export function toolsToAiSdkTools<C> (
+    tools: InvestigationTool<C>[] | undefined,
+    toolContext: C | undefined,
     vault: Vault | undefined,
 ): ToolSet | undefined {
     if (tools === undefined || tools.length === 0) {

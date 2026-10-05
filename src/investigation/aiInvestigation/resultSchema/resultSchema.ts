@@ -1,9 +1,8 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import { TrypatchConfigError } from '../../../errors'
-import type { CustomErrorDefinition } from '../../../types'
+import type { CustomErrorDefinition, ResultTool } from '../../../types'
 import type { Schema } from '../../../schema/types'
 import { parseWithSchema } from '../../../schema/utils'
-import type { LooseTool } from '../toolAdapter'
 import {
     cannotDetermineOutcomeVariant,
     errorOutcomeVariant,
@@ -31,7 +30,7 @@ export function buildInvestigationResultSchema ({
 }: {
     resultSchema?: Schema | undefined
     customErrors?: CustomErrorDefinition[] | undefined
-    resultTools?: LooseTool[] | undefined
+    resultTools?: Pick<ResultTool, 'name' | 'description' | 'parameters'>[] | undefined
     allowDirectResultCreation?: boolean | undefined
     allowCannotDetermine?: boolean | undefined
     allowUncertainResult?: boolean | undefined

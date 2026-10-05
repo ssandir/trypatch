@@ -23,7 +23,6 @@ import { investigateWithLanguageModel } from './providers/languageModel/investig
 import type { LanguageModelInvestigationOptions } from './providers/languageModel/types'
 import type { InvestigationOutcome } from './resultSchema'
 import { buildInvestigationResultSchema } from './resultSchema'
-import { findToolByName } from './toolAdapter'
 
 async function callResultTool<S extends Schema, C> (
     tool: ResultTool<S, C>,
@@ -54,7 +53,7 @@ async function resolveOutcome<S extends Schema, C> (
             )
         }
         case 'resultTool': {
-            const tool = findToolByName(resultTools, outcome.toolName)
+            const tool = resultTools?.find(resultTool => resultTool.name === outcome.toolName)
             if (!tool) {
                 throw new Error(`Result tool ${outcome.toolName} is not registered`)
             }
@@ -78,11 +77,11 @@ async function resolveOutcome<S extends Schema, C> (
     }
 }
 
-async function callInvestigationProvider (
+async function callInvestigationProvider<C> (
     investigationProvider: InvestigationProviderConfig,
     outcomeSchema: JSONSchema,
     prompts: { systemPrompt: string, userPrompt: string },
-    options: LanguageModelInvestigationOptions,
+    options: LanguageModelInvestigationOptions<C>,
 ): Promise<InvestigationOutcome> {
     if (investigationProvider.provider === 'cursor') {
         return await investigateWithCursor(investigationProvider, outcomeSchema, prompts, options)
