@@ -1,12 +1,11 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import { parse } from 'zod/v4/core'
-import type { ZodStandardJSONSchemaPayload } from 'zod/v4/core'
 import { TrypatchFatalError } from '../errors'
 import {
     createJsonSchemaValidator,
     isJsonSchema,
     isZodObject,
-    zodToJsonSchemaPayload,
+    toJsonSchemaObject,
 } from '../schema/utils'
 import type { ToolInput, ToolInputValue } from './types'
 
@@ -34,11 +33,6 @@ function createJsonSchemaParser (
     }
 }
 
-export type ToolParametersSchema<TSchema extends ToolInput>
-    = TSchema extends JSONSchema
-        ? TSchema : TSchema extends undefined
-            ? typeof EMPTY_OBJECT_SCHEMA : ZodStandardJSONSchemaPayload<TSchema>
-
 export function toFunctionToolName (name: string): string {
     const normalized = name
         .replace(/\s/g, '_')
@@ -51,19 +45,13 @@ export function toFunctionToolName (name: string): string {
     return normalized
 }
 
-export function getSchema<TSchema extends ToolInput> (
-    parameters: TSchema,
-): ToolParametersSchema<TSchema> {
+export function getSchema (parameters: ToolInput): JSONSchema {
     if (parameters === undefined) {
-        return { ...EMPTY_OBJECT_SCHEMA } as ToolParametersSchema<TSchema>
+        return { ...EMPTY_OBJECT_SCHEMA }
     }
 
-    if (isZodObject(parameters)) {
-        return zodToJsonSchemaPayload(parameters) as ToolParametersSchema<TSchema>
-    }
-
-    if (isJsonSchema(parameters)) {
-        return parameters as ToolParametersSchema<TSchema>
+    if (isZodObject(parameters) || isJsonSchema(parameters)) {
+        return toJsonSchemaObject(parameters)
     }
 
     throw new TrypatchFatalError('Invalid parameters schema')

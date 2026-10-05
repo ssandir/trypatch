@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
 import { after, before, describe, it } from 'node:test'
 import { inspect, styleText } from 'node:util'
-import { Tool, trypatch, type InvestigationContext } from '@ssandir/trypatch'
+import { defineTool, trypatch, type InvestigationContext } from '@ssandir/trypatch'
 import { z } from 'zod'
 import { startCarrierStub, type ApmEntry, type CarrierStub } from './support/carrierStub.ts'
 import {
@@ -70,7 +70,7 @@ const CarrierQuoteResponse = z.object({
 
 type ApmToolContext = { apmLog: ApmEntry[] }
 
-const getRecentCarrierCalls = new Tool({
+const getRecentCarrierCalls = defineTool({
     name: 'getRecentCarrierCalls',
     description: 'Returns the most recent HTTP calls to the shipping carrier API from the APM request log, newest last, including response bodies.',
     parameters: z.object({ limit: z.number().int().min(1).max(50) }),

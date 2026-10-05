@@ -20,8 +20,9 @@ export type {
     InvestigationResultToolOutcome,
     InvestigationUncertainOutcome,
 } from './investigation/aiInvestigation/resultSchema'
-export { Tool } from './tools'
+export { defineTool } from './tools'
 export type {
+    Tool,
     ToolInput,
     ToolInputValue,
     ToolDefinition,

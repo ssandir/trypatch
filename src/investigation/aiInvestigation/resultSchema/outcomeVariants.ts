@@ -2,6 +2,7 @@ import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
 import type { CustomErrorDefinition, ResultTool } from '../../../types'
 import type { Schema } from '../../../schema/types'
 import { toJsonSchemaObject } from '../../../schema/utils'
+import { getSchema } from '../../../tools/schema'
 
 const explanationProperties = {
     explanation: {
@@ -24,7 +25,7 @@ export function errorOutcomeVariant (definition: CustomErrorDefinition) {
     } as const satisfies JSONSchema
 }
 
-export function resultToolOutcomeVariant (tool: Pick<ResultTool, 'name' | 'description'> & { parameters: JSONSchema }) {
+export function resultToolOutcomeVariant (tool: Pick<ResultTool, 'name' | 'description' | 'parameters'>) {
     return {
         type: 'object',
         description: `Call the "${tool.name}" result tool; its return value is returned from the method in place of the error. Tool description: ${tool.description}`,
@@ -32,7 +33,7 @@ export function resultToolOutcomeVariant (tool: Pick<ResultTool, 'name' | 'descr
             type: { enum: ['resultTool'] },
             ...explanationProperties,
             toolName: { enum: [tool.name] },
-            input: tool.parameters,
+            input: getSchema(tool.parameters),
         },
         required: ['type', 'explanation', 'toolName', 'input'],
         additionalProperties: false,

@@ -11,7 +11,7 @@ import {
     type MockGenerateResult,
 } from '../../../../test/mockLanguageModel'
 import { Logger } from '../../../../logger'
-import { Tool } from '../../../../tools'
+import { defineTool } from '../../../../tools'
 import { buildInvestigationResultSchema } from '../../resultSchema'
 import { createLanguageModel } from './createLanguageModel'
 import { investigateWithLanguageModel } from './investigate'
@@ -49,7 +49,7 @@ describe('investigateWithLanguageModel', () => {
         region: context?.region,
         status: 'stuck',
     }))
-    const orderTool = new Tool({
+    const orderTool = defineTool({
         name: 'lookup_order',
         description: 'Look up an order',
         parameters: z.object({ orderId: z.string() }),
@@ -90,7 +90,7 @@ describe('investigateWithLanguageModel', () => {
     })
 
     it('should send tool failures back to the model instead of failing the investigation', async () => {
-        const failingTool = new Tool({
+        const failingTool = defineTool({
             name: 'flaky',
             description: 'Always fails',
             execute: () => {
@@ -141,7 +141,7 @@ describe('investigateWithLanguageModel', () => {
     it('should hand investigation tools a signal that fires when the caller aborts', async () => {
         const controller = new AbortController()
         let toolSignal: AbortSignal | undefined
-        const hangingTool = new Tool({
+        const hangingTool = defineTool({
             name: 'hang',
             description: 'Never resolves',
             execute: (_input, _context, { signal }) => {
@@ -334,7 +334,7 @@ describe('investigateWithLanguageModel', () => {
             useModel(finalOutcome('x'))
 
             await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
-                investigationTools: [new Tool({ name: 'grafana__lookup', description: 'x', execute: () => null })],
+                investigationTools: [defineTool({ name: 'grafana__lookup', description: 'x', execute: () => null })],
                 mcpServers: [grafana],
             })).rejects.toThrow('MCP tool "grafana__lookup" has the same name as an investigation tool')
             expect(client.close).toHaveBeenCalledTimes(1)

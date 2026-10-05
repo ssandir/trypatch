@@ -1,6 +1,6 @@
 import type { VaultOptions } from 'flare-redact'
 import type { LoggingOptions } from './logger'
-import type { Tool } from './tools'
+import type { Tool, ToolInput } from './tools'
 import type { CursorInvestigationConfig } from './investigation/aiInvestigation/providers/cursor/types'
 import type { LanguageModelInvestigationConfig } from './investigation/aiInvestigation/providers/languageModel/types'
 import type { McpServerConfig } from './investigation/aiInvestigation/mcp/types'
@@ -58,22 +58,16 @@ export type InvestigationBehavior = {
 
 /**
  * Tool the AI may call while investigating. Prefer side-effect-free implementations.
- *
- * `any` on the parameter schema erases {@link Tool}'s invariant `TSchema` generic so heterogeneous
- * `investigationTools` arrays assign without casts.
  */
-export type InvestigationTool<C = unknown> = Tool<any, C, unknown>
+export type InvestigationTool<C = unknown> = Tool<ToolInput, C, unknown>
 
 /**
  * Tool the AI may pick as its outcome; trypatch calls it after the investigation and its return value
  * is returned from the decorated method in place of the error.
  * When {@link TryPatchOptions} includes {@link resultSchema}, execute must return {@link SchemaInfer} for that schema.
- *
- * `any` on the parameter schema erases {@link Tool}'s invariant `TSchema` generic so heterogeneous
- * `resultTools` arrays (different parameter shapes, same {@link SchemaInfer}) assign without casts.
  */
 export type ResultTool<S extends Schema = Schema, C = unknown>
-    = Tool<any, C, SchemaInfer<S>>
+    = Tool<ToolInput, C, SchemaInfer<S>>
 
 export type CustomErrorDefinition<S extends Schema = Schema> = {
     /** Will be called with a parameter matching the errorParameterSchema. */

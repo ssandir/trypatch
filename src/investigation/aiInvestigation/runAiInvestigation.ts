@@ -17,6 +17,7 @@ import { qualifiedMethodName } from '../investigationContext'
 import { validateMcpServers } from './mcp/servers'
 import type { Schema, SchemaInfer } from '../../schema/types'
 import { parseWithSchema } from '../../schema/utils'
+import { callTool } from '../../tools/tool'
 import { redactInvestigationPrompts, restoreInvestigationResponse } from './redact/flareRedact'
 import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithLanguageModel } from './providers/languageModel/investigate'
@@ -30,7 +31,7 @@ async function callResultTool<S extends Schema, C> (
     toolContext: C | undefined,
     signal: AbortSignal | undefined,
 ): Promise<unknown> {
-    return await tool.call(JSON.stringify(input ?? {}), toolContext, { signal })
+    return await callTool(tool, JSON.stringify(input ?? {}), toolContext, { signal })
 }
 
 async function resolveOutcome<S extends Schema, C> (
