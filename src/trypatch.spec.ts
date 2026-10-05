@@ -419,7 +419,7 @@ describe('trypatch', () => {
                     },
                     investigationBehavior: {
                         systemPrompt: 'Investigate production errors.',
-                        prompt: (ctx: InvestigationContext) => `Method ${ctx.methodName} failed with ${ctx.error}`,
+                        prompt: (ctx: InvestigationContext) => `Method ${ctx.methodName} failed with ${String(ctx.error)}`,
                         maxTokens: 512,
                         sanitizeArgs: (args: unknown[]) => args.map(String),
                     },
