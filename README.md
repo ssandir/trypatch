@@ -205,7 +205,7 @@ class PricingService {
 
 The AI can call investigation tools over several turns: it calls a tool, reads the result, keeps investigating (possibly calling more tools), and then returns its outcome.
 
-- `investigationProvider.maxToolIterations` caps the number of tool turns (default 20)
+- `investigationProvider.maxToolIterations` caps the number of tool turns (unlimited by default; `timeoutMs` still bounds the whole loop)
 - `timeoutMs` covers the whole investigation, including every tool turn; a tool still running at the deadline is abandoned, and can listen to the `signal` it receives to actually stop (see [Cancellation](#cancellation-abort-signals))
 - `toolContext` is passed to every tool's `execute` as its second argument, and `{ signal }` as its third
 - If an investigation tool throws, the error is sent back to the AI so it can try something else, instead of failing the investigation

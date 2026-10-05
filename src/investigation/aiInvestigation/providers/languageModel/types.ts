@@ -10,7 +10,7 @@ export type ClaudeInvestigationConfig = {
     model?: string
     baseURL?: string
     apiVersion?: string
-    /** Maximum model turns spent calling investigation and MCP tools before returning an outcome. Defaults to 20. */
+    /** Maximum model turns spent calling investigation and MCP tools before returning an outcome. Unlimited by default. */
     maxToolIterations?: number
     /** Custom `fetch` implementation, used instead of the global one (proxying, custom auth, logging, retries, ...). */
     fetch?: typeof fetch
@@ -23,7 +23,7 @@ export type OpenAiInvestigationConfig = {
     baseURL?: string
     organization?: string
     project?: string
-    /** Maximum model turns spent calling investigation and MCP tools before returning an outcome. Defaults to 20. */
+    /** Maximum model turns spent calling investigation and MCP tools before returning an outcome. Unlimited by default. */
     maxToolIterations?: number
     /** Custom `fetch` implementation, used instead of the global one (proxying, custom auth, logging, retries, ...). */
     fetch?: typeof fetch
@@ -42,7 +42,7 @@ export type OpenAiCompatibleInvestigationConfig = {
      * is only asked for JSON and the outcome is validated after the fact.
      */
     supportsStructuredOutputs?: boolean
-    /** Maximum model turns spent calling investigation and MCP tools before returning an outcome. Defaults to 20. */
+    /** Maximum model turns spent calling investigation and MCP tools before returning an outcome. Unlimited by default. */
     maxToolIterations?: number
     /** Custom `fetch` implementation, used instead of the global one (proxying, custom auth, logging, retries, ...). */
     fetch?: typeof fetch

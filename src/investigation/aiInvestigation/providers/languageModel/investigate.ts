@@ -1,9 +1,9 @@
-import { generateText, jsonSchema, Output, stepCountIs, type ToolSet } from 'ai'
+import { generateText, isLoopFinished, jsonSchema, Output, stepCountIs, type ToolSet } from 'ai'
 import type { JSONSchema } from 'json-schema-to-ts'
 import { TrypatchConfigError } from '../../../../errors'
 import { Logger } from '../../../../logger'
 import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
-import { DEFAULT_MAX_TOOL_ITERATIONS, MAX_TOOL_NAME_LENGTH } from './constants'
+import { MAX_TOOL_NAME_LENGTH } from './constants'
 import { createLanguageModel } from './createLanguageModel'
 import { connectMcpTools } from './mcp'
 import { guardMcpTools, toolsToAiSdkTools } from './toolAdapter'
@@ -30,7 +30,7 @@ export async function investigateWithLanguageModel (
     prompts: { systemPrompt: string, userPrompt: string },
     options: LanguageModelInvestigationOptions,
 ): Promise<InvestigationOutcome> {
-    const maxToolIterations = config.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS
+    const { maxToolIterations } = config
 
     const mcp = await connectMcpTools(options.mcpServers ?? [], options.signal, options.logger ?? new Logger())
 
@@ -46,8 +46,9 @@ export async function investigateWithLanguageModel (
             prompt: prompts.userPrompt,
             ...tools ? { tools } : {},
             output: Output.object({ schema: jsonSchema(outcomeSchema as Parameters<typeof jsonSchema>[0]) }),
-            // Producing the structured output is a step of its own on top of the tool rounds.
-            stopWhen: stepCountIs(maxToolIterations + 1),
+            // Producing the structured output is a step of its own on top of the tool rounds. Without a cap the
+            // loop still ends once the model returns its outcome; generateText's own default would allow no tool rounds.
+            stopWhen: maxToolIterations === undefined ? isLoopFinished() : stepCountIs(maxToolIterations + 1),
             ...options.signal ? { abortSignal: options.signal } : {},
             ...options.maxTokens !== undefined ? { maxOutputTokens: options.maxTokens } : {},
             providerOptions: {
