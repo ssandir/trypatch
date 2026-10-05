@@ -30,7 +30,7 @@ export async function investigateWithLanguageModel (
     prompts: { systemPrompt: string, userPrompt: string },
     options: LanguageModelInvestigationOptions,
 ): Promise<InvestigationOutcome> {
-    const maxToolIterations = options.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS
+    const maxToolIterations = config.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS
 
     const mcp = await connectMcpTools(options.mcpServers ?? [], options.signal, options.logger ?? new Logger())
 

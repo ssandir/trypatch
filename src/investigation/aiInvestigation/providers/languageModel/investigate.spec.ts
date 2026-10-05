@@ -114,9 +114,8 @@ describe('investigateWithLanguageModel', () => {
             mockToolCallTurn('lookup_order', { orderId: 'o-3' }, 'call-3'),
         )
 
-        await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
+        await expect(investigateWithLanguageModel({ ...config, maxToolIterations: 1 }, outcomeSchema, prompts, {
             investigationTools: [orderTool],
-            maxToolIterations: 1,
         })).rejects.toThrow('Investigation did not reach an outcome within 1 tool iterations')
         expect(model.doGenerateCalls).toHaveLength(2)
     })
@@ -308,9 +307,8 @@ describe('investigateWithLanguageModel', () => {
             jest.mocked(createMCPClient).mockResolvedValue(client)
             useModel(mockToolCallTurn('grafana__query_logs', { query: 'a' }), mockToolCallTurn('grafana__query_logs', { query: 'b' }, 'call-2'))
 
-            await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
+            await expect(investigateWithLanguageModel({ ...config, maxToolIterations: 1 }, outcomeSchema, prompts, {
                 mcpServers: [grafana],
-                maxToolIterations: 1,
             })).rejects.toThrow('did not reach an outcome')
             expect(client.close).toHaveBeenCalledTimes(1)
         })
