@@ -7,8 +7,10 @@ import {
 } from 'ai'
 import type { Vault } from 'flare-redact'
 import { withDeadline } from '../../../../abort/withDeadline'
+import { callTool } from '../../../../tools/tool'
+import { getSchema } from '../../../../tools/schema'
 import { restoreInvestigationResponse } from '../../redact/flareRedact'
-import type { LooseTool } from '../../toolAdapter'
+import type { InvestigationTool } from '../../../../types'
 
 type ToolExecute = (input: unknown, options: ToolExecutionOptions<unknown>) => unknown
 
@@ -25,9 +27,9 @@ function guardToolExecution (execute: ToolExecute, vault: Vault | undefined): (i
     }
 }
 
-export function toolsToAiSdkTools (
-    tools: LooseTool[] | undefined,
-    toolContext: unknown,
+export function toolsToAiSdkTools<C> (
+    tools: InvestigationTool<C>[] | undefined,
+    toolContext: C | undefined,
     vault: Vault | undefined,
 ): ToolSet | undefined {
     if (tools === undefined || tools.length === 0) {
@@ -38,10 +40,10 @@ export function toolsToAiSdkTools (
         investigationTool.name,
         tool({
             description: investigationTool.description,
-            // Tool.call already parses and validates its own input.
-            inputSchema: jsonSchema(investigationTool.parameters as Parameters<typeof jsonSchema>[0]),
+            // callTool already validates its own input.
+            inputSchema: jsonSchema(getSchema(investigationTool.parameters) as Parameters<typeof jsonSchema>[0]),
             execute: guardToolExecution(
-                (input, options) => investigationTool.call(JSON.stringify(input), toolContext, { signal: options.abortSignal }),
+                (input, options) => callTool(investigationTool, input, toolContext, { signal: options.abortSignal }),
                 vault,
             ),
         }),

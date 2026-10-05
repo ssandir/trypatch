@@ -147,11 +147,11 @@ There are two kinds of tools:
 <summary>Example</summary>
 
 ```typescript
-import { Tool, trypatch } from '@ssandir/trypatch'
+import { defineTool, trypatch } from '@ssandir/trypatch'
 import { z } from 'zod'
 
 // Investigation tool: lets the AI see what the upstream actually sent
-const fetchRawQuote = new Tool({
+const fetchRawQuote = defineTool({
   name: 'fetchRawQuote',
   description: 'Fetch the raw, unparsed pricing API response for a product',
   parameters: z.object({ productId: z.string() }),
@@ -162,7 +162,7 @@ const fetchRawQuote = new Tool({
 })
 
 // Result tool: its return value becomes getQuote's return value
-const retryWithBackoff = new Tool({
+const retryWithBackoff = defineTool({
   name: 'retryWithBackoff',
   description: 'Fetch the quote again with exponential backoff. Use for transient failures (timeouts, 5xx).',
   parameters: z.object({ productId: z.string(), delayMs: z.number(), maxAttempts: z.number() }),
@@ -207,6 +207,7 @@ The AI can call investigation tools over several turns: it calls a tool, reads t
 
 - `investigationProvider.maxToolIterations` caps the number of tool turns (unlimited by default; `timeoutMs` still bounds the whole loop)
 - `timeoutMs` covers the whole investigation, including every tool turn; a tool still running at the deadline is abandoned, and can listen to the `signal` it receives to actually stop (see [Cancellation](#cancellation-abort-signals))
+- `execute`'s first argument is its input, parsed and validated against `parameters`. A tool without `parameters` takes no input: the AI calls it with no arguments, and `execute` receives `undefined`
 - `toolContext` is passed to every tool's `execute` as its second argument, and `{ signal }` as its third
 - If an investigation tool throws, the error is sent back to the AI so it can try something else, instead of failing the investigation
 - A result tool runs after the model picks it, but within `timeoutMs`; its own `timeoutMs` still applies. If it throws, the investigation fails, and the method rethrows its original error.
@@ -346,15 +347,15 @@ For a signal not tied to a call, such as app shutdown: `getSignal: () => shutdow
 <details>
 <summary>Details and example</summary>
 
-JSON Schema tool parameters and `@trypatch` result schemas map to `unknown`, not `FromSchema<T>`. Resolving
+JSON Schema tool parameters and `@trypatch` result schemas map to `any`, not `FromSchema<T>`. Resolving
 `FromSchema` through generic `Tool` / `@trypatch` types triggers TS2589 (excessively deep instantiation).
 Runtime validation still runs (Ajv for tools; provider parsing for results). **Zod schemas infer types normally.**
 
-For JSON Schema, define the shape locally and cast in handlers:
+For JSON Schema, define the shape locally and annotate handlers with it:
 
 ```typescript
 import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
-import { Tool, trypatch } from '@ssandir/trypatch'
+import { defineTool, trypatch } from '@ssandir/trypatch'
 
 const quoteSchema = {
   type: 'object',
@@ -364,22 +365,22 @@ const quoteSchema = {
 } as const satisfies JSONSchema
 type Quote = FromSchema<typeof quoteSchema>
 
-// Tool — cast execute input
-const convertQuote = new Tool({
+// Tool — annotate execute input
+const convertQuote = defineTool({
   name: 'convertQuote',
   description: 'Return the given quote converted to EUR',
   parameters: quoteSchema,
-  execute: (input: unknown): Promise<Quote> => currencyClient.toEur(input as Quote),
+  execute: (input: Quote): Promise<Quote> => currencyClient.toEur(input),
 })
 
-// @trypatch — declare the return type, cast the callback result
+// @trypatch — declare the return type, annotate the callback result
 class PricingService {
   @trypatch({
     aiInvestigation: {
       resultSchema: quoteSchema,
       investigationProvider: { provider: 'openai', apiKey: process.env.OPENAI_API_KEY! },
       resultTools: [convertQuote],
-      onInvestigationResult: (result, { explanation }) => console.warn(`Recovered ${(result as Quote).price}: ${explanation}`),
+      onInvestigationResult: (result: Quote, { explanation }) => console.warn(`Recovered ${result.price}: ${explanation}`),
     },
   })
   async getQuote (productId: string): Promise<Quote> { /* ... */ }

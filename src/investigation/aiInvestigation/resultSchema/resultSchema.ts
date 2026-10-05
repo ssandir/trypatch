@@ -1,9 +1,8 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import { TrypatchConfigError } from '../../../errors'
-import type { CustomErrorDefinition } from '../../../types'
+import type { CustomErrorDefinition, ResultTool } from '../../../types'
 import type { Schema } from '../../../schema/types'
 import { parseWithSchema } from '../../../schema/utils'
-import type { LooseTool } from '../toolAdapter'
 import {
     cannotDetermineOutcomeVariant,
     errorOutcomeVariant,
@@ -20,7 +19,7 @@ import type { InvestigationOutcome } from './types'
  * under a property rather than at the schema root) describing the {@link InvestigationOutcome}
  * a provider's structured output must produce.
  */
-export function buildInvestigationResultSchema ({
+export function buildInvestigationResultSchema<C> ({
     resultSchema,
     customErrors,
     resultTools,
@@ -31,7 +30,7 @@ export function buildInvestigationResultSchema ({
 }: {
     resultSchema?: Schema | undefined
     customErrors?: CustomErrorDefinition[] | undefined
-    resultTools?: LooseTool[] | undefined
+    resultTools?: ResultTool<Schema, C>[] | undefined
     allowDirectResultCreation?: boolean | undefined
     allowCannotDetermine?: boolean | undefined
     allowUncertainResult?: boolean | undefined

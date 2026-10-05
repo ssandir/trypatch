@@ -17,22 +17,13 @@ import { qualifiedMethodName } from '../investigationContext'
 import { validateMcpServers } from './mcp/servers'
 import type { Schema, SchemaInfer } from '../../schema/types'
 import { parseWithSchema } from '../../schema/utils'
+import { callTool } from '../../tools/tool'
 import { redactInvestigationPrompts, restoreInvestigationResponse } from './redact/flareRedact'
 import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithLanguageModel } from './providers/languageModel/investigate'
 import type { LanguageModelInvestigationOptions } from './providers/languageModel/types'
 import type { InvestigationOutcome } from './resultSchema'
 import { buildInvestigationResultSchema } from './resultSchema'
-import { findToolByName } from './toolAdapter'
-
-async function callResultTool<S extends Schema, C> (
-    tool: ResultTool<S, C>,
-    input: unknown,
-    toolContext: C | undefined,
-    signal: AbortSignal | undefined,
-): Promise<unknown> {
-    return await tool.call(JSON.stringify(input ?? {}), toolContext, { signal })
-}
 
 async function resolveOutcome<S extends Schema, C> (
     outcome: InvestigationOutcome,
@@ -54,13 +45,13 @@ async function resolveOutcome<S extends Schema, C> (
             )
         }
         case 'resultTool': {
-            const tool = findToolByName(resultTools, outcome.toolName)
+            const tool = resultTools?.find(resultTool => resultTool.name === outcome.toolName)
             if (!tool) {
                 throw new Error(`Result tool ${outcome.toolName} is not registered`)
             }
 
             return {
-                result: await callResultTool(tool, outcome.input, toolContext, signal),
+                result: await callTool(tool, outcome.input, toolContext, { signal }),
                 explanation: outcome.explanation,
             }
         }
@@ -78,11 +69,11 @@ async function resolveOutcome<S extends Schema, C> (
     }
 }
 
-async function callInvestigationProvider (
+async function callInvestigationProvider<C> (
     investigationProvider: InvestigationProviderConfig,
     outcomeSchema: JSONSchema,
     prompts: { systemPrompt: string, userPrompt: string },
-    options: LanguageModelInvestigationOptions,
+    options: LanguageModelInvestigationOptions<C>,
 ): Promise<InvestigationOutcome> {
     if (investigationProvider.provider === 'cursor') {
         return await investigateWithCursor(investigationProvider, outcomeSchema, prompts, options)

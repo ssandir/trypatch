@@ -2,7 +2,7 @@ import type { JSONSchema } from 'json-schema-to-ts'
 import { z } from 'zod'
 import { trypatch } from './trypatch'
 import { TrypatchFatalError } from './errors'
-import { Tool } from './tools'
+import { defineTool } from './tools'
 import type { InvestigationContext, TryPatchOptions } from './types'
 import { mockMethodDecoratorContext } from './test/mockMethodDecoratorContext'
 import { mockLanguageModel, mockOutcomeTurn } from './test/mockLanguageModel'
@@ -425,27 +425,27 @@ describe('trypatch', () => {
                     },
                     toolContext,
                     investigationTools: [
-                        new Tool({
+                        defineTool({
                             name: 'search_logs',
                             description: 'Search logs by query string',
                             parameters: investigationQuerySchema,
                             execute: (input, ctx?: ServiceToolContext) => `logs:${input.query}:${ctx?.serviceName ?? ''}`,
                         }),
-                        new Tool({
+                        defineTool({
                             name: 'count_retries',
                             description: 'Return retry limit from input',
                             parameters: investigationLimitSchema,
-                            execute: (input: unknown) => (input as { limit: number }).limit,
+                            execute: (input: { limit: number }) => input.limit,
                         }),
                     ],
                     resultTools: [
-                        new Tool({
+                        defineTool({
                             name: 'submit_summary',
                             description: 'Submit investigation summary as the result',
                             parameters: resultSummarySchema,
                             execute: () => ({ inStock: true }),
                         }),
-                        new Tool({
+                        defineTool({
                             name: 'submit_note',
                             description: 'Submit investigation note as the result',
                             parameters: resultNoteSchema,

@@ -1,7 +1,7 @@
 import Ajv, { type AnySchema } from 'ajv'
 import type { JSONSchema } from 'json-schema-to-ts'
 import { parse, toJSONSchema } from 'zod/v4/core'
-import type { $ZodObject, $ZodType, ZodStandardJSONSchemaPayload } from 'zod/v4/core'
+import type { $ZodObject, $ZodType } from 'zod/v4/core'
 import type { Schema } from './types'
 
 const ajv = new Ajv()
@@ -26,17 +26,6 @@ function zodToJsonSchemaRecord (schema: $ZodType): JSONSchema {
         return converted.schema
     }
     return converted as JSONSchema
-}
-
-export function zodToJsonSchemaPayload<TSchema extends $ZodObject> (
-    schema: TSchema,
-): ZodStandardJSONSchemaPayload<TSchema> {
-    const converted = toJSONSchema(schema)
-    if ('schema' in converted && converted.schema && typeof converted.schema === 'object') {
-        // Zod < v4 returns a JSONSchema object, so we need to cast it to the correct type
-        return converted.schema as ZodStandardJSONSchemaPayload<TSchema>
-    }
-    return converted
 }
 
 export function createJsonSchemaValidator (

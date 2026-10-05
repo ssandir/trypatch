@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { buildInvestigationResultSchema } from './resultSchema'
 import { TrypatchConfigError } from '../../../errors'
-import { Tool } from '../../../tools'
+import { defineTool } from '../../../tools'
 import type { CustomErrorDefinition } from '../../../types'
 
 function outcomeVariants (outcomeSchema: ReturnType<typeof buildInvestigationResultSchema>) {
@@ -20,7 +20,7 @@ const disableFallbackOutcomes = {
 } as const
 
 describe('buildInvestigationResultSchema', () => {
-    const resultTool = new Tool({
+    const resultTool = defineTool({
         name: 'submit_investigation',
         description: 'Submit the final investigation result',
         parameters: z.object({ note: z.string() }),

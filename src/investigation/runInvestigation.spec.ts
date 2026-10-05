@@ -10,7 +10,7 @@ import {
     TrypatchUncertainResultError,
 } from '../errors'
 import { Logger } from '../logger'
-import { Tool } from '../tools'
+import { defineTool } from '../tools'
 import type { CustomErrorDefinition, InvestigationContext, TryPatchOptions } from '../types'
 import { mockMethodDescriptor } from '../test/mockMethodDecoratorContext'
 import { mockLanguageModel, mockOutcomeTurn, promptText } from '../test/mockLanguageModel'
@@ -456,7 +456,7 @@ describe('runInvestigation', () => {
                         provider: 'openai',
                         apiKey: 'test-key',
                     },
-                    resultTools: [new Tool({
+                    resultTools: [defineTool({
                         name: 'submit',
                         description: 'Submit the result',
                         execute: (_input, _context, { signal }) => {
@@ -483,7 +483,7 @@ describe('runInvestigation', () => {
                         provider: 'openai',
                         apiKey: 'test-key',
                     },
-                    resultTools: [new Tool({
+                    resultTools: [defineTool({
                         name: 'submit',
                         description: 'Submit the result',
                         execute: () => new Promise<never>(() => undefined),
@@ -524,7 +524,7 @@ describe('runInvestigation', () => {
                 input: { inStock: true },
             })
 
-            const resultTool = new Tool({
+            const resultTool = defineTool({
                 name: 'submit_investigation',
                 description: 'Submit the final investigation result',
                 parameters: schema,

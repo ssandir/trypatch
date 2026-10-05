@@ -1,47 +1,39 @@
 import { withDeadline } from '../abort/withDeadline'
-import { getParser, getSchema, toFunctionToolName, type ToolParametersSchema } from './schema'
+import { parseWithSchema } from '../schema/utils'
+import { getSchema, toFunctionToolName } from './schema'
 import type {
+    Tool,
     ToolDefinition,
-    ToolHandler,
     ToolInput,
     ToolInputValue,
 } from './types'
 
-
-export class Tool<
+export function defineTool<
     TSchema extends ToolInput = undefined,
     Context = unknown,
     Result = unknown,
-> {
-    readonly name: string
-    readonly description: string
-    readonly parameters: ToolParametersSchema<TSchema>
-    readonly timeoutMs?: number
+> (definition: ToolDefinition<TSchema, Context, Result>): Tool<TSchema, Context, Result> {
+    // Reject an invalid schema when the tool is defined rather than on its first call.
+    getSchema(definition.parameters)
 
-    private readonly parser: (input: string) => ToolInputValue<TSchema>
-    private readonly execute: ToolHandler<TSchema, Context, Result>
+    return { ...definition, name: toFunctionToolName(definition.name) }
+}
 
-    constructor (options: ToolDefinition<TSchema, Context, Result>) {
-        const name = toFunctionToolName(options.name)
+export async function callTool<TSchema extends ToolInput, Context, Result> (
+    tool: Tool<TSchema, Context, Result>,
+    input: unknown,
+    context: Context | undefined,
+    options: { signal: AbortSignal | undefined },
+): Promise<Awaited<Result>> {
+    // A tool without parameters gets no input, whatever the model sent.
+    const parsed = (tool.parameters === undefined
+        ? undefined
+        : parseWithSchema(tool.parameters, input, `parameters for tool ${tool.name}`)) as ToolInputValue<TSchema>
 
-        this.name = name
-        this.description = options.description
-        this.parameters = getSchema(options.parameters) as ToolParametersSchema<TSchema>
-        this.parser = getParser(options.parameters, name) as (input: string) => ToolInputValue<TSchema>
-        this.execute = options.execute
-        if (options.timeoutMs !== undefined) {
-            this.timeoutMs = options.timeoutMs
-        }
-    }
-
-    // TBD: make Tool.call  an internal function only the lib sees that is not exposed and make it's parameters required, consumer has no business calling this
-    async call (input: string, context?: Context, options: { signal?: AbortSignal | undefined } = {}): Promise<Awaited<Result>> {
-        return await withDeadline(async (signal): Promise<Awaited<Result>> => {
-            const parsed = this.parser(input)
-            return await this.execute(parsed, context, { signal })
-        }, {
-            signal: options.signal,
-            timeout: this.timeoutMs === undefined ? undefined : { ms: this.timeoutMs, label: `Tool ${this.name}` },
-        })
-    }
+    return await withDeadline(async (signal): Promise<Awaited<Result>> => {
+        return await tool.execute(parsed, context, { signal })
+    }, {
+        signal: options.signal,
+        timeout: tool.timeoutMs === undefined ? undefined : { ms: tool.timeoutMs, label: `Tool ${tool.name}` },
+    })
 }

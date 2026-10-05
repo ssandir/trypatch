@@ -6,9 +6,10 @@ export type ToolInput = undefined | $ZodObject | JSONSchema
 export type ToolInputValue<TSchema extends ToolInput>
     = TSchema extends $ZodObject ? ZodOutput<TSchema>
         // FromSchema<TSchema> triggers TS2589 (excessively deep instantiation) for JSON Schema.
-        // Infer the shape locally with FromSchema<typeof schema> and cast inside execute.
-        : TSchema extends JSONSchema ? unknown
-            : string
+        // `any` lets execute annotate its input, e.g. with FromSchema<typeof schema>.
+        : TSchema extends JSONSchema ? any
+            // No `parameters`: the tool takes no input.
+            : undefined
 
 export type ToolHandler<
     TSchema extends ToolInput,
@@ -28,7 +29,21 @@ export type ToolDefinition<
 > = {
     name: string
     description: string
+    /** Schema of `execute`'s input. Omit it for a tool that takes no input: `execute` then receives `undefined`. */
     parameters?: TSchema
     execute: ToolHandler<TSchema, Context, Result>
     timeoutMs?: number
+}
+
+/** A tool created by {@link defineTool}. */
+export type Tool<
+    TSchema extends ToolInput = ToolInput,
+    Context = unknown,
+    Result = unknown,
+> = {
+    readonly name: string
+    readonly description: string
+    readonly parameters?: TSchema
+    readonly timeoutMs?: number
+    readonly execute: ToolHandler<TSchema, Context, Result>
 }
