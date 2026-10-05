@@ -6,6 +6,17 @@ import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithLanguageModel } from './providers/languageModel/investigate'
 import { buildInvestigationResultSchema } from './resultSchema'
 
+function jsonResponse (body: unknown): Response {
+    return new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+    })
+}
+
+function requestBody (fetchMock: jest.MockedFunction<typeof fetch>, callIndex = 0): Record<string, unknown> {
+    return JSON.parse(fetchMock.mock.calls[callIndex]?.[1]?.body as string) as Record<string, unknown>
+}
+
 describe('aiInvestigation', () => {
     describe('buildInvestigationPrompt', () => {
         const schema = z.object({ inStock: z.boolean() })
@@ -41,7 +52,7 @@ describe('aiInvestigation', () => {
             resultSchema: z.object({ inStock: z.boolean() }),
         })
 
-        const fetchMock = jest.fn()
+        const fetchMock: jest.MockedFunction<typeof fetch> = jest.fn()
 
         beforeAll(() => {
             globalThis.fetch = fetchMock
@@ -49,24 +60,16 @@ describe('aiInvestigation', () => {
 
         beforeEach(() => {
             fetchMock
-                .mockResolvedValueOnce({
-                    ok: true,
-                    status: 200,
-                    json: () => Promise.resolve({
-                        agent: { id: 'bc-agent' },
-                        run: { id: 'run-1' },
+                .mockResolvedValueOnce(jsonResponse({
+                    agent: { id: 'bc-agent' },
+                    run: { id: 'run-1' },
+                }))
+                .mockResolvedValueOnce(jsonResponse({
+                    status: 'FINISHED',
+                    result: JSON.stringify({
+                        outcome: { type: 'result', explanation: 'test explanation', result: { inStock: false } },
                     }),
-                })
-                .mockResolvedValueOnce({
-                    ok: true,
-                    status: 200,
-                    json: () => Promise.resolve({
-                        status: 'FINISHED',
-                        result: JSON.stringify({
-                            outcome: { type: 'result', explanation: 'test explanation', result: { inStock: false } },
-                        }),
-                    }),
-                })
+                }))
         })
 
         afterEach(() => {
@@ -121,8 +124,7 @@ describe('aiInvestigation', () => {
                 },
             )
 
-            const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body)) as Record<string, unknown>
-            expect(body['mcpServers']).toEqual([
+            expect(requestBody(fetchMock).mcpServers).toEqual([
                 { name: 'linear', type: 'http', url: 'https://mcp.linear.app/mcp', headers: { Authorization: 'Bearer token' } },
                 { name: 'github', type: 'stdio', command: 'npx', args: ['-y', 'server-github'], env: { GITHUB_TOKEN: 'gh' } },
             ])
@@ -146,8 +148,7 @@ describe('aiInvestigation', () => {
                 },
             )
 
-            const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body)) as { mcpServers?: unknown }
-            expect(body.mcpServers).toBeUndefined()
+            expect(requestBody(fetchMock).mcpServers).toBeUndefined()
             expect(warn).toHaveBeenCalledWith('[ssandir/trypatch] MCP server "linear" is unavailable and was skipped', expect.any(Error))
         })
 
@@ -155,16 +156,8 @@ describe('aiInvestigation', () => {
             function useRunningAgent (): void {
                 fetchMock.mockReset()
                 fetchMock
-                    .mockResolvedValueOnce({
-                        ok: true,
-                        status: 200,
-                        json: () => Promise.resolve({ agent: { id: 'bc-agent' }, run: { id: 'run-1' } }),
-                    })
-                    .mockResolvedValue({
-                        ok: true,
-                        status: 200,
-                        json: () => Promise.resolve({ status: 'RUNNING' }),
-                    })
+                    .mockResolvedValueOnce(jsonResponse({ agent: { id: 'bc-agent' }, run: { id: 'run-1' } }))
+                    .mockResolvedValueOnce(jsonResponse({ status: 'RUNNING' }))
             }
 
             it('should pass the signal to every fetch', async () => {
@@ -177,7 +170,7 @@ describe('aiInvestigation', () => {
                     { signal: controller.signal },
                 )
 
-                const signals = fetchMock.mock.calls.map(([, init]) => (init as RequestInit).signal)
+                const signals = fetchMock.mock.calls.map(([, init]) => init?.signal)
                 expect(signals).toHaveLength(2)
                 expect(signals.every(signal => signal instanceof AbortSignal)).toBe(true)
                 controller.abort()
@@ -186,6 +179,7 @@ describe('aiInvestigation', () => {
 
             it('should stop polling when the caller aborts, without waiting out the poll interval', async () => {
                 useRunningAgent()
+                fetchMock.mockResolvedValueOnce(jsonResponse({}))
                 const controller = new AbortController()
                 setTimeout(() => {
                     controller.abort(new Error('cancelled'))
@@ -201,6 +195,7 @@ describe('aiInvestigation', () => {
 
             it('should cancel the remote run when the caller aborts', async () => {
                 useRunningAgent()
+                fetchMock.mockResolvedValueOnce(jsonResponse({}))
                 const controller = new AbortController()
                 setTimeout(() => {
                     controller.abort(new Error('cancelled'))
@@ -213,22 +208,20 @@ describe('aiInvestigation', () => {
                     { signal: controller.signal },
                 )).rejects.toThrow('aborted')
 
-                const [url, init] = fetchMock.mock.calls.at(-1) as [string, RequestInit]
+                const [url, init] = fetchMock.mock.lastCall ?? []
                 expect(url).toBe('https://api.cursor.com/v1/agents/bc-agent/runs/run-1/cancel')
-                expect(init.method).toBe('POST')
-                expect(init.signal?.aborted).toBe(false)
+                expect(init?.method).toBe('POST')
+                expect(init?.signal?.aborted).toBe(false)
             })
 
             it('should still rethrow the abort and log a warning when cancelling the remote run fails', async () => {
                 useRunningAgent()
+                fetchMock.mockRejectedValueOnce(new Error('network down'))
                 const warn = jest.fn()
                 const controller = new AbortController()
                 setTimeout(() => {
                     controller.abort(new Error('cancelled'))
                 }, 20)
-                fetchMock.mockImplementation((url: string) => url.endsWith('/cancel')
-                    ? Promise.reject(new Error('network down'))
-                    : Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ status: 'RUNNING' }) }))
 
                 await expect(investigateWithCursor(
                     { provider: 'cursor', apiKey: 'cursor-key', pollIntervalMs: 60_000 },
@@ -246,12 +239,8 @@ describe('aiInvestigation', () => {
             it('should not cancel the remote run when the investigation fails without an abort', async () => {
                 fetchMock.mockReset()
                 fetchMock
-                    .mockResolvedValueOnce({
-                        ok: true,
-                        status: 200,
-                        json: () => Promise.resolve({ agent: { id: 'bc-agent' }, run: { id: 'run-1' } }),
-                    })
-                    .mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({ status: 'ERROR' }) })
+                    .mockResolvedValueOnce(jsonResponse({ agent: { id: 'bc-agent' }, run: { id: 'run-1' } }))
+                    .mockResolvedValueOnce(jsonResponse({ status: 'ERROR' }))
 
                 await expect(investigateWithCursor(
                     { provider: 'cursor', apiKey: 'cursor-key' },
@@ -274,22 +263,11 @@ describe('aiInvestigation', () => {
         })
         const prompts = { systemPrompt: 'Investigate', userPrompt: 'Something failed' }
 
-        const fetchMock = jest.fn()
+        const fetchMock: jest.MockedFunction<typeof fetch> = jest.fn()
 
         afterEach(() => {
             fetchMock.mockReset()
         })
-
-        function jsonResponse (body: unknown): Response {
-            return new Response(JSON.stringify(body), {
-                status: 200,
-                headers: { 'content-type': 'application/json' },
-            })
-        }
-
-        function requestBody (callIndex = 0): Record<string, unknown> {
-            return JSON.parse(String((fetchMock.mock.calls[callIndex] as [string, RequestInit])[1].body)) as Record<string, unknown>
-        }
 
         it('should call Claude through the custom fetch and return the parsed outcome', async () => {
             fetchMock.mockResolvedValue(jsonResponse({
@@ -322,7 +300,7 @@ describe('aiInvestigation', () => {
                     headers: expect.objectContaining({ 'x-api-key': 'anthropic-key' }),
                 }),
             )
-            expect(requestBody().model).toBe('claude-sonnet-5')
+            expect(requestBody(fetchMock).model).toBe('claude-sonnet-5')
         })
 
         it('should call OpenAI through the custom fetch and return the parsed outcome', async () => {

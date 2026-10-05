@@ -30,10 +30,7 @@ export default defineConfig(
     },
     rules: {
       '@typescript-eslint/consistent-return': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/restrict-template-expressions': 'off',
-      '@typescript-eslint/no-base-to-string': 'off',
       '@typescript-eslint/no-unused-vars': [
         'error',
         {
@@ -52,9 +49,7 @@ export default defineConfig(
       },
     },
     rules: {
-      '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/unbound-method': 'off',
       'jest/require-top-level-describe': ['error', { maxNumberOfTopLevelDescribes: 1 }],
     },
   },
