@@ -23,20 +23,20 @@ describe('defineTool and callTool', () => {
         expect(created.name).toBe('my_tool')
     })
 
-    it('passes raw string input when no parameters schema is provided', async () => {
-        const execute = jest.fn((input: string) => input.toUpperCase())
+    it('passes undefined input when no parameters schema is provided', async () => {
+        const execute = jest.fn((): string => 'ok')
 
         const created = defineTool({
-            name: 'uppercase_input',
-            description: 'Uppercase input',
+            name: 'no_parameters',
+            description: 'No parameters',
             execute,
         })
 
-        await expect(callTool(created, 'hello', testContext, { signal: undefined })).resolves.toBe('HELLO')
-        expect(execute).toHaveBeenCalledWith('hello', testContext, { signal: expect.any(AbortSignal) })
+        await expect(callTool(created, {}, testContext, { signal: undefined })).resolves.toBe('ok')
+        expect(execute).toHaveBeenCalledWith(undefined, testContext, { signal: expect.any(AbortSignal) })
     })
 
-    it('parses JSON schema parameters and passes typed input to execute', async () => {
+    it('validates JSON schema parameters and passes the input to execute', async () => {
         const parameters = {
             type: 'object',
             properties: {
@@ -61,33 +61,13 @@ describe('defineTool and callTool', () => {
             execute,
         })
 
-        await expect(callTool(created, JSON.stringify({
+        await expect(callTool(created, {
             rootCause: 'bad input',
             retryable: false,
-        }), testContext, { signal: undefined })).resolves.toEqual({
+        }, testContext, { signal: undefined })).resolves.toEqual({
             summary: 'bad input',
             retryable: false,
         })
-    })
-
-    it('rejects malformed JSON for JSON schema parameters', async () => {
-        const parameters = {
-            type: 'object',
-            properties: {
-                rootCause: { type: 'string' },
-            },
-            required: ['rootCause'],
-            additionalProperties: false,
-        } as const satisfies JSONSchema
-
-        const created = defineTool({
-            name: 'investigate',
-            description: 'Investigate an error',
-            parameters,
-            execute: (): string => 'ok',
-        })
-
-        await expect(callTool(created, 'not-json', testContext, { signal: undefined })).rejects.toThrow(/Invalid JSON input/)
     })
 
     it('rejects JSON schema parameters input that fails validation', async () => {
@@ -108,12 +88,12 @@ describe('defineTool and callTool', () => {
             execute: (): string => 'ok',
         })
 
-        await expect(callTool(created, JSON.stringify({
+        await expect(callTool(created, {
             rootCause: 'bad input',
-        }), testContext, { signal: undefined })).rejects.toThrow(/Invalid parameters/)
+        }, testContext, { signal: undefined })).rejects.toThrow(/Invalid parameters/)
     })
 
-    it('parses zod parameters and passes typed input to execute', async () => {
+    it('parses zod parameters and passes the parsed input to execute', async () => {
         const parameters = z.object({
             id: z.string(),
             count: z.number(),
@@ -128,7 +108,7 @@ describe('defineTool and callTool', () => {
             execute,
         })
 
-        await expect(callTool(created, JSON.stringify({ id: 'a', count: 2 }), testContext, { signal: undefined })).resolves.toBe('a:2')
+        await expect(callTool(created, { id: 'a', count: 2 }, testContext, { signal: undefined })).resolves.toBe('a:2')
     })
 
     it('propagates errors from execute', async () => {
@@ -140,7 +120,7 @@ describe('defineTool and callTool', () => {
             },
         })
 
-        await expect(callTool(created, 'input', testContext, { signal: undefined })).rejects.toThrow('boom')
+        await expect(callTool(created, {}, testContext, { signal: undefined })).rejects.toThrow('boom')
     })
 
     it('rejects when timeoutMs is exceeded', async () => {
@@ -154,7 +134,7 @@ describe('defineTool and callTool', () => {
             },
         })
 
-        await expect(callTool(created, 'input', testContext, { signal: undefined })).rejects.toThrow(TrypatchTimeoutError)
+        await expect(callTool(created, {}, testContext, { signal: undefined })).rejects.toThrow(TrypatchTimeoutError)
     })
 
     it('aborts the signal execute sees when timeoutMs is exceeded', async () => {
@@ -169,7 +149,7 @@ describe('defineTool and callTool', () => {
             },
         })
 
-        const error = await callTool(created, 'input', testContext, { signal: undefined }).catch((caught: unknown) => caught)
+        const error = await callTool(created, {}, testContext, { signal: undefined }).catch((caught: unknown) => caught)
 
         expect(error).toHaveProperty('message', 'Tool slow_tool timed out after 20ms')
         expect(error).toBeInstanceOf(TrypatchTimeoutError)
@@ -193,7 +173,7 @@ describe('defineTool and callTool', () => {
             controller.abort(reason)
         }, 20)
 
-        await expect(callTool(created, 'input', testContext, { signal: controller.signal })).rejects.toBe(reason)
+        await expect(callTool(created, {}, testContext, { signal: controller.signal })).rejects.toBe(reason)
         expect(executeSignal?.aborted).toBe(true)
     })
 })

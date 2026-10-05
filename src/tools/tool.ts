@@ -1,5 +1,6 @@
 import { withDeadline } from '../abort/withDeadline'
-import { getParser, getSchema, toFunctionToolName } from './schema'
+import { parseWithSchema } from '../schema/utils'
+import { getSchema, toFunctionToolName } from './schema'
 import type {
     Tool,
     ToolDefinition,
@@ -20,14 +21,17 @@ export function defineTool<
 
 export async function callTool<TSchema extends ToolInput, Context, Result> (
     tool: Tool<TSchema, Context, Result>,
-    input: string,
+    input: unknown,
     context: Context | undefined,
     options: { signal: AbortSignal | undefined },
 ): Promise<Awaited<Result>> {
-    const parse = getParser(tool.parameters, tool.name) as (input: string) => ToolInputValue<TSchema>
+    // A tool without parameters gets no input, whatever the model sent.
+    const parsed = (tool.parameters === undefined
+        ? undefined
+        : parseWithSchema(tool.parameters, input, `parameters for tool ${tool.name}`)) as ToolInputValue<TSchema>
 
     return await withDeadline(async (signal): Promise<Awaited<Result>> => {
-        return await tool.execute(parse(input), context, { signal })
+        return await tool.execute(parsed, context, { signal })
     }, {
         signal: options.signal,
         timeout: tool.timeoutMs === undefined ? undefined : { ms: tool.timeoutMs, label: `Tool ${tool.name}` },

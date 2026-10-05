@@ -40,10 +40,10 @@ export function toolsToAiSdkTools<C> (
         investigationTool.name,
         tool({
             description: investigationTool.description,
-            // Tool.call already parses and validates its own input.
+            // callTool already validates its own input.
             inputSchema: jsonSchema(getSchema(investigationTool.parameters) as Parameters<typeof jsonSchema>[0]),
             execute: guardToolExecution(
-                (input, options) => callTool(investigationTool, JSON.stringify(input), toolContext, { signal: options.abortSignal }),
+                (input, options) => callTool(investigationTool, input, toolContext, { signal: options.abortSignal }),
                 vault,
             ),
         }),

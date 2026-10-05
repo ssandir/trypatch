@@ -207,6 +207,7 @@ The AI can call investigation tools over several turns: it calls a tool, reads t
 
 - `investigationProvider.maxToolIterations` caps the number of tool turns (unlimited by default; `timeoutMs` still bounds the whole loop)
 - `timeoutMs` covers the whole investigation, including every tool turn; a tool still running at the deadline is abandoned, and can listen to the `signal` it receives to actually stop (see [Cancellation](#cancellation-abort-signals))
+- `execute`'s first argument is its input, parsed and validated against `parameters`. A tool without `parameters` takes no input: the AI calls it with no arguments, and `execute` receives `undefined`
 - `toolContext` is passed to every tool's `execute` as its second argument, and `{ signal }` as its third
 - If an investigation tool throws, the error is sent back to the AI so it can try something else, instead of failing the investigation
 - A result tool runs after the model picks it, but within `timeoutMs`; its own `timeoutMs` still applies. If it throws, the investigation fails, and the method rethrows its original error.

@@ -31,7 +31,7 @@ async function callResultTool<S extends Schema, C> (
     toolContext: C | undefined,
     signal: AbortSignal | undefined,
 ): Promise<unknown> {
-    return await callTool(tool, JSON.stringify(input ?? {}), toolContext, { signal })
+    return await callTool(tool, input, toolContext, { signal })
 }
 
 async function resolveOutcome<S extends Schema, C> (
