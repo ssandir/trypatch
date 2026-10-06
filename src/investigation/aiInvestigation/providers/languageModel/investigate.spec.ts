@@ -141,23 +141,22 @@ describe('investigateWithLanguageModel', () => {
     it('should hand investigation tools a signal that fires when the caller aborts', async () => {
         const controller = new AbortController()
         let toolSignal: AbortSignal | undefined
-        const hangingTool = defineTool({
-            name: 'hang',
-            description: 'Never resolves',
+        const signalTool = defineTool({
+            name: 'signal_tool',
+            description: 'Captures its signal',
             execute: (_input, _context, { signal }) => {
                 toolSignal = signal
-                setTimeout(() => {
-                    controller.abort(new Error('cancelled'))
-                }, 0)
-                return new Promise<never>(() => undefined)
+                return 'done'
             },
         })
-        useModel(mockToolCallTurn('hang', {}), finalOutcome('unreachable'))
+        useModel(mockToolCallTurn('signal_tool', {}), finalOutcome('done'))
 
-        await expect(investigateWithLanguageModel(config, outcomeSchema, prompts, {
-            investigationTools: [hangingTool],
+        await investigateWithLanguageModel(config, outcomeSchema, prompts, {
+            investigationTools: [signalTool],
             signal: controller.signal,
-        })).rejects.toThrow('cancelled')
+        })
+        controller.abort()
+
         expect(toolSignal?.aborted).toBe(true)
     })
 

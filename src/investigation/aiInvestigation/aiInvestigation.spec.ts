@@ -1,10 +1,15 @@
+import { setTimeout as sleep } from 'node:timers/promises'
 import { z } from 'zod'
 import { Logger } from '../../logger'
+import { mockTimeoutSignal } from '../../test/abort'
 import type { InvestigationContext } from '../../types'
 import { buildInvestigationPrompt } from './buildPrompt'
+import { CANCEL_TIMEOUT_MS } from './providers/cursor/constants'
 import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithLanguageModel } from './providers/languageModel/investigate'
 import { buildInvestigationResultSchema } from './resultSchema'
+
+jest.mock('node:timers/promises', () => ({ setTimeout: jest.fn() }))
 
 function jsonResponse (body: unknown): Response {
     return new Response(JSON.stringify(body), {
@@ -153,11 +158,16 @@ describe('aiInvestigation', () => {
         })
 
         describe('aborting', () => {
-            function useRunningAgent (): void {
+            afterEach(() => {
+                jest.restoreAllMocks()
+            })
+
+            // The caller has aborted by the time we poll, so the poll fails like `fetch` does on abort.
+            function useAbortedPoll (): void {
                 fetchMock.mockReset()
                 fetchMock
                     .mockResolvedValueOnce(jsonResponse({ agent: { id: 'bc-agent' }, run: { id: 'run-1' } }))
-                    .mockResolvedValueOnce(jsonResponse({ status: 'RUNNING' }))
+                    .mockRejectedValueOnce(new DOMException('The operation was aborted', 'AbortError'))
             }
 
             it('should pass the signal to every fetch', async () => {
@@ -177,57 +187,58 @@ describe('aiInvestigation', () => {
                 expect(signals.every(signal => signal?.aborted)).toBe(true)
             })
 
-            it('should stop polling when the caller aborts, without waiting out the poll interval', async () => {
-                useRunningAgent()
-                fetchMock.mockResolvedValueOnce(jsonResponse({}))
+            it('should wait pollIntervalMs between polls under the caller signal', async () => {
+                fetchMock.mockReset()
+                fetchMock
+                    .mockResolvedValueOnce(jsonResponse({ agent: { id: 'bc-agent' }, run: { id: 'run-1' } }))
+                    .mockResolvedValueOnce(jsonResponse({ status: 'RUNNING' }))
+                    .mockResolvedValueOnce(jsonResponse({
+                        status: 'FINISHED',
+                        result: JSON.stringify({
+                            outcome: { type: 'result', explanation: 'test explanation', result: { inStock: false } },
+                        }),
+                    }))
                 const controller = new AbortController()
-                setTimeout(() => {
-                    controller.abort(new Error('cancelled'))
-                }, 20)
 
-                await expect(investigateWithCursor(
+                await investigateWithCursor(
                     { provider: 'cursor', apiKey: 'cursor-key', pollIntervalMs: 60_000 },
                     outcomeSchema,
                     { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
                     { signal: controller.signal },
-                )).rejects.toThrow('aborted')
+                )
+
+                expect(sleep).toHaveBeenCalledWith(60_000, undefined, { signal: controller.signal })
             })
 
-            it('should cancel the remote run when the caller aborts', async () => {
-                useRunningAgent()
+            it('should cancel the remote run under its own timeout when the caller aborts', async () => {
+                useAbortedPoll()
                 fetchMock.mockResolvedValueOnce(jsonResponse({}))
-                const controller = new AbortController()
-                setTimeout(() => {
-                    controller.abort(new Error('cancelled'))
-                }, 20)
+                const timeout = mockTimeoutSignal()
 
                 await expect(investigateWithCursor(
-                    { provider: 'cursor', apiKey: 'cursor-key', pollIntervalMs: 60_000 },
+                    { provider: 'cursor', apiKey: 'cursor-key' },
                     outcomeSchema,
                     { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
-                    { signal: controller.signal },
+                    { signal: AbortSignal.abort(new Error('cancelled')) },
                 )).rejects.toThrow('aborted')
 
                 const [url, init] = fetchMock.mock.lastCall ?? []
                 expect(url).toBe('https://api.cursor.com/v1/agents/bc-agent/runs/run-1/cancel')
                 expect(init?.method).toBe('POST')
-                expect(init?.signal?.aborted).toBe(false)
+                expect(timeout).toHaveBeenCalledWith(CANCEL_TIMEOUT_MS)
+                expect(init?.signal).toBe(timeout.mock.results[0]?.value)
             })
 
             it('should still rethrow the abort and log a warning when cancelling the remote run fails', async () => {
-                useRunningAgent()
+                useAbortedPoll()
                 fetchMock.mockRejectedValueOnce(new Error('network down'))
                 const warn = jest.fn()
-                const controller = new AbortController()
-                setTimeout(() => {
-                    controller.abort(new Error('cancelled'))
-                }, 20)
 
                 await expect(investigateWithCursor(
-                    { provider: 'cursor', apiKey: 'cursor-key', pollIntervalMs: 60_000 },
+                    { provider: 'cursor', apiKey: 'cursor-key' },
                     outcomeSchema,
                     { systemPrompt: 'Investigate', userPrompt: 'Something failed' },
-                    { signal: controller.signal, logger: new Logger({ logger: { ...console, warn } }) },
+                    { signal: AbortSignal.abort(new Error('cancelled')), logger: new Logger({ logger: { ...console, warn } }) },
                 )).rejects.toThrow('aborted')
 
                 expect(warn).toHaveBeenCalledWith(
