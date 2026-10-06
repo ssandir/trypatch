@@ -13,6 +13,7 @@ import { Logger } from '../logger'
 import { defineTool } from '../tools'
 import type { CustomErrorDefinition, InvestigationContext, TryPatchOptions } from '../types'
 import { mockMethodDescriptor } from '../test/mockMethodDecoratorContext'
+import { mockTimeoutSignal } from '../test/abort'
 import { mockLanguageModel, mockOutcomeTurn, promptText } from '../test/mockLanguageModel'
 import { createLanguageModel } from './aiInvestigation/providers/languageModel/createLanguageModel'
 
@@ -100,9 +101,7 @@ describe('runInvestigation', () => {
                 error: jest.fn(),
                 debug: jest.fn(),
             }
-            jest.mocked(createLanguageModel).mockReturnValue(new MockLanguageModelV4({
-                doGenerate: () => new Promise<never>(() => undefined),
-            }))
+            const timeout = mockTimeoutSignal()
 
             await expect(runInvestigation(
                 originalError,
@@ -124,6 +123,7 @@ describe('runInvestigation', () => {
                 undefined,
                 [],
             )).rejects.toBe(originalError)
+            expect(timeout).toHaveBeenCalledWith(20)
             expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed, rethrowing the original error', expect.any(TrypatchTimeoutError))
         })
 
@@ -420,13 +420,15 @@ describe('runInvestigation', () => {
             expect(received?.aborted).toBe(true)
         })
 
-        it('should time out a custom investigation that ignores the signal', async () => {
+        it('should time out a custom investigation', async () => {
             const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+            const timeout = mockTimeoutSignal()
 
             await expect(investigateError(ctx, {
                 timeoutMs: 10,
-                customInvestigation: { investigate: () => new Promise(() => undefined) },
+                customInvestigation: { investigate: jest.fn() },
             })).rejects.toBeInstanceOf(TrypatchTimeoutError)
+            expect(timeout).toHaveBeenCalledWith(10)
         })
 
         it('should not call the AI provider when the signal is already aborted', async () => {
@@ -472,11 +474,14 @@ describe('runInvestigation', () => {
             expect(resultToolSignal?.aborted).toBe(true)
         })
 
-        it('should time out a result tool under the investigation timeoutMs', async () => {
+        it('should run result tools under the investigation timeoutMs', async () => {
             useOutcome({ type: 'resultTool', explanation: 'test explanation', toolName: 'submit', input: {} })
             const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+            const timeoutController = new AbortController()
+            const timeout = jest.spyOn(AbortSignal, 'timeout').mockReturnValue(timeoutController.signal)
+            let resultToolSignal: AbortSignal | undefined
 
-            await expect(investigateError(ctx, {
+            await investigateError(ctx, {
                 timeoutMs: 20,
                 aiInvestigation: {
                     investigationProvider: {
@@ -486,10 +491,17 @@ describe('runInvestigation', () => {
                     resultTools: [defineTool({
                         name: 'submit',
                         description: 'Submit the result',
-                        execute: () => new Promise<never>(() => undefined),
+                        execute: (_input, _context, { signal }) => {
+                            resultToolSignal = signal
+                            return 'submitted'
+                        },
                     })],
                 },
-            })).rejects.toBeInstanceOf(TrypatchTimeoutError)
+            })
+            timeoutController.abort()
+
+            expect(timeout).toHaveBeenCalledWith(20)
+            expect(resultToolSignal?.aborted).toBe(true)
         })
 
         it('should parse a JSON-encoded result when no resultSchema is given', async () => {

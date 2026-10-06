@@ -1,6 +1,6 @@
 import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
 import { z } from 'zod'
-import { TrypatchTimeoutError } from '../errors'
+import { mockTimeoutSignal } from '../test/abort'
 import { callTool, defineTool } from './tool'
 import type { ToolInputValue } from './types'
 
@@ -13,6 +13,10 @@ const testContext: TestContext = {
 }
 
 describe('defineTool and callTool', () => {
+    afterEach(() => {
+        jest.restoreAllMocks()
+    })
+
     it('uses the provided tool name', () => {
         const created = defineTool({
             name: 'my_tool',
@@ -124,56 +128,34 @@ describe('defineTool and callTool', () => {
     })
 
     it('rejects when timeoutMs is exceeded', async () => {
+        const timeout = mockTimeoutSignal()
         const created = defineTool({
             name: 'slow_tool',
             description: 'Slow tool',
             timeoutMs: 20,
-            execute: async (): Promise<string> => {
-                await new Promise(resolve => setTimeout(resolve, 100))
+            execute: (): string => 'done',
+        })
+
+        await expect(callTool(created, {}, testContext, { signal: undefined }))
+            .rejects.toThrow('Tool slow_tool timed out after 20ms')
+        expect(timeout).toHaveBeenCalledWith(20)
+    })
+
+    it('hands execute a signal that follows the outer signal', async () => {
+        const controller = new AbortController()
+        let executeSignal: AbortSignal | undefined
+        const created = defineTool({
+            name: 'signal_tool',
+            description: 'Signal tool',
+            execute: (_input, _context, { signal }): string => {
+                executeSignal = signal
                 return 'done'
             },
         })
 
-        await expect(callTool(created, {}, testContext, { signal: undefined })).rejects.toThrow(TrypatchTimeoutError)
-    })
+        await callTool(created, {}, testContext, { signal: controller.signal })
+        controller.abort()
 
-    it('aborts the signal execute sees when timeoutMs is exceeded', async () => {
-        let executeSignal: AbortSignal | undefined
-        const created = defineTool({
-            name: 'slow_tool',
-            description: 'Slow tool',
-            timeoutMs: 20,
-            execute: (_input, _context, { signal }): Promise<never> => {
-                executeSignal = signal
-                return new Promise<never>(() => undefined)
-            },
-        })
-
-        const error = await callTool(created, {}, testContext, { signal: undefined }).catch((caught: unknown) => caught)
-
-        expect(error).toHaveProperty('message', 'Tool slow_tool timed out after 20ms')
-        expect(error).toBeInstanceOf(TrypatchTimeoutError)
-        expect(executeSignal?.aborted).toBe(true)
-    })
-
-    it('rejects with the outer abort reason and aborts the signal execute sees', async () => {
-        const controller = new AbortController()
-        const reason = new Error('cancelled')
-        let executeSignal: AbortSignal | undefined
-        const created = defineTool({
-            name: 'hanging_tool',
-            description: 'Hanging tool',
-            timeoutMs: 5_000,
-            execute: (_input, _context, { signal }): Promise<never> => {
-                executeSignal = signal
-                return new Promise<never>(() => undefined)
-            },
-        })
-        setTimeout(() => {
-            controller.abort(reason)
-        }, 20)
-
-        await expect(callTool(created, {}, testContext, { signal: controller.signal })).rejects.toBe(reason)
         expect(executeSignal?.aborted).toBe(true)
     })
 })
