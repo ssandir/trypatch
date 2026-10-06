@@ -66,11 +66,8 @@ describe('trypatch', () => {
             mockInvestigationResponse({ inStock: false })
 
             class ExampleService {
-                run (value: string): Promise<Product> {
-                    if (value === 'fail') {
-                        throw new Error('failed')
-                    }
-                    return Promise.resolve({ inStock: false })
+                run (): Promise<Product> {
+                    throw new Error('failed')
                 }
             }
 
@@ -83,7 +80,7 @@ describe('trypatch', () => {
             })
 
             const service = new ExampleService()
-            await expect(service.run('fail')).resolves.toEqual({
+            await expect(service.run()).resolves.toEqual({
                 inStock: false,
             })
             expect(onInvestigationResult).toHaveBeenCalledWith({
@@ -96,11 +93,8 @@ describe('trypatch', () => {
             mockInvestigationResponse({ inStock: true })
 
             class ExampleService {
-                run (value: string): Promise<Product> {
-                    if (value === 'fail') {
-                        throw new Error('failed')
-                    }
-                    return Promise.resolve({ inStock: false })
+                run (): Promise<Product> {
+                    throw new Error('failed')
                 }
             }
 
@@ -113,7 +107,7 @@ describe('trypatch', () => {
             })
 
             const service = new ExampleService()
-            await expect(service.run('fail')).resolves.toEqual({
+            await expect(service.run()).resolves.toEqual({
                 inStock: true,
             })
             expect(onInvestigationResult).toHaveBeenCalledWith({
@@ -126,12 +120,9 @@ describe('trypatch', () => {
             mockInvestigationResponse({ inStock: true })
 
             class ExampleService {
-                async run (value: string): Promise<Product> {
+                async run (): Promise<Product> {
                     await Promise.resolve()
-                    if (value === 'fail') {
-                        throw new Error('failed')
-                    }
-                    return { inStock: false }
+                    throw new Error('failed')
                 }
             }
 
@@ -144,7 +135,7 @@ describe('trypatch', () => {
             })
 
             const service = new ExampleService()
-            await expect(service.run('fail')).resolves.toEqual({
+            await expect(service.run()).resolves.toEqual({
                 inStock: true,
             })
             expect(onInvestigationResult).toHaveBeenCalledWith({
