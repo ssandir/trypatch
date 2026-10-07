@@ -4,5 +4,4 @@ export type {
     ToolDefinition,
     ToolHandler,
     ToolInput,
-    ToolInputValue,
 } from './types'

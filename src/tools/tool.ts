@@ -5,8 +5,8 @@ import type {
     Tool,
     ToolDefinition,
     ToolInput,
-    ToolInputValue,
 } from './types'
+import type { SchemaInfer } from '../schema/types'
 
 export function defineTool<
     TSchema extends ToolInput = undefined,
@@ -28,7 +28,7 @@ export async function callTool<TSchema extends ToolInput, Context, Result> (
     // A tool without parameters gets no input, whatever the model sent.
     const parsed = (tool.parameters === undefined
         ? undefined
-        : parseWithSchema(tool.parameters, input, `parameters for tool ${tool.name}`)) as ToolInputValue<TSchema>
+        : parseWithSchema(tool.parameters, input, `parameters for tool ${tool.name}`)) as SchemaInfer<TSchema>
 
     return await withDeadline(async (signal): Promise<Awaited<Result>> => {
         return await tool.execute(parsed, context, { signal })

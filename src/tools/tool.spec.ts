@@ -2,7 +2,7 @@ import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
 import { z } from 'zod'
 import { mockTimeoutSignal } from '../test/abort'
 import { callTool, defineTool } from './tool'
-import type { ToolInputValue } from './types'
+import type { SchemaInfer } from '../schema/types'
 
 type TestContext = {
     value: string
@@ -103,7 +103,7 @@ describe('defineTool and callTool', () => {
             count: z.number(),
         })
 
-        const execute = jest.fn((input: ToolInputValue<typeof parameters>) => `${input.id}:${input.count}`)
+        const execute = jest.fn((input: SchemaInfer<typeof parameters>) => `${input.id}:${input.count}`)
 
         const created = defineTool({
             name: 'format_id_and_count',

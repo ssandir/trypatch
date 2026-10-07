@@ -24,7 +24,6 @@ export { defineTool } from './tools'
 export type {
     Tool,
     ToolInput,
-    ToolInputValue,
     ToolDefinition,
     ToolHandler,
 } from './tools'

@@ -1,22 +1,13 @@
-import type { JSONSchema } from 'json-schema-to-ts'
-import type { $ZodObject, output as ZodOutput } from 'zod/v4/core'
+import type { Schema, SchemaInfer } from '../schema/types'
 
-export type ToolInput = undefined | $ZodObject | JSONSchema
-
-export type ToolInputValue<TSchema extends ToolInput>
-    = TSchema extends $ZodObject ? ZodOutput<TSchema>
-        // FromSchema<TSchema> triggers TS2589 (excessively deep instantiation) for JSON Schema.
-        // `any` lets execute annotate its input, e.g. with FromSchema<typeof schema>.
-        : TSchema extends JSONSchema ? any
-            // No `parameters`: the tool takes no input.
-            : undefined
+export type ToolInput = Schema | undefined
 
 export type ToolHandler<
     TSchema extends ToolInput,
     Context = unknown,
     Result = unknown,
 > = (
-    input: ToolInputValue<TSchema>,
+    input: SchemaInfer<TSchema>,
     context: Context | undefined,
     /** `signal` fires on the tool's own `timeoutMs` or when the investigation is aborted, whichever comes first. */
     options: { signal: AbortSignal },
