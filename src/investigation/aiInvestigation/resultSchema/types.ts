@@ -1,4 +1,3 @@
-import type { Schema, SchemaInfer } from '../../../schema/types'
 import type {
     InvestigationCannotDetermineOutcome,
     InvestigationNoApplicableOutcome,
@@ -20,23 +19,24 @@ export type InvestigationResultToolOutcome = {
     input: unknown
 }
 
-export type InvestigationExplicitResultOutcome<S extends Schema = Schema> = {
+export type InvestigationExplicitResultOutcome = {
     type: 'result'
     explanation: string
-    result: SchemaInfer<S>
+    /** Not parsed with `resultSchema` yet; a JSON-encoded string when there is none. */
+    result: unknown
 }
 
 /**
  * Discriminated union an investigation provider's structured output must match:
  * a thrown {@link CustomErrorDefinition}, a call into a {@link ResultTool}, an explicit
- * result matching {@link Schema}, or a report that no proper result is available (`cannotDetermine`,
+ * result matching `resultSchema`, or a report that no proper result is available (`cannotDetermine`,
  * `uncertain`, `noApplicableOutcome`). Each branch is only present in
  * {@link buildInvestigationResultSchema}'s output when the matching option is configured.
  */
-export type InvestigationOutcome<S extends Schema = Schema>
+export type InvestigationOutcome
     = | InvestigationErrorOutcome
         | InvestigationResultToolOutcome
-        | InvestigationExplicitResultOutcome<S>
+        | InvestigationExplicitResultOutcome
         | InvestigationCannotDetermineOutcome
         | InvestigationUncertainOutcome
         | InvestigationNoApplicableOutcome
