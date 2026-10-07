@@ -5,7 +5,7 @@ import {
     isZodObject,
     toJsonSchemaObject,
 } from '../schema/utils'
-import type { ToolInput } from './types'
+import type { Schema } from '../schema/types'
 
 const EMPTY_OBJECT_SCHEMA = {
     type: 'object',
@@ -24,7 +24,7 @@ export function toFunctionToolName (name: string): string {
     return normalized
 }
 
-export function getSchema (parameters: ToolInput): JSONSchema {
+export function getSchema (parameters: Schema): JSONSchema {
     if (parameters === undefined) {
         return { ...EMPTY_OBJECT_SCHEMA }
     }

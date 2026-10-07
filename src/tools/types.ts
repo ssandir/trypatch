@@ -1,9 +1,7 @@
 import type { Schema, SchemaInfer } from '../schema/types'
 
-export type ToolInput = Schema | undefined
-
 export type ToolHandler<
-    TSchema extends ToolInput,
+    TSchema extends Schema,
     Context = unknown,
     Result = unknown,
 > = (
@@ -14,7 +12,7 @@ export type ToolHandler<
 ) => Result | Promise<Result>
 
 export type ToolDefinition<
-    TSchema extends ToolInput = undefined,
+    TSchema extends Schema = undefined,
     Context = unknown,
     Result = unknown,
 > = {
@@ -28,7 +26,7 @@ export type ToolDefinition<
 
 /** A tool created by {@link defineTool}. */
 export type Tool<
-    TSchema extends ToolInput = ToolInput,
+    TSchema extends Schema = Schema,
     Context = unknown,
     Result = unknown,
 > = {

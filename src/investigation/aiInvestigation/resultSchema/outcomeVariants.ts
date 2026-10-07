@@ -18,7 +18,7 @@ export function errorOutcomeVariant (definition: CustomErrorDefinition) {
         properties: {
             type: { enum: ['error'] },
             error: { enum: [definition.errorConstructor.name] },
-            errorSchema: toJsonSchemaObject(definition.errorParameterSchema),
+            errorSchema: getSchema(definition.errorParameterSchema),
         },
         required: ['type', 'error', 'errorSchema'],
         additionalProperties: false,
@@ -40,7 +40,7 @@ export function resultToolOutcomeVariant<C> (tool: ResultTool<Schema, C>) {
     } as const satisfies JSONSchema
 }
 
-export function explicitResultOutcomeVariant (resultSchema: Schema | undefined) {
+export function explicitResultOutcomeVariant (resultSchema: Schema) {
     return {
         type: 'object',
         description: 'Return this value from the method in place of the error. It must be a correct return value for this call.',

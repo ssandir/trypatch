@@ -16,7 +16,7 @@ import { buildInvestigationPrompt } from './buildPrompt'
 import { qualifiedMethodName } from '../investigationContext'
 import { validateMcpServers } from './mcp/servers'
 import type { Schema, SchemaInfer } from '../../schema/types'
-import { parseWithSchema } from '../../schema/utils'
+import { parseParameter, parseWithSchema } from '../../schema/utils'
 import { callTool } from '../../tools/tool'
 import { redactInvestigationPrompts, restoreInvestigationResponse } from './redact/flareRedact'
 import { investigateWithCursor } from './providers/cursor/investigate'
@@ -41,7 +41,7 @@ async function resolveOutcome<S extends Schema, C> (
             }
 
             throw new definition.errorConstructor(
-                parseWithSchema(definition.errorParameterSchema, outcome.errorSchema, `${outcome.error} parameters`),
+                parseParameter(definition.errorParameterSchema, outcome.errorSchema, `${outcome.error} parameters`),
             )
         }
         case 'resultTool': {

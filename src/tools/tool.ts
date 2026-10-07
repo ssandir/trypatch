@@ -1,15 +1,14 @@
 import { withDeadline } from '../abort/withDeadline'
-import { parseWithSchema } from '../schema/utils'
+import { parseParameter } from '../schema/utils'
 import { getSchema, toFunctionToolName } from './schema'
 import type {
     Tool,
     ToolDefinition,
-    ToolInput,
 } from './types'
-import type { SchemaInfer } from '../schema/types'
+import type { Schema, SchemaInfer } from '../schema/types'
 
 export function defineTool<
-    TSchema extends ToolInput = undefined,
+    TSchema extends Schema = undefined,
     Context = unknown,
     Result = unknown,
 > (definition: ToolDefinition<TSchema, Context, Result>): Tool<TSchema, Context, Result> {
@@ -19,16 +18,13 @@ export function defineTool<
     return { ...definition, name: toFunctionToolName(definition.name) }
 }
 
-export async function callTool<TSchema extends ToolInput, Context, Result> (
+export async function callTool<TSchema extends Schema, Context, Result> (
     tool: Tool<TSchema, Context, Result>,
     input: unknown,
     context: Context | undefined,
     options: { signal: AbortSignal | undefined },
 ): Promise<Awaited<Result>> {
-    // A tool without parameters gets no input, whatever the model sent.
-    const parsed = (tool.parameters === undefined
-        ? undefined
-        : parseWithSchema(tool.parameters, input, `parameters for tool ${tool.name}`)) as SchemaInfer<TSchema>
+    const parsed = parseParameter(tool.parameters, input, `parameters for tool ${tool.name}`) as SchemaInfer<TSchema>
 
     return await withDeadline(async (signal): Promise<Awaited<Result>> => {
         return await tool.execute(parsed, context, { signal })
