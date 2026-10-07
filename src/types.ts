@@ -1,6 +1,6 @@
 import type { VaultOptions } from 'flare-redact'
 import type { LoggingOptions } from './logger'
-import type { Tool, ToolInput } from './tools'
+import type { Tool } from './tools'
 import type { CursorInvestigationConfig } from './investigation/aiInvestigation/providers/cursor/types'
 import type { LanguageModelInvestigationConfig } from './investigation/aiInvestigation/providers/languageModel/types'
 import type { McpServerConfig } from './investigation/aiInvestigation/mcp/types'
@@ -59,23 +59,22 @@ export type InvestigationBehavior = {
 /**
  * Tool the AI may call while investigating. Prefer side-effect-free implementations.
  */
-export type InvestigationTool<C = unknown> = Tool<ToolInput, C, unknown>
+export type InvestigationTool<C = unknown> = Tool<Schema, C, unknown>
 
 /**
  * Tool the AI may pick as its outcome; trypatch calls it after the investigation and its return value
  * is returned from the decorated method in place of the error.
  * When {@link TryPatchOptions} includes {@link resultSchema}, execute must return {@link SchemaInfer} for that schema.
  */
-export type ResultTool<S extends Schema = Schema, C = unknown>
-    = Tool<ToolInput, C, SchemaInfer<S>>
+export type ResultTool<S extends Schema = Schema, C = unknown> = Tool<Schema, C, SchemaInfer<S>>
 
 export type CustomErrorDefinition<S extends Schema = Schema> = {
     /** Will be called with a parameter matching the errorParameterSchema. */
     errorConstructor: new (param: SchemaInfer<S>) => Error
     /** Optional description for the AI to understand when to return this error. */
     description?: string
-    /** Zod or JSON Schema describing the error constructor parameter type. */
-    errorParameterSchema: S
+    /** Zod or JSON Schema describing the error constructor parameter type. Omit it for an error constructed without one. */
+    errorParameterSchema?: S
     /**
      * Whether this error propagates out of trypatch. Defaults to `false`: it is logged and the
      * decorated method rethrows its original error instead.

@@ -65,6 +65,16 @@ describe('buildInvestigationResultSchema', () => {
         expect(variantTypes(schema)).toEqual(['error'])
     })
 
+    it('should describe a custom error without errorParameterSchema with an empty object errorSchema', () => {
+        const schema = buildInvestigationResultSchema({
+            allowDirectResultCreation: false,
+            customErrors: [{ errorConstructor: class StaleCacheError extends Error {} }],
+            ...disableFallbackOutcomes,
+        })
+        const [variant] = outcomeVariants(schema) as { properties: { errorSchema: unknown } }[]
+        expect(variant!.properties.errorSchema).toEqual({ type: 'object', properties: {} })
+    })
+
     it('should throw when allowDirectResultCreation is false with no result tools, custom errors, or fallback outcomes', () => {
         const options = { allowDirectResultCreation: false, ...disableFallbackOutcomes }
         expect(() => buildInvestigationResultSchema(options))
