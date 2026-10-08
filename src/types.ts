@@ -67,7 +67,30 @@ export type InvestigationBehavior = {
      * so the AI can see what the failed call was meant to do. It is sent to the provider (after
      * `redactConfig`), so leave it off if your code must not leave your infrastructure. Defaults to `false`.
      */
-    includeMethodSource?: boolean
+    allowMethodSource?: boolean
+    /**
+     * Whether the AI may return a `result` directly, versus only via {@link AiInvestigationOptions.resultTools}/{@link AiInvestigationOptions.customErrors}.
+     * Defaults to `true`.
+     */
+    allowDirectResultCreation?: boolean
+    /**
+     * Whether the AI may report that there isn't enough information to work out a correct return value.
+     * Ends the investigation with {@link TrypatchCannotDetermineError}, which is logged; the method then
+     * rethrows its original error. Defaults to `true`.
+     */
+    allowCannotDetermine?: boolean
+    /**
+     * Whether the AI may report that a plausible return value exists but its confidence in it is too low
+     * to return it, instead of guessing. Ends the investigation with {@link TrypatchUncertainResultError},
+     * which is logged; the method then rethrows its original error. Defaults to `true`.
+     */
+    allowUncertainResult?: boolean
+    /**
+     * Whether the AI may report that none of the configured outcomes actually fit the situation.
+     * Ends the investigation with {@link TrypatchNoApplicableOutcomeError}, which is logged; the method
+     * then rethrows its original error. Defaults to `true`.
+     */
+    allowNoApplicableOutcome?: boolean
 }
 
 /**
@@ -137,29 +160,6 @@ export type AiInvestigationOptions<
     resultTools?: ResultTool<S, C>[]
     /** Custom error classes the AI can throw during investigation. */
     customErrors?: CustomErrorDefinition[]
-    /**
-     * Whether the AI may return a `result` directly, versus only via {@link resultTools}/{@link customErrors}.
-     * Defaults to `true`.
-     */
-    allowDirectResultCreation?: boolean
-    /**
-     * Whether the AI may report that there isn't enough information to work out a correct return value.
-     * Ends the investigation with {@link TrypatchCannotDetermineError}, which is logged; the method then
-     * rethrows its original error. Defaults to `true`.
-     */
-    allowCannotDetermine?: boolean
-    /**
-     * Whether the AI may report that a plausible return value exists but its confidence in it is too low
-     * to return it, instead of guessing. Ends the investigation with {@link TrypatchUncertainResultError},
-     * which is logged; the method then rethrows its original error. Defaults to `true`.
-     */
-    allowUncertainResult?: boolean
-    /**
-     * Whether the AI may report that none of the configured outcomes actually fit the situation.
-     * Ends the investigation with {@link TrypatchNoApplicableOutcomeError}, which is logged; the method
-     * then rethrows its original error. Defaults to `true`.
-     */
-    allowNoApplicableOutcome?: boolean
     /**
      * Callback invoked with the value the wrapped method is about to return in place of its error,
      * plus the AI's explanation of why the call failed and why that value is correct.

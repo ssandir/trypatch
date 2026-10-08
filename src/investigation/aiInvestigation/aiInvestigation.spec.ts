@@ -52,12 +52,12 @@ describe('aiInvestigation', () => {
             expect(prompts.userPrompt).toContain('Method metadata: {"className":"BillingService","static":true,"private":true}')
         })
 
-        it('should leave the method source out of the default prompt unless includeMethodSource is set', () => {
+        it('should leave the method source out of the default prompt unless allowMethodSource is set', () => {
             const outcomeSchema = buildInvestigationResultSchema({ resultSchema: schema })
 
             expect(buildInvestigationPrompt(ctx, ctx.args, outcomeSchema, {}).userPrompt)
                 .not.toContain(ctx.methodSource)
-            expect(buildInvestigationPrompt(ctx, ctx.args, outcomeSchema, { includeMethodSource: true }).userPrompt)
+            expect(buildInvestigationPrompt(ctx, ctx.args, outcomeSchema, { allowMethodSource: true }).userPrompt)
                 .toContain(`Method source (as loaded at runtime, so it may be compiled or minified):\n${ctx.methodSource}`)
         })
     })

@@ -16,7 +16,7 @@ export function buildInvestigationPrompt (
     options: {
         prompt?: string | ((ctx: InvestigationContext) => string)
         systemPrompt?: string
-        includeMethodSource?: boolean
+        allowMethodSource?: boolean
     },
 ): { systemPrompt: string, userPrompt: string } {
     const errorMessage = ctx.error instanceof Error
@@ -28,7 +28,7 @@ export function buildInvestigationPrompt (
     const defaultUserPrompt = [
         `Method: ${methodName}`,
         `Method metadata: ${JSON.stringify(ctx.methodMetadata)}`,
-        ...options.includeMethodSource
+        ...options.allowMethodSource
             ? [`Method source (as loaded at runtime, so it may be compiled or minified):\n${ctx.methodSource}`]
             : [],
         `Arguments: ${JSON.stringify(sanitizedArgs)}`,

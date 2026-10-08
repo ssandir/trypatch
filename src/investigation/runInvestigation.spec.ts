@@ -374,7 +374,7 @@ describe('runInvestigation', () => {
                             provider: 'openai',
                             apiKey: 'test-key',
                         },
-                        [allowOption]: true,
+                        investigationBehavior: { [allowOption]: true },
                     },
                 },
                 new Logger({
@@ -626,7 +626,7 @@ describe('runInvestigation', () => {
                         provider: 'openai',
                         apiKey: 'test-key',
                     },
-                    allowCannotDetermine: true,
+                    investigationBehavior: { allowCannotDetermine: true },
                 },
             })).rejects.toThrow('logs contain no identifiable cause')
         })

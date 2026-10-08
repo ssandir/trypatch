@@ -318,13 +318,13 @@ describe('trypatch', () => {
             }), { signal: expect.any(AbortSignal) })
         })
 
-        it('should send the decorated method\'s runtime code to the provider when includeMethodSource is set', async () => {
+        it('should send the decorated method\'s runtime code to the provider when allowMethodSource is set', async () => {
             class InventoryService {
                 @trypatch({
                     aiInvestigation: {
                         resultSchema,
                         investigationProvider,
-                        investigationBehavior: { includeMethodSource: true },
+                        investigationBehavior: { allowMethodSource: true },
                     },
                 })
                 checkStock (sku: string): Promise<DecoratorResult> {

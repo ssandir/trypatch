@@ -94,10 +94,6 @@ export async function runAiInvestigation<S extends Schema, C> (
         mcpServers,
         resultTools,
         customErrors,
-        allowDirectResultCreation,
-        allowCannotDetermine,
-        allowUncertainResult,
-        allowNoApplicableOutcome,
         onInvestigationResult,
     }: AiInvestigationOptions<S, C>,
     logger?: Logger,
@@ -112,10 +108,10 @@ export async function runAiInvestigation<S extends Schema, C> (
         resultSchema,
         customErrors,
         resultTools,
-        allowDirectResultCreation,
-        allowCannotDetermine,
-        allowUncertainResult,
-        allowNoApplicableOutcome,
+        allowDirectResultCreation: investigationBehavior.allowDirectResultCreation,
+        allowCannotDetermine: investigationBehavior.allowCannotDetermine,
+        allowUncertainResult: investigationBehavior.allowUncertainResult,
+        allowNoApplicableOutcome: investigationBehavior.allowNoApplicableOutcome,
     })
     const builtPrompts = buildInvestigationPrompt(ctx, sanitizedArgs, outcomeSchema, investigationBehavior)
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)

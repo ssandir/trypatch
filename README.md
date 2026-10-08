@@ -80,7 +80,7 @@ With `redactConfig`, placeholders in the explanation are restored like the rest 
 
 ### Method Source: Show the AI What the Method Does
 
-Set `investigationBehavior.includeMethodSource: true` to also send the method's code, so the AI knows what the call was meant to return. Off by default, since your code goes to the provider (after `redactConfig`).
+Set `investigationBehavior.allowMethodSource: true` to also send the method's code, so the AI knows what the call was meant to return. Off by default, since your code goes to the provider (after `redactConfig`).
 
 <details>
 <summary>Example</summary>
@@ -89,7 +89,7 @@ Set `investigationBehavior.includeMethodSource: true` to also send the method's 
 aiInvestigation: {
   resultSchema: QuoteSchema,
   investigationProvider: { provider: 'openai', apiKey: process.env.OPENAI_API_KEY! },
-  investigationBehavior: { includeMethodSource: true },
+  investigationBehavior: { allowMethodSource: true },
 }
 ```
 
@@ -307,7 +307,7 @@ aiInvestigation: {
 
 ## Fallback Outcomes: Avoiding Fabricated Results
 
-Besides returning a `result`, calling a `resultTool`, or throwing a `customErrors` entry, the AI can report that it has no correct value to offer, instead of guessing one. Three booleans control this, all defaulting to `true`:
+Besides returning a `result`, calling a `resultTool`, or throwing a `customErrors` entry, the AI can report that it has no correct value to offer, instead of guessing one. Three `investigationBehavior` booleans control this, all defaulting to `true`:
 
 - `allowCannotDetermine`: not enough information to work out a correct return value → `TrypatchCannotDetermineError`
 - `allowUncertainResult`: a candidate value exists, but confidence is too low to return it → `TrypatchUncertainResultError`
