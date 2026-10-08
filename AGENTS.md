@@ -64,6 +64,8 @@ Tools are plain objects created by `defineTool` (`src/tools/tool.ts`), which inf
 
 Each provider config takes `apiKey: string` directly (optional for `openai-compatible`) — resolving it (env var, secret manager, etc.) is the consumer's job — plus an optional `fetch` override (same pattern as the Anthropic/OpenAI SDKs) used instead of the global one for every HTTP call that provider makes.
 
+`investigationBehavior.includeMethodSource` (default `false`) adds `InvestigationContext.methodSource` to the default user prompt. It's `Function.prototype.toString()` of the decorated method, captured as `MethodDescriptor.method` for both dialects, so it's runtime (compiled, possibly minified) code; recovering the original TypeScript via source maps was considered and deferred.
+
 Optional `redactConfig` (`VaultOptions`) on AI investigation options redacts prompts with [flare-redact](https://www.npmjs.com/package/flare-redact) before they reach the provider and restores placeholders in the response.
 
 Example:

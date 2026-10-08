@@ -16,6 +16,7 @@ export function buildInvestigationPrompt (
     options: {
         prompt?: string | ((ctx: InvestigationContext) => string)
         systemPrompt?: string
+        includeMethodSource?: boolean
     },
 ): { systemPrompt: string, userPrompt: string } {
     const errorMessage = ctx.error instanceof Error
@@ -27,6 +28,9 @@ export function buildInvestigationPrompt (
     const defaultUserPrompt = [
         `Method: ${methodName}`,
         `Method metadata: ${JSON.stringify(ctx.methodMetadata)}`,
+        ...options.includeMethodSource
+            ? [`Method source (as loaded at runtime, so it may be compiled or minified):\n${ctx.methodSource}`]
+            : [],
         `Arguments: ${JSON.stringify(sanitizedArgs)}`,
         `Error:\n${errorMessage}`,
         `Your outcome replaces this failed call to ${methodName}: a result you construct, or the return value of a result tool you invoke, is what the call returns to its caller. Return JSON matching this schema:\n${JSON.stringify(outcomeSchema, null, 2)}`,

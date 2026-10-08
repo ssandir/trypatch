@@ -27,6 +27,7 @@ export function buildInvestigationContext (
     return {
         error,
         methodName: String(methodDescriptor.name),
+        methodSource: methodDescriptor.method.toString(),
         args,
         methodMetadata: {
             ...className !== undefined ? { className } : {},

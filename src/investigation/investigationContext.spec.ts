@@ -12,10 +12,22 @@ describe('buildInvestigationContext', () => {
         expect(ctx.args).toEqual(['card-1'])
     })
 
+    it('should carry the method source from the method descriptor', () => {
+        const descriptor: MethodDescriptor = {
+            ...mockMethodDescriptor('charge'),
+            method: function charge (cardId: unknown) { return cardId },
+        }
+
+        const ctx = buildInvestigationContext(new Error('x'), descriptor, undefined, [])
+
+        expect(ctx.methodSource).toBe(descriptor.method.toString())
+    })
+
     it('should carry static and private from the method descriptor', () => {
         const descriptor: MethodDescriptor = {
             dialect: 'legacy',
             name: 'run',
+            method: () => undefined,
             static: true,
             private: false,
             target: () => undefined,

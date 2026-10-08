@@ -78,6 +78,25 @@ aiInvestigation: {
 
 With `redactConfig`, placeholders in the explanation are restored like the rest of the response, so treat it as sensitive.
 
+### Method Source: Show the AI What the Method Does
+
+Set `investigationBehavior.includeMethodSource: true` to also send the method's code, so the AI knows what the call was meant to return. Off by default, since your code goes to the provider (after `redactConfig`).
+
+<details>
+<summary>Example</summary>
+
+```typescript
+aiInvestigation: {
+  resultSchema: QuoteSchema,
+  investigationProvider: { provider: 'openai', apiKey: process.env.OPENAI_API_KEY! },
+  investigationBehavior: { includeMethodSource: true },
+}
+```
+
+</details>
+
+It's the runtime code from `toString()`: compiled (possibly minified) JavaScript, only the decorated method itself. Keep `@trypatch` directly above the method, or a wrapper from the decorators below it gets sent instead. Custom prompts and `investigate` get it as `InvestigationContext.methodSource`.
+
 ---
 
 ## Credential Censoring: Keep Secrets Local

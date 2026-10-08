@@ -20,6 +20,7 @@ export type MethodDescriptor =
     | {
         dialect: 'stage3'
         name: string | symbol
+        method: AnyMethod
         static: boolean
         private: boolean
         context: AnyMethodContext
@@ -27,6 +28,7 @@ export type MethodDescriptor =
     | {
         dialect: 'legacy'
         name: string | symbol
+        method: AnyMethod
         static: boolean
         /** Legacy decorators cannot be applied to true `#private` methods, so this is always false. */
         private: false
@@ -41,6 +43,12 @@ export type InvestigationProviderConfig
 export type InvestigationContext = {
     error: unknown
     methodName: string
+    /**
+     * The decorated method's code as loaded at runtime (`Function.prototype.toString()`), so compiled
+     * and possibly minified rather than the original TypeScript. Decorators applied below `@trypatch`
+     * replace the method first, so this is their wrapper's code instead.
+     */
+    methodSource: string
     args: unknown[]
     methodMetadata: {
         className?: string
@@ -54,6 +62,12 @@ export type InvestigationBehavior = {
     systemPrompt?: string
     maxTokens?: number
     sanitizeArgs?: (args: unknown[]) => unknown[]
+    /**
+     * Whether the default prompt includes the method's code ({@link InvestigationContext.methodSource}),
+     * so the AI can see what the failed call was meant to do. It is sent to the provider (after
+     * `redactConfig`), so leave it off if your code must not leave your infrastructure. Defaults to `false`.
+     */
+    includeMethodSource?: boolean
 }
 
 /**

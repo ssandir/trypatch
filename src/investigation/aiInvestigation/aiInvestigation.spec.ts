@@ -28,6 +28,7 @@ describe('aiInvestigation', () => {
         const ctx: InvestigationContext = {
             error: new Error('boom'),
             methodName: 'charge',
+            methodSource: 'charge(cardId) { return this.gateway.charge(cardId) }',
             args: ['card-1'],
             methodMetadata: { static: false, private: false },
         }
@@ -49,6 +50,15 @@ describe('aiInvestigation', () => {
             expect(prompts.userPrompt).toContain('Method: BillingService.charge')
             expect(prompts.userPrompt).toContain('Your outcome replaces this failed call to BillingService.charge')
             expect(prompts.userPrompt).toContain('Method metadata: {"className":"BillingService","static":true,"private":true}')
+        })
+
+        it('should leave the method source out of the default prompt unless includeMethodSource is set', () => {
+            const outcomeSchema = buildInvestigationResultSchema({ resultSchema: schema })
+
+            expect(buildInvestigationPrompt(ctx, ctx.args, outcomeSchema, {}).userPrompt)
+                .not.toContain(ctx.methodSource)
+            expect(buildInvestigationPrompt(ctx, ctx.args, outcomeSchema, { includeMethodSource: true }).userPrompt)
+                .toContain(`Method source (as loaded at runtime, so it may be compiled or minified):\n${ctx.methodSource}`)
         })
     })
 

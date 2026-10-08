@@ -22,6 +22,7 @@ export function mockMethodDescriptor (name = 'run'): MethodDescriptor {
     return {
         dialect: 'stage3',
         name: context.name,
+        method: () => undefined,
         static: context.static,
         private: context.private,
         context,

@@ -64,6 +64,7 @@ function applyStage3Decorator<S extends Schema, C> (
     const methodDescriptor = {
         dialect: 'stage3',
         name: context.name,
+        method: originalMethod,
         static: context.static,
         private: context.private,
         context,
@@ -87,6 +88,7 @@ function applyLegacyDecorator<S extends Schema, C> (
     const methodDescriptor = {
         dialect: 'legacy',
         name: propertyKey,
+        method: originalMethod as AnyMethod,
         static: typeof target === 'function',
         private: false,
         target,
@@ -95,7 +97,7 @@ function applyLegacyDecorator<S extends Schema, C> (
 
     return {
         ...descriptor,
-        value: wrapMethod(originalMethod as AnyMethod, options, logger, methodDescriptor),
+        value: wrapMethod(methodDescriptor.method, options, logger, methodDescriptor),
     }
 }
 
