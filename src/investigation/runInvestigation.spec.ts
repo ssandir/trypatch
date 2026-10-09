@@ -750,7 +750,7 @@ describe('runInvestigation', () => {
                 },
             }, new Logger({ logger: loggerLike, verbosity: 'high' }))
 
-            expect(loggerLike.info).toHaveBeenCalledWith('[ssandir/trypatch] Investigation of Billing.run returned a result', 'upstream renamed price')
+            expect(loggerLike.info).toHaveBeenCalledWith('[ssandir/trypatch] Investigation of Billing.run ended with outcome result', 'upstream renamed price')
             expect(onAiInvestigationEnd).toHaveBeenCalledWith(ctx, { type: 'result', result: 'ok', explanation: 'upstream renamed price' })
         })
 
@@ -852,6 +852,31 @@ describe('runInvestigation', () => {
                     investigationBehavior: { allowCannotDetermine: true },
                 },
             })).rejects.toThrow('logs contain no identifiable cause')
+        })
+
+        it('should log the explanation of an outcome that ends with an error', async () => {
+            const loggerLike = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+            }
+            useOutcome({ type: 'cannotDetermine', explanation: 'the logs stop before the failure', reason: 'no identifiable cause' })
+            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), new (class Billing {})(), [], mockCallTiming())
+
+            await expect(investigateError(ctx, {
+                aiInvestigation: {
+                    investigationProvider: {
+                        provider: 'openai',
+                        apiKey: 'test-key',
+                    },
+                },
+            }, new Logger({ logger: loggerLike, verbosity: 'high' }))).rejects.toThrow(TrypatchCannotDetermineError)
+            expect(loggerLike.info).toHaveBeenCalledWith(
+                '[ssandir/trypatch] Investigation of Billing.run ended with outcome error',
+                'the logs stop before the failure',
+            )
         })
 
         it('should redact investigation prompts by default before calling the provider', async () => {

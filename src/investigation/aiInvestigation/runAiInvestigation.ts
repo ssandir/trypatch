@@ -150,9 +150,7 @@ export async function runAiInvestigation<S extends Schema, C> (
     
     signal?.throwIfAborted()
 
-    if (resolved.type === 'result') {
-        logger?.info(`[ssandir/trypatch] Investigation of ${qualifiedMethodName(ctx)} returned a result`, resolved.explanation)
-    }
+    logger?.info(`[ssandir/trypatch] Investigation of ${qualifiedMethodName(ctx)} ended with outcome ${resolved.type}`, resolved.explanation)
 
     await onAiInvestigationEnd?.(ctx, resolved)
 

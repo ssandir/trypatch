@@ -208,7 +208,10 @@ type TryPatchOptionsBase = {
     getSignal?: (ctx: InvestigationContext) => AbortSignal | undefined
     /** Deadline for the whole investigation, including every tool round. No deadline when unset. */
     timeoutMs?: number
-    /** Called before the investigation starts, e.g. to report `ctx.error`. If it throws, the investigation is skipped. */
+    /**
+     * Called before the investigation starts, e.g. to report `ctx.error`. If it throws, the investigation is skipped
+     * and the decorated method rejects with its original error.
+     */
     onInvestigationStart?: (ctx: InvestigationContext) => void | Promise<void>
 }
 

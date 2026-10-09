@@ -297,7 +297,7 @@ Besides returning a `result`, calling a `resultTool`, or throwing a `customError
 - `allowUncertainResult`: a candidate value exists, but confidence is too low to return it → `TrypatchUncertainResultError`
 - `allowNoApplicableOutcome`: none of the configured `result`/`resultTools`/`customErrors` fit the situation → `TrypatchNoApplicableOutcomeError`
 
-The AI supplies a short `reason`, which becomes that error's message, and a longer `explanation`, passed to [`onAiInvestigationEnd`](#callbacks-report-failures-to-your-monitoring). Set the corresponding boolean to `false` to remove that escape hatch.
+The AI supplies a short `reason`, which becomes that error's message, and a longer `explanation`, logged like a recovered value's and passed to [`onAiInvestigationEnd`](#callbacks-report-failures-to-your-monitoring). Set the corresponding boolean to `false` to remove that escape hatch.
 
 **When no value is produced, callers get the original error.** That covers a fallback outcome, a `customErrors` entry without `propagate`, our timeout, a provider failure or a failing result tool. trypatch logs why the investigation failed, and the method rethrows the error it originally threw, so callers see the same failure they'd see without trypatch. Only three errors replace it:
 
