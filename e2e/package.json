@@ -5,7 +5,7 @@
     "scripts": {
         "setup": "node scripts/setup.mjs",
         "pretest": "npm --prefix .. run build && npm run setup && npm run type-check",
-        "test": "node --env-file-if-exists=.env --import tsx --test --test-reporter=spec claude.e2e.ts",
+        "test": "node scripts/test.mjs",
         "type-check": "tsc --project tsconfig.json --noEmit"
     },
     "dependencies": {

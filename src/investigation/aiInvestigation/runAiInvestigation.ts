@@ -18,6 +18,7 @@ import { qualifiedMethodName } from '../investigationContext'
 import { validateMcpServers } from './mcp/servers'
 import type { Schema, SchemaInfer } from '../../schema/types'
 import { parseParameter, parseWithSchema } from '../../schema/utils'
+import { withSafeTools } from '../../tools/builtin'
 import { callTool } from '../../tools/tool'
 import { redactInvestigationPrompts, restoreInvestigationResponse } from './redact/flareRedact'
 import { investigateWithCursor } from './providers/cursor/investigate'
@@ -137,7 +138,7 @@ export async function runAiInvestigation<S extends Schema, C> (
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)
     const rawOutcome = await callInvestigationProvider(investigationProvider, outcomeSchema, prompts, {
         maxTokens: investigationBehavior.maxTokens,
-        investigationTools,
+        investigationTools: withSafeTools(investigationTools, investigationBehavior.allowSafeTools),
         toolContext,
         vault,
         mcpServers,
