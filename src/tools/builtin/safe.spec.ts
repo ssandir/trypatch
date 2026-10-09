@@ -6,7 +6,7 @@ import { safeTools } from './safe'
 jest.mock('node:timers/promises', () => ({ setTimeout: jest.fn() }))
 
 describe('wait tool', () => {
-    const waitTool = safeTools.find(tool => tool.name === 'wait')!
+    const waitTool = safeTools.find(tool => tool.name === 'trypatch_builtin_wait')!
 
     it('waits for the given duration with the tool signal', async () => {
         const controller = new AbortController()
