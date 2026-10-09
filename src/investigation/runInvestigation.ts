@@ -41,10 +41,11 @@ export async function runInvestigation<
     args: unknown[],
     timing: CallTiming,
 ): Promise<unknown> {
-    const investigationContext = buildInvestigationContext(error, methodDescriptor, receiver, args, timing)
     let signal: AbortSignal | undefined
 
     try {
+        const investigationContext = buildInvestigationContext(error, methodDescriptor, receiver, args, timing)
+        await options.onInvestigationStart?.(investigationContext)
         signal = options.getSignal?.(investigationContext)
         return await investigateError(investigationContext, options, logger, signal)
     } catch (investigationError) {

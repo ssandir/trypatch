@@ -191,6 +191,60 @@ describe('runInvestigation', () => {
             expect(investigate).toHaveBeenCalledWith(expect.anything(), { signal: expect.any(AbortSignal) })
         })
 
+        it('should call onInvestigationStart with the investigation context before investigating', async () => {
+            const calls: string[] = []
+            const onInvestigationStart = jest.fn(() => {
+                calls.push('start')
+            })
+            const investigate = jest.fn(() => {
+                calls.push('investigate')
+                return Promise.resolve('done')
+            })
+
+            await runInvestigation(
+                originalError,
+                { onInvestigationStart, customInvestigation: { investigate } },
+                new Logger(),
+                mockMethodDescriptor(),
+                undefined,
+                ['arg'],
+                mockCallTiming(),
+            )
+
+            expect(onInvestigationStart).toHaveBeenCalledWith(expect.objectContaining({ error: originalError, args: ['arg'] }))
+            expect(calls).toEqual(['start', 'investigate'])
+        })
+
+        it('should skip the investigation, log, and rethrow the original error when onInvestigationStart throws', async () => {
+            const loggerLike = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+            }
+            const startError = new Error('reporter down')
+            const investigate = jest.fn()
+
+            await expect(runInvestigation(
+                originalError,
+                {
+                    onInvestigationStart: () => Promise.reject(startError),
+                    customInvestigation: { investigate },
+                },
+                new Logger({
+                    logger: loggerLike,
+                    verbosity: 'high',
+                }),
+                mockMethodDescriptor(),
+                undefined,
+                [],
+                mockCallTiming(),
+            )).rejects.toBe(originalError)
+            expect(investigate).not.toHaveBeenCalled()
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed, rethrowing the original error', startError)
+        })
+
         it('should log an error thrown by the signal factory and rethrow the original error', async () => {
             const loggerLike = {
                 log: jest.fn(),
