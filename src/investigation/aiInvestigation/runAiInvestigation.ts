@@ -113,7 +113,7 @@ export async function runAiInvestigation<S extends Schema, C> (
         allowUncertainResult: investigationBehavior.allowUncertainResult,
         allowNoApplicableOutcome: investigationBehavior.allowNoApplicableOutcome,
     })
-    const builtPrompts = buildInvestigationPrompt(ctx, sanitizedArgs, outcomeSchema, investigationBehavior)
+    const builtPrompts = buildInvestigationPrompt(ctx, sanitizedArgs, investigationBehavior)
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)
     const rawOutcome = await callInvestigationProvider(investigationProvider, outcomeSchema, prompts, {
         maxTokens: investigationBehavior.maxTokens,

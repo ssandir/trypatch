@@ -60,6 +60,14 @@ export function buildInvestigationResultSchema<C> ({
 }
 
 /**
+ * Prompt text carrying the outcome schema, for providers that can't enforce it as structured output and
+ * so only see it in the prompt.
+ */
+export function outcomeSchemaPrompt (outcomeSchema: JSONSchema): string {
+    return `Return JSON matching this schema:\n${JSON.stringify(outcomeSchema, null, 2)}`
+}
+
+/**
  * Parses a provider's raw response text into its {@link InvestigationOutcome}, validating it against
  * `outcomeSchema`. The nested `result`/`errorSchema`/`input` payloads are validated against the caller's
  * actual schemas separately, in {@link investigateError}.

@@ -1,4 +1,3 @@
-import type { JSONSchema } from 'json-schema-to-ts'
 import type { InvestigationContext } from '../../types'
 import { qualifiedMethodName } from '../investigationContext'
 import { formatError } from './formatError'
@@ -13,7 +12,6 @@ const DEFAULT_SYSTEM_PROMPT = [
 export function buildInvestigationPrompt (
     ctx: InvestigationContext,
     sanitizedArgs: unknown[],
-    outcomeSchema: JSONSchema,
     options: {
         prompt?: string | ((ctx: InvestigationContext) => string)
         systemPrompt?: string
@@ -30,8 +28,8 @@ export function buildInvestigationPrompt (
             : [],
         `Arguments: ${JSON.stringify(sanitizedArgs)}`,
         `Error:\n${formatError(ctx.error)}`,
-        `Your outcome replaces this failed call to ${methodName}: a result you construct, or the return value of a result tool you invoke, is what the call returns to its caller. Return JSON matching this schema:\n${JSON.stringify(outcomeSchema, null, 2)}`,
-    ].join('\n\n')
+        `Your outcome replaces this failed call to method ${methodName}.`,
+    ].join('\n')
 
     const userPrompt = typeof options.prompt === 'function'
         ? options.prompt(ctx)

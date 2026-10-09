@@ -2,7 +2,7 @@ import { generateText, isLoopFinished, jsonSchema, Output, stepCountIs, type Too
 import type { JSONSchema } from 'json-schema-to-ts'
 import { TrypatchConfigError } from '../../../../errors'
 import { Logger } from '../../../../logger'
-import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
+import { outcomeSchemaPrompt, parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
 import { MAX_TOOL_NAME_LENGTH } from './constants'
 import { createLanguageModel } from './createLanguageModel'
 import { connectMcpTools } from './mcp'
@@ -24,6 +24,11 @@ function mergeTools (investigationTools: ToolSet | undefined, mcpTools: ToolSet)
     return Object.keys(tools).length > 0 ? tools : undefined
 }
 
+// Without `supportsStructuredOutputs`, the OpenAI-compatible provider drops the schema and only asks for JSON.
+function enforcesOutputSchema (config: LanguageModelInvestigationConfig): boolean {
+    return config.provider !== 'openai-compatible' || config.supportsStructuredOutputs === true
+}
+
 export async function investigateWithLanguageModel<C> (
     config: LanguageModelInvestigationConfig,
     outcomeSchema: JSONSchema,
@@ -43,7 +48,7 @@ export async function investigateWithLanguageModel<C> (
         const result = await generateText({
             model: createLanguageModel(config),
             system: prompts.systemPrompt,
-            prompt: prompts.userPrompt,
+            prompt: enforcesOutputSchema(config) ? prompts.userPrompt : `${prompts.userPrompt}\n\n${outcomeSchemaPrompt(outcomeSchema)}`,
             ...tools ? { tools } : {},
             output: Output.object({ schema: jsonSchema(outcomeSchema as Parameters<typeof jsonSchema>[0]) }),
             // Producing the structured output is a step of its own on top of the tool rounds. Without a cap the

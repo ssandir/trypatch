@@ -4,7 +4,7 @@ import { Logger } from '../../../../logger'
 import { extractJsonFromText } from '../../../../schema/utils'
 import { resolveMcpServers } from '../../mcp/servers'
 import type { ResolvedMcpServerConfig } from '../../mcp/types'
-import { parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
+import { outcomeSchemaPrompt, parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
 import { CANCEL_TIMEOUT_MS, DEFAULT_BASE_URL, DEFAULT_POLL_INTERVAL_MS, TERMINAL_RUN_STATUSES } from './constants'
 import type {
     CursorCreateAgentResponse,
@@ -73,6 +73,7 @@ function buildCursorMcpServer (server: ResolvedMcpServerConfig): Record<string, 
 
 async function buildCreateAgentBody (
     config: CursorInvestigationConfig,
+    outcomeSchema: JSONSchema,
     prompts: { systemPrompt: string, userPrompt: string },
     options: CursorInvestigationOptions,
 ): Promise<Record<string, unknown>> {
@@ -82,7 +83,8 @@ async function buildCreateAgentBody (
 
     return {
         prompt: {
-            text: `${prompts.systemPrompt}\n\n${prompts.userPrompt}`,
+            // The Cloud Agents API has no structured output, so the prompt is the only place the schema can go.
+            text: `${prompts.systemPrompt}\n\n${prompts.userPrompt}\n\n${outcomeSchemaPrompt(outcomeSchema)}`,
         },
         ...model ? { model } : {},
         ...repos ? { repos } : {},
@@ -220,7 +222,7 @@ export async function investigateWithCursor (
     const { agentId, runId } = await createCursorAgent(
         baseURL,
         authorization,
-        await buildCreateAgentBody(config, prompts, options),
+        await buildCreateAgentBody(config, outcomeSchema, prompts, options),
         doFetch,
         signal,
     )

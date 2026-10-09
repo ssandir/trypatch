@@ -7,7 +7,7 @@ import { buildInvestigationPrompt } from './buildPrompt'
 import { CANCEL_TIMEOUT_MS } from './providers/cursor/constants'
 import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithLanguageModel } from './providers/languageModel/investigate'
-import { buildInvestigationResultSchema } from './resultSchema'
+import { buildInvestigationResultSchema, outcomeSchemaPrompt } from './resultSchema'
 
 jest.mock('node:timers/promises', () => ({ setTimeout: jest.fn() }))
 
@@ -24,7 +24,6 @@ function requestBody (fetchMock: jest.MockedFunction<typeof fetch>, callIndex = 
 
 describe('aiInvestigation', () => {
     describe('buildInvestigationPrompt', () => {
-        const schema = z.object({ inStock: z.boolean() })
         const ctx: InvestigationContext = {
             error: new Error('boom'),
             methodName: 'charge',
@@ -33,31 +32,26 @@ describe('aiInvestigation', () => {
             methodMetadata: { static: false, private: false },
         }
 
-        it('should include method, error, and outcome schema details in the default prompt', () => {
-            const outcomeSchema = buildInvestigationResultSchema({ resultSchema: schema })
-            const prompts = buildInvestigationPrompt(ctx, ctx.args, outcomeSchema, {})
+        it('should include method and error details but not the outcome schema in the default prompt', () => {
+            const prompts = buildInvestigationPrompt(ctx, ctx.args, {})
             expect(prompts.userPrompt).toContain('Method: charge')
             expect(prompts.userPrompt).toContain('boom')
-            expect(prompts.userPrompt).toContain('inStock')
+            expect(prompts.userPrompt).not.toContain('Return JSON matching this schema')
         })
 
         it('should include class name and method metadata in the default prompt', () => {
-            const outcomeSchema = buildInvestigationResultSchema({ resultSchema: schema })
             const prompts = buildInvestigationPrompt({
                 ...ctx,
                 methodMetadata: { className: 'BillingService', static: true, private: true },
-            }, ctx.args, outcomeSchema, {})
+            }, ctx.args, {})
             expect(prompts.userPrompt).toContain('Method: BillingService.charge')
-            expect(prompts.userPrompt).toContain('Your outcome replaces this failed call to BillingService.charge')
             expect(prompts.userPrompt).toContain('Method metadata: {"className":"BillingService","static":true,"private":true}')
         })
 
         it('should leave the method source out of the default prompt unless allowMethodSource is set', () => {
-            const outcomeSchema = buildInvestigationResultSchema({ resultSchema: schema })
-
-            expect(buildInvestigationPrompt(ctx, ctx.args, outcomeSchema, {}).userPrompt)
+            expect(buildInvestigationPrompt(ctx, ctx.args, {}).userPrompt)
                 .not.toContain(ctx.methodSource)
-            expect(buildInvestigationPrompt(ctx, ctx.args, outcomeSchema, { allowMethodSource: true }).userPrompt)
+            expect(buildInvestigationPrompt(ctx, ctx.args, { allowMethodSource: true }).userPrompt)
                 .toContain(`Method source (as loaded at runtime, so it may be compiled or minified):\n${ctx.methodSource}`)
         })
     })
@@ -115,6 +109,8 @@ describe('aiInvestigation', () => {
                 'https://api.cursor.com/v1/agents',
                 expect.objectContaining({ method: 'POST' }),
             )
+            expect((requestBody(fetchMock).prompt as { text: string }).text)
+                .toBe(`Investigate\n\nSomething failed\n\n${outcomeSchemaPrompt(outcomeSchema)}`)
             expect(fetchMock).toHaveBeenNthCalledWith(
                 2,
                 'https://api.cursor.com/v1/agents/bc-agent/runs/run-1',
