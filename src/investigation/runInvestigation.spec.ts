@@ -631,7 +631,7 @@ describe('runInvestigation', () => {
             })).rejects.toThrow('logs contain no identifiable cause')
         })
 
-        it('should redact investigation prompts before calling the provider', async () => {
+        it('should redact investigation prompts by default before calling the provider', async () => {
             const schema = z.object({
                 inStock: z.boolean(),
             })
@@ -651,7 +651,6 @@ describe('runInvestigation', () => {
                         provider: 'openai',
                         apiKey: 'test-key',
                     },
-                    redactConfig: {},
                 },
             })
 
@@ -659,6 +658,25 @@ describe('runInvestigation', () => {
 
             expect(userPrompt).not.toContain(secret)
             expect(userPrompt).toContain('charge')
+        })
+
+        it('should send prompts unredacted when redactConfig is false', async () => {
+            const secret = 'sk-live-abcdefghijklmnopqrstuvwx'
+            const ctx = buildInvestigationContext(new Error(`request failed with ${secret}`), mockMethodDescriptor('charge'), undefined, [])
+            const model = useOutcome({ type: 'result', explanation: 'test explanation', result: { inStock: false } })
+
+            await investigateError(ctx, {
+                aiInvestigation: {
+                    resultSchema: z.object({ inStock: z.boolean() }),
+                    investigationProvider: {
+                        provider: 'openai',
+                        apiKey: 'test-key',
+                    },
+                    redactConfig: false,
+                },
+            })
+
+            expect(promptText(model.doGenerateCalls[0], 'user')).toContain(secret)
         })
     })
 })

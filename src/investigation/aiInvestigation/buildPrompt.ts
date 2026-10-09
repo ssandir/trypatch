@@ -1,6 +1,7 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import type { InvestigationContext } from '../../types'
 import { qualifiedMethodName } from '../investigationContext'
+import { formatError } from './formatError'
 
 const DEFAULT_SYSTEM_PROMPT = [
     'A method call in application code threw an error, and you stand in for that call.',
@@ -19,10 +20,6 @@ export function buildInvestigationPrompt (
         allowMethodSource?: boolean
     },
 ): { systemPrompt: string, userPrompt: string } {
-    const errorMessage = ctx.error instanceof Error
-        ? `${ctx.error.name}: ${ctx.error.message}\n${ctx.error.stack ?? ''}`
-        : String(ctx.error)
-
     const methodName = qualifiedMethodName(ctx)
 
     const defaultUserPrompt = [
@@ -32,7 +29,7 @@ export function buildInvestigationPrompt (
             ? [`Method source (as loaded at runtime, so it may be compiled or minified):\n${ctx.methodSource}`]
             : [],
         `Arguments: ${JSON.stringify(sanitizedArgs)}`,
-        `Error:\n${errorMessage}`,
+        `Error:\n${formatError(ctx.error)}`,
         `Your outcome replaces this failed call to ${methodName}: a result you construct, or the return value of a result tool you invoke, is what the call returns to its caller. Return JSON matching this schema:\n${JSON.stringify(outcomeSchema, null, 2)}`,
     ].join('\n\n')
 

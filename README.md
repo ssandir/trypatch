@@ -76,11 +76,11 @@ aiInvestigation: {
 
 </details>
 
-With `redactConfig`, placeholders in the explanation are restored like the rest of the response, so treat it as sensitive.
+Redaction placeholders in the explanation are restored like the rest of the response, so treat it as sensitive.
 
 ### Method Source: Show the AI What the Method Does
 
-Set `investigationBehavior.allowMethodSource: true` to also send the method's code, so the AI knows what the call was meant to return. Off by default, since your code goes to the provider (after `redactConfig`).
+Set `investigationBehavior.allowMethodSource: true` to also send the method's code, so the AI knows what the call was meant to return. Off by default, since your code goes to the provider (after redaction).
 
 <details>
 <summary>Example</summary>
@@ -101,7 +101,7 @@ It's the runtime code from `toString()`: compiled (possibly minified) JavaScript
 
 ## Credential Censoring: Keep Secrets Local
 
-Automatically redact API keys, tokens, and PII before they leave your instance:
+API keys, tokens, and PII are redacted before they leave your instance, on by default. `redactConfig` adds your own `terms` or tunes flare-redact's detectors, and `redactConfig: false` turns redaction off:
 
 <details>
 <summary>Example</summary>
@@ -146,7 +146,7 @@ class CustomerRepository {
 </details>
 
 **How it works:**
-1. Before sending the investigation prompt to OpenAI, trypatch redacts all terms in `redactConfig.terms`
+1. Before sending the investigation prompt to OpenAI, trypatch redacts secrets found by [flare-redact](https://www.npmjs.com/package/flare-redact)'s default detectors (API keys, bearer tokens, emails, card numbers, …) plus all terms in `redactConfig.terms`
 2. Placeholders (e.g., `[REDACTED_0]`) replace the sensitive values
 3. OpenAI investigates with redacted data: *"Query failed at `[REDACTED_0]`..."*
 4. When the AI calls an investigation tool, placeholders in its input are restored before the tool runs, and the tool's output is redacted before it goes back to the AI

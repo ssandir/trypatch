@@ -10,7 +10,7 @@ A `ShippingQuoteClient.getQuote(order)` method calls a carrier API and parses th
 
 `@trypatch` investigates with Claude. The model can call `getRecentCarrierCalls`, which reads an APM-style log of recent carrier calls; that's the only place the raw response (with `eta_range`) is visible. It should return a valid `Quote` built from that response.
 
-On the way, two fake secrets (the carrier API key in the request URL, and the customer's email in the order) are redacted with `redactConfig`; the test checks neither reaches Anthropic.
+On the way, three fake secrets have to be redacted before they reach Anthropic: the carrier API key in the request URL (listed in `redactConfig.terms`), and, caught only by flare-redact's default detectors, the customer's email in the order and the bearer access token in the thrown `CarrierError`'s request headers. That error wraps the `ZodError` as its `cause`, so the test also checks the error's properties and cause reach the prompt.
 
 ## Running
 

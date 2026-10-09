@@ -56,7 +56,7 @@ async function readJson (request: import('node:http').IncomingMessage): Promise<
     return JSON.parse(Buffer.concat(chunks).toString('utf8'))
 }
 
-export async function startCarrierStub (expectedApiKey: string, apmLog: ApmEntry[]): Promise<CarrierStub> {
+export async function startCarrierStub (expectedApiKey: string, expectedAccessToken: string, apmLog: ApmEntry[]): Promise<CarrierStub> {
     const served: Record<string, unknown>[] = []
 
     const server: Server = createServer((request, response) => {
@@ -78,6 +78,11 @@ export async function startCarrierStub (expectedApiKey: string, apmLog: ApmEntry
 
         if (url.searchParams.get('api_key') !== expectedApiKey) {
             respond(401, { error: 'invalid_api_key' })
+            return
+        }
+
+        if (request.headers.authorization !== `Bearer ${expectedAccessToken}`) {
+            respond(401, { error: 'invalid_access_token' })
             return
         }
 

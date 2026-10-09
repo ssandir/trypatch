@@ -10,15 +10,15 @@ describe('flareRedact', () => {
         userPrompt: 'Token sk-live-abcdefghijklmnopqrstuvwx failed for user@example.com',
     }
 
-    it('should return prompts unchanged when redactConfig is undefined', () => {
-        expect(redactInvestigationPrompts(prompts, undefined)).toEqual({
+    it('should return prompts unchanged when redactConfig is false', () => {
+        expect(redactInvestigationPrompts(prompts, false)).toEqual({
             prompts,
             vault: undefined,
         })
     })
 
-    it('should redact secrets from both investigation prompts', () => {
-        const { prompts: redacted, vault } = redactInvestigationPrompts(prompts, {})
+    it('should redact secrets from both investigation prompts when redactConfig is undefined', () => {
+        const { prompts: redacted, vault } = redactInvestigationPrompts(prompts, undefined)
 
         expect(redacted.userPrompt).not.toContain('sk-live-abcdefghijklmnopqrstuvwx')
         expect(redacted.userPrompt).not.toContain('user@example.com')

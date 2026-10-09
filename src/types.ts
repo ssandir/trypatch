@@ -135,10 +135,12 @@ export type AiInvestigationOptions<
     /** Optional prompts, timeouts, token limits, and argument sanitization. */
     investigationBehavior?: InvestigationBehavior
     /**
-     * Optional flare-redact vault options. When set, investigation prompts are redacted
-     * before they are sent to the provider and placeholders are restored in the response.
+     * flare-redact vault options. Investigation prompts and tool output are always redacted reversibly
+     * before they reach the provider (flare-redact's default detectors: API keys, tokens, emails, card
+     * numbers, …), and placeholders are restored in the response and in tool input. Use this to add
+     * `terms` or tune detectors, or set it to `false` to send everything unredacted.
      */
-    redactConfig?: VaultOptions
+    redactConfig?: VaultOptions | false
     /** Context passed to {@link investigationTools} and {@link resultTools} execute handlers. */
     toolContext?: C
     /**

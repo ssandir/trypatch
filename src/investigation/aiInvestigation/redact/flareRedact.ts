@@ -12,9 +12,9 @@ export type RedactedInvestigationPrompts = {
 
 export function redactInvestigationPrompts (
     prompts: InvestigationPrompts,
-    options: VaultOptions | undefined,
+    options: VaultOptions | false | undefined,
 ): RedactedInvestigationPrompts {
-    if (!options) {
+    if (options === false) {
         return { prompts, vault: undefined }
     }
 
