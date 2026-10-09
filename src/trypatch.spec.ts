@@ -62,7 +62,7 @@ describe('trypatch', () => {
         } as const satisfies JSONSchema
 
         it('should return investigation results when the method throws', async () => {
-            const onInvestigationResult = jest.fn()
+            const onAiInvestigationEnd = jest.fn()
             mockInvestigationResponse({ inStock: false })
 
             class ExampleService {
@@ -75,7 +75,7 @@ describe('trypatch', () => {
                 aiInvestigation: {
                     resultSchema: zodSchema,
                     investigationProvider,
-                    onInvestigationResult,
+                    onAiInvestigationEnd,
                 },
             })
 
@@ -83,13 +83,15 @@ describe('trypatch', () => {
             await expect(service.run()).resolves.toEqual({
                 inStock: false,
             })
-            expect(onInvestigationResult).toHaveBeenCalledWith({
-                inStock: false,
-            }, { explanation: 'test explanation' })
+            expect(onAiInvestigationEnd).toHaveBeenCalledWith(expect.objectContaining({ methodName: 'run' }), {
+                type: 'result',
+                result: { inStock: false },
+                explanation: 'test explanation',
+            })
         })
 
         it('should return investigation results when the method throws with a JSON schema', async () => {
-            const onInvestigationResult = jest.fn()
+            const onAiInvestigationEnd = jest.fn()
             mockInvestigationResponse({ inStock: true })
 
             class ExampleService {
@@ -102,7 +104,7 @@ describe('trypatch', () => {
                 aiInvestigation: {
                     resultSchema: jsonSchema,
                     investigationProvider,
-                    onInvestigationResult,
+                    onAiInvestigationEnd,
                 },
             })
 
@@ -110,13 +112,15 @@ describe('trypatch', () => {
             await expect(service.run()).resolves.toEqual({
                 inStock: true,
             })
-            expect(onInvestigationResult).toHaveBeenCalledWith({
-                inStock: true,
-            }, { explanation: 'test explanation' })
+            expect(onAiInvestigationEnd).toHaveBeenCalledWith(expect.objectContaining({ methodName: 'run' }), {
+                type: 'result',
+                result: { inStock: true },
+                explanation: 'test explanation',
+            })
         })
 
         it('should await investigation for async methods before returning the fallback result', async () => {
-            const onInvestigationResult = jest.fn()
+            const onAiInvestigationEnd = jest.fn()
             mockInvestigationResponse({ inStock: true })
 
             class ExampleService {
@@ -130,7 +134,7 @@ describe('trypatch', () => {
                 aiInvestigation: {
                     resultSchema: zodSchema,
                     investigationProvider,
-                    onInvestigationResult,
+                    onAiInvestigationEnd,
                 },
             })
 
@@ -138,9 +142,11 @@ describe('trypatch', () => {
             await expect(service.run()).resolves.toEqual({
                 inStock: true,
             })
-            expect(onInvestigationResult).toHaveBeenCalledWith({
-                inStock: true,
-            }, { explanation: 'test explanation' })
+            expect(onAiInvestigationEnd).toHaveBeenCalledWith(expect.objectContaining({ methodName: 'run' }), {
+                type: 'result',
+                result: { inStock: true },
+                explanation: 'test explanation',
+            })
         })
     })
 
@@ -434,7 +440,7 @@ describe('trypatch', () => {
         })
 
         it('should apply AiInvestigationOptions via @trypatch with heterogeneous tools when the method throws', async () => {
-            const onInvestigationResult = jest.fn()
+            const onAiInvestigationEnd = jest.fn()
             const toolContext: ServiceToolContext = { serviceName: 'billing' }
 
             const aiOptions = {
@@ -484,7 +490,7 @@ describe('trypatch', () => {
                             execute: () => ({ inStock: false }),
                         }),
                     ],
-                    onInvestigationResult,
+                    onAiInvestigationEnd,
                 },
             } satisfies TryPatchOptions<typeof resultSchema, ServiceToolContext>
 
@@ -501,9 +507,11 @@ describe('trypatch', () => {
             await expect(service.run('fail')).resolves.toEqual({
                 inStock: false,
             })
-            expect(onInvestigationResult).toHaveBeenCalledWith({
-                inStock: false,
-            }, { explanation: 'test explanation' })
+            expect(onAiInvestigationEnd).toHaveBeenCalledWith(expect.objectContaining({ methodName: 'run' }), {
+                type: 'result',
+                result: { inStock: false },
+                explanation: 'test explanation',
+            })
 
             expect(model.doGenerateCalls[0]?.tools?.map(tool => tool.name)).toEqual([
                 'search_logs',

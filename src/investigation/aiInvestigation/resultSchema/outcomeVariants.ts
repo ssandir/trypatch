@@ -4,12 +4,13 @@ import type { Schema } from '../../../schema/types'
 import { toJsonSchemaObject } from '../../../schema/utils'
 import { getSchema } from '../../../tools/schema'
 
-const explanationProperties = {
-    explanation: {
-        type: 'string',
-        description: 'Why the call failed, and why this outcome gives a correct return value for it.',
-    },
-} as const satisfies Record<string, JSONSchema>
+function explanationProperties<WhyThisOutcome extends string> (whyThisOutcome: WhyThisOutcome) {
+    return {
+        explanation: { type: 'string', description: `Why the call failed, and ${whyThisOutcome}` },
+    } as const satisfies Record<string, JSONSchema>
+}
+
+const valueExplanationProperties = explanationProperties('why this outcome gives a correct return value for it.')
 
 export function errorOutcomeVariant (definition: CustomErrorDefinition) {
     return {
@@ -17,10 +18,11 @@ export function errorOutcomeVariant (definition: CustomErrorDefinition) {
         ...definition.description !== undefined ? { description: definition.description } : {},
         properties: {
             type: { enum: ['error'] },
+            ...explanationProperties('why this error is the right outcome for it.'),
             error: { enum: [definition.errorConstructor.name] },
             errorSchema: getSchema(definition.errorParameterSchema),
         },
-        required: ['type', 'error', 'errorSchema'],
+        required: ['type', 'explanation', 'error', 'errorSchema'],
         additionalProperties: false,
     } as const satisfies JSONSchema
 }
@@ -31,7 +33,7 @@ export function resultToolOutcomeVariant<C> (tool: ResultTool<Schema, C>) {
         description: `Call the "${tool.name}" result tool; its return value is returned from the method in place of the error. Tool description: ${tool.description}`,
         properties: {
             type: { enum: ['resultTool'] },
-            ...explanationProperties,
+            ...valueExplanationProperties,
             toolName: { enum: [tool.name] },
             input: getSchema(tool.parameters),
         },
@@ -46,7 +48,7 @@ export function explicitResultOutcomeVariant (resultSchema: Schema) {
         description: 'Return this value from the method in place of the error. It must be a correct return value for this call.',
         properties: {
             type: { enum: ['result'] },
-            ...explanationProperties,
+            ...valueExplanationProperties,
             result: resultSchema !== undefined
                 ? toJsonSchemaObject(resultSchema)
                 : {
@@ -64,9 +66,10 @@ export const cannotDetermineOutcomeVariant = {
     description: 'There is not enough information to work out a correct return value for this call. Use this instead of fabricating one.',
     properties: {
         type: { enum: ['cannotDetermine'] },
-        reason: { type: 'string', description: 'Brief explanation of why no return value could be determined.' },
+        ...explanationProperties('what is missing to work out a correct return value.'),
+        reason: { type: 'string', description: 'Short summary of why no return value could be determined.' },
     },
-    required: ['type', 'reason'],
+    required: ['type', 'explanation', 'reason'],
     additionalProperties: false,
 } as const satisfies JSONSchema
 export type InvestigationCannotDetermineOutcome = FromSchema<typeof cannotDetermineOutcomeVariant>
@@ -76,9 +79,10 @@ export const uncertainOutcomeVariant = {
     description: 'A plausible return value exists, but confidence that it is correct is too low to return it. Use this instead of guessing.',
     properties: {
         type: { enum: ['uncertain'] },
-        reason: { type: 'string', description: 'Why a return value cannot be determined with sufficient confidence.' },
+        ...explanationProperties('what the candidate return value is and why confidence in it is too low.'),
+        reason: { type: 'string', description: 'Short summary of why a return value cannot be determined with sufficient confidence.' },
     },
-    required: ['type', 'reason'],
+    required: ['type', 'explanation', 'reason'],
     additionalProperties: false,
 } as const satisfies JSONSchema
 export type InvestigationUncertainOutcome = FromSchema<typeof uncertainOutcomeVariant>
@@ -88,9 +92,10 @@ export const noApplicableOutcomeVariant = {
     description: 'None of the other available outcomes (result, result tools, custom errors) actually fit this situation.',
     properties: {
         type: { enum: ['noApplicableOutcome'] },
-        reason: { type: 'string', description: 'Why none of the other available outcomes fit.' },
+        ...explanationProperties('why none of the other available outcomes fit it.'),
+        reason: { type: 'string', description: 'Short summary of why none of the other available outcomes fit.' },
     },
-    required: ['type', 'reason'],
+    required: ['type', 'explanation', 'reason'],
     additionalProperties: false,
 } as const satisfies JSONSchema
 export type InvestigationNoApplicableOutcome = FromSchema<typeof noApplicableOutcomeVariant>

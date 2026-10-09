@@ -58,23 +58,7 @@ The type of `getQuote` is checked against `resultSchema`: with standard (stage-3
 
 ### Explanations: Why a Value Was Returned
 
-Along with the value, the AI explains why the call failed and why its value is correct. Callers only get the value. trypatch logs the explanation with `logger.info`, as the argument after the message, so it only shows at `verbosity: 'high'`. It also passes the explanation to `onInvestigationResult`:
-
-<details>
-<summary>Example</summary>
-
-```typescript
-aiInvestigation: {
-  resultSchema: QuoteSchema,
-  investigationProvider: { provider: 'openai', apiKey: process.env.OPENAI_API_KEY! },
-  onInvestigationResult: (quote, { explanation }) => {
-    metrics.increment('pricing.quote_recovered')
-    console.warn(`getQuote recovered ${quote.price} ${quote.currency}: ${explanation}`)
-  },
-}
-```
-
-</details>
+Along with the value, the AI explains why the call failed and why its value is correct. Callers only get the value. trypatch logs the explanation with `logger.info`, as the argument after the message, so it only shows at `verbosity: 'high'`. It also passes the explanation to [`onAiInvestigationEnd`](#callbacks-report-failures-to-your-monitoring).
 
 Redaction placeholders in the explanation are restored like the rest of the response, so treat it as sensitive.
 
@@ -313,7 +297,7 @@ Besides returning a `result`, calling a `resultTool`, or throwing a `customError
 - `allowUncertainResult`: a candidate value exists, but confidence is too low to return it → `TrypatchUncertainResultError`
 - `allowNoApplicableOutcome`: none of the configured `result`/`resultTools`/`customErrors` fit the situation → `TrypatchNoApplicableOutcomeError`
 
-The AI supplies a `reason` string, which becomes that error's message. Set the corresponding boolean to `false` to remove that escape hatch.
+The AI supplies a short `reason`, which becomes that error's message, and a longer `explanation`, logged like a recovered value's and passed to [`onAiInvestigationEnd`](#callbacks-report-failures-to-your-monitoring). Set the corresponding boolean to `false` to remove that escape hatch.
 
 **When no value is produced, callers get the original error.** That covers a fallback outcome, a `customErrors` entry without `propagate`, our timeout, a provider failure or a failing result tool. trypatch logs why the investigation failed, and the method rethrows the error it originally threw, so callers see the same failure they'd see without trypatch. Only three errors replace it:
 
@@ -361,6 +345,70 @@ For a signal not tied to a call, such as app shutdown: `getSignal: () => shutdow
 
 ---
 
+## Callbacks: Report Failures to Your Monitoring
+
+When trypatch recovers a call, the caller sees a success, so the failure behind it never reaches your usual error handling. Callbacks let you report it yourself: send the error to your error tracker (Sentry, Datadog, Bugsnag, ...), record a metric, or log it your own way.
+
+`onInvestigationStart` runs when the method fails, before the investigation starts. It gets the investigation context: the original error as `ctx.error`, plus the method's name, arguments and call timing.
+
+<details>
+<summary>Example</summary>
+
+```typescript
+import * as Sentry from '@sentry/node'
+
+class PricingService {
+  @trypatch({
+    onInvestigationStart: ctx => {
+      Sentry.captureException(ctx.error, { tags: { 'trypatch.method': ctx.methodName } })
+    },
+    aiInvestigation: {
+      resultSchema: QuoteSchema,
+      investigationProvider: { provider: 'openai', apiKey: process.env.OPENAI_API_KEY! },
+    },
+  })
+  async getQuote(productId: string): Promise<Quote> { /* ... */ }
+}
+```
+
+</details>
+
+`aiInvestigation.onAiInvestigationEnd` runs once the AI's outcome has been applied, before the method returns or the investigation throws. It gets the same context and the outcome: `{ type: 'result', result, explanation }` with the value the method returns, or `{ type: 'error', error, explanation }`. The error is the `customErrors` entry or [fallback outcome](#fallback-outcomes-avoiding-fabricated-results) the AI picked, or whatever failed while applying its outcome (e.g. a result tool throwing). Either way, `explanation` is the AI's account of why the call failed and why it picked that outcome.
+
+<details>
+<summary>Example</summary>
+
+```typescript
+aiInvestigation: {
+  resultSchema: QuoteSchema,
+  investigationProvider: { provider: 'openai', apiKey: process.env.OPENAI_API_KEY! },
+  onAiInvestigationEnd: (ctx, outcome) => {
+    if (outcome.type === 'result') {
+      metrics.increment('pricing.quote_recovered')
+      return
+    }
+    Sentry.captureException(ctx.error, {
+      tags: { 'trypatch.method': ctx.methodName },
+      extra: { investigationError: outcome.error.message, explanation: outcome.explanation },
+    })
+  },
+}
+```
+
+</details>
+
+<details>
+<summary>Details</summary>
+
+- **Awaited.** Callbacks can be async, but the method's result waits for them. `onAiInvestigationEnd` counts towards `timeoutMs`.
+- **A throw breaks the flow.** If a callback throws, the investigation is handled like a failed one: logged, and the method rethrows its original error. For `onInvestigationStart` that skips the investigation; for `onAiInvestigationEnd` it discards a recovered value. Catch errors inside the callback if reporting must never affect the call.
+- **Only when the AI picked an outcome.** `onAiInvestigationEnd` isn't called when the investigation fails before that (provider error, timeout, invalid response) or is aborted. Those failures are logged with `logger.error`, so pass a `logging.logger` that forwards errors to your monitoring to catch them too.
+- **Not redacted.** Redaction only covers what is sent to the AI provider. `ctx.error` and `ctx.args` are the raw values, and redaction placeholders in `explanation` are restored, so scrub them before they reach a third party.
+
+</details>
+
+---
+
 ## JSON Schema and TypeScript
 
 <details>
@@ -374,7 +422,7 @@ For JSON Schema, define the shape locally and annotate handlers with it:
 
 ```typescript
 import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
-import { defineTool, trypatch } from '@ssandir/trypatch'
+import { defineTool, trypatch, type ResolvedOutcome } from '@ssandir/trypatch'
 
 const quoteSchema = {
   type: 'object',
@@ -392,14 +440,16 @@ const convertQuote = defineTool({
   execute: (input: Quote): Promise<Quote> => currencyClient.toEur(input),
 })
 
-// @trypatch — declare the return type, annotate the callback result
+// @trypatch — declare the return type, annotate the callback's outcome
 class PricingService {
   @trypatch({
     aiInvestigation: {
       resultSchema: quoteSchema,
       investigationProvider: { provider: 'openai', apiKey: process.env.OPENAI_API_KEY! },
       resultTools: [convertQuote],
-      onInvestigationResult: (result: Quote, { explanation }) => console.warn(`Recovered ${result.price}: ${explanation}`),
+      onAiInvestigationEnd: (_ctx, outcome: ResolvedOutcome<Quote>) => {
+        if (outcome.type === 'result') console.warn(`Recovered ${outcome.result.price}: ${outcome.explanation}`)
+      },
     },
   })
   async getQuote (productId: string): Promise<Quote> { /* ... */ }

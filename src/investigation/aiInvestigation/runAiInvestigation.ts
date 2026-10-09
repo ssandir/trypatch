@@ -9,6 +9,7 @@ import type {
     CustomErrorDefinition,
     InvestigationContext,
     InvestigationProviderConfig,
+    ResolvedOutcome,
     ResultTool,
 } from '../../types'
 import type { Logger } from '../../logger'
@@ -25,14 +26,14 @@ import type { LanguageModelInvestigationOptions } from './providers/languageMode
 import type { InvestigationOutcome } from './resultSchema'
 import { buildInvestigationResultSchema } from './resultSchema'
 
-async function resolveOutcome<S extends Schema, C> (
+async function applyOutcome<S extends Schema, C> (
     outcome: InvestigationOutcome,
     resultSchema: S | undefined,
     customErrors: CustomErrorDefinition[] | undefined,
     resultTools: ResultTool<S, C>[] | undefined,
     toolContext: C | undefined,
     signal: AbortSignal | undefined,
-): Promise<{ result: unknown, explanation: string }> {
+): Promise<SchemaInfer<S>> {
     switch (outcome.type) {
         case 'error': {
             const definition = customErrors?.find(candidate => candidate.errorConstructor.name === outcome.error)
@@ -50,22 +51,41 @@ async function resolveOutcome<S extends Schema, C> (
                 throw new Error(`Result tool ${outcome.toolName} is not registered`)
             }
 
-            return {
-                result: await callTool(tool, outcome.input, toolContext, { signal }),
-                explanation: outcome.explanation,
-            }
+            return await callTool(tool, outcome.input, toolContext, { signal })
         }
         case 'result':
-            return {
-                result: parseWithSchema(resultSchema, outcome.result, 'investigation result'),
-                explanation: outcome.explanation,
-            }
+            return parseWithSchema(resultSchema, outcome.result, 'investigation result') as SchemaInfer<S>
         case 'cannotDetermine':
             throw new TrypatchCannotDetermineError(outcome.reason)
         case 'uncertain':
             throw new TrypatchUncertainResultError(outcome.reason)
         case 'noApplicableOutcome':
             throw new TrypatchNoApplicableOutcomeError(outcome.reason)
+    }
+}
+
+// Never throws, so onAiInvestigationEnd sees the AI's explanation alongside whatever error the outcome ends with.
+async function resolveOutcome<S extends Schema, C> (
+    outcome: InvestigationOutcome,
+    resultSchema: S | undefined,
+    customErrors: CustomErrorDefinition[] | undefined,
+    resultTools: ResultTool<S, C>[] | undefined,
+    toolContext: C | undefined,
+    signal: AbortSignal | undefined,
+): Promise<ResolvedOutcome<SchemaInfer<S>>> {
+    signal?.throwIfAborted()
+    try {
+        return {
+            type: 'result',
+            result: await applyOutcome(outcome, resultSchema, customErrors, resultTools, toolContext, signal),
+            explanation: outcome.explanation,
+        }
+    } catch (error) {
+        return {
+            type: 'error',
+            error: error instanceof Error ? error : new Error(String(error), { cause: error }),
+            explanation: outcome.explanation,
+        }
     }
 }
 
@@ -94,7 +114,7 @@ export async function runAiInvestigation<S extends Schema, C> (
         mcpServers,
         resultTools,
         customErrors,
-        onInvestigationResult,
+        onAiInvestigationEnd,
     }: AiInvestigationOptions<S, C>,
     logger?: Logger,
     signal?: AbortSignal,
@@ -126,13 +146,17 @@ export async function runAiInvestigation<S extends Schema, C> (
     })
 
     const outcome = restoreInvestigationResponse(rawOutcome, vault)
-    const { result, explanation } = await resolveOutcome(outcome, resultSchema, customErrors, resultTools, toolContext, signal)
+    const resolved = await resolveOutcome(outcome, resultSchema, customErrors, resultTools, toolContext, signal)
+    
+    signal?.throwIfAborted()
 
-    logger?.info(`[ssandir/trypatch] Investigation of ${qualifiedMethodName(ctx)} returned a result`, explanation)
+    logger?.info(`[ssandir/trypatch] Investigation of ${qualifiedMethodName(ctx)} ended with outcome ${resolved.type}`, resolved.explanation)
 
-    if (onInvestigationResult) {
-        await Promise.resolve(onInvestigationResult(result as SchemaInfer<S>, { explanation }))
+    await onAiInvestigationEnd?.(ctx, resolved)
+
+    if (resolved.type === 'error') {
+        throw resolved.error
     }
 
-    return result
+    return resolved.result
 }
