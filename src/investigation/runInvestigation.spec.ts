@@ -16,6 +16,7 @@ import { mockMethodDescriptor } from '../test/mockMethodDecoratorContext'
 import { mockTimeoutSignal } from '../test/abort'
 import { mockLanguageModel, mockOutcomeTurn, promptText } from '../test/mockLanguageModel'
 import { createLanguageModel } from './aiInvestigation/providers/languageModel/createLanguageModel'
+import { mockCallTiming } from '../test/mockCallTiming'
 
 jest.mock('./aiInvestigation/providers/languageModel/createLanguageModel')
 
@@ -54,6 +55,7 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
+                mockCallTiming(),
             )
 
             expect(result).toEqual({ inStock: true })
@@ -89,6 +91,7 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
+                mockCallTiming(),
             )).rejects.toBe(originalError)
             expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed, rethrowing the original error', expect.any(Error))
         })
@@ -122,6 +125,7 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
+                mockCallTiming(),
             )).rejects.toBe(originalError)
             expect(timeout).toHaveBeenCalledWith(20)
             expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed, rethrowing the original error', expect.any(TrypatchTimeoutError))
@@ -162,6 +166,7 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
+                mockCallTiming(),
             )).rejects.toBe(reason)
             expect(loggerLike.error).not.toHaveBeenCalled()
         })
@@ -178,6 +183,7 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [{ signal: controller.signal }],
+                mockCallTiming(),
             )
 
             expect(signalFactory).toHaveBeenCalledTimes(1)
@@ -210,6 +216,7 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
+                mockCallTiming(),
             )).rejects.toBe(originalError)
             expect(investigate).not.toHaveBeenCalled()
             expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed, rethrowing the original error', expect.objectContaining({ message: 'no signal' }))
@@ -229,6 +236,7 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
+                mockCallTiming(),
             )).rejects.toThrow(TrypatchFatalError)
         })
 
@@ -249,6 +257,7 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
+                mockCallTiming(),
             )).rejects.toThrow(RetryableError)
         })
 
@@ -277,6 +286,7 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
+                mockCallTiming(),
             )).rejects.toBe(originalError)
             expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed, rethrowing the original error', expect.any(Error))
         })
@@ -309,6 +319,7 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
+                mockCallTiming(),
             )).rejects.toThrow(RetryableError)
         })
 
@@ -349,6 +360,7 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
+                mockCallTiming(),
             )).rejects.toBe(originalError)
             expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed, rethrowing the original error', expect.any(Error))
         })
@@ -384,6 +396,7 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
+                mockCallTiming(),
             )).rejects.toBe(originalError)
             expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed, rethrowing the original error', expect.any(errorClass))
         })
@@ -398,7 +411,7 @@ describe('runInvestigation', () => {
             }
 
             const result = await investigateError(
-                buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, []),
+                buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [], mockCallTiming()),
                 options,
             )
 
@@ -412,7 +425,7 @@ describe('runInvestigation', () => {
                 received = signal
                 return Promise.resolve('done')
             })
-            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [], mockCallTiming())
 
             await investigateError(ctx, { customInvestigation: { investigate } }, undefined, controller.signal)
             controller.abort()
@@ -421,7 +434,7 @@ describe('runInvestigation', () => {
         })
 
         it('should time out a custom investigation', async () => {
-            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [], mockCallTiming())
             const timeout = mockTimeoutSignal()
 
             await expect(investigateError(ctx, {
@@ -433,7 +446,7 @@ describe('runInvestigation', () => {
 
         it('should not call the AI provider when the signal is already aborted', async () => {
             const model = useOutcome({ type: 'result', explanation: 'test explanation', result: 'unused' })
-            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [], mockCallTiming())
 
             await expect(investigateError(ctx, {
                 aiInvestigation: {
@@ -450,7 +463,7 @@ describe('runInvestigation', () => {
             const controller = new AbortController()
             let resultToolSignal: AbortSignal | undefined
             useOutcome({ type: 'resultTool', explanation: 'test explanation', toolName: 'submit', input: {} })
-            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [], mockCallTiming())
 
             await investigateError(ctx, {
                 aiInvestigation: {
@@ -476,7 +489,7 @@ describe('runInvestigation', () => {
 
         it('should run result tools under the investigation timeoutMs', async () => {
             useOutcome({ type: 'resultTool', explanation: 'test explanation', toolName: 'submit', input: {} })
-            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [])
+            const ctx = buildInvestigationContext(new Error('x'), mockMethodDescriptor(), undefined, [], mockCallTiming())
             const timeoutController = new AbortController()
             const timeout = jest.spyOn(AbortSignal, 'timeout').mockReturnValue(timeoutController.signal)
             let resultToolSignal: AbortSignal | undefined
@@ -505,7 +518,7 @@ describe('runInvestigation', () => {
         })
 
         it('should parse a JSON-encoded result when no resultSchema is given', async () => {
-            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
+            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [], mockCallTiming())
             useOutcome({
                 type: 'result',
                 explanation: 'test explanation',
@@ -528,7 +541,7 @@ describe('runInvestigation', () => {
             const schema = z.object({
                 inStock: z.boolean(),
             })
-            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
+            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [], mockCallTiming())
             useOutcome({
                 type: 'resultTool',
                 explanation: 'test explanation',
@@ -567,7 +580,7 @@ describe('runInvestigation', () => {
             }
             const onInvestigationResult = jest.fn()
             useOutcome({ type: 'result', explanation: 'upstream renamed price', result: 'ok' })
-            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), new (class Billing {})(), [])
+            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), new (class Billing {})(), [], mockCallTiming())
 
             await investigateError(ctx, {
                 aiInvestigation: {
@@ -591,7 +604,7 @@ describe('runInvestigation', () => {
                 }
             }
 
-            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
+            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [], mockCallTiming())
             useOutcome({
                 type: 'error',
                 error: 'RetryableError',
@@ -617,7 +630,7 @@ describe('runInvestigation', () => {
         })
 
         it('should throw TrypatchCannotDetermineError with the AI-provided reason when allowCannotDetermine is set', async () => {
-            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [])
+            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [], mockCallTiming())
             useOutcome({ type: 'cannotDetermine', reason: 'logs contain no identifiable cause' })
 
             await expect(investigateError(ctx, {
@@ -641,6 +654,7 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor('charge'),
                 undefined,
                 [{ authorization: secret }],
+                mockCallTiming(),
             )
             const model = useOutcome({ type: 'result', explanation: 'test explanation', result: { inStock: false } })
 
@@ -662,7 +676,7 @@ describe('runInvestigation', () => {
 
         it('should send prompts unredacted when redactConfig is false', async () => {
             const secret = 'sk-live-abcdefghijklmnopqrstuvwx'
-            const ctx = buildInvestigationContext(new Error(`request failed with ${secret}`), mockMethodDescriptor('charge'), undefined, [])
+            const ctx = buildInvestigationContext(new Error(`request failed with ${secret}`), mockMethodDescriptor('charge'), undefined, [], mockCallTiming())
             const model = useOutcome({ type: 'result', explanation: 'test explanation', result: { inStock: false } })
 
             await investigateError(ctx, {

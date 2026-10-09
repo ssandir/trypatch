@@ -7,19 +7,6 @@ export {
     TrypatchNoApplicableOutcomeError,
     TrypatchTimeoutError,
 } from './errors'
-export { runInvestigation, investigateError } from './investigation/runInvestigation'
-export { Logger } from './logger'
-export { buildInvestigationContext } from './investigation/investigationContext'
-export { buildInvestigationResultSchema } from './investigation/aiInvestigation/resultSchema'
-export type {
-    InvestigationCannotDetermineOutcome,
-    InvestigationErrorOutcome,
-    InvestigationExplicitResultOutcome,
-    InvestigationNoApplicableOutcome,
-    InvestigationOutcome,
-    InvestigationResultToolOutcome,
-    InvestigationUncertainOutcome,
-} from './investigation/aiInvestigation/resultSchema'
 export { defineTool } from './tools'
 export type {
     Tool,
@@ -30,6 +17,7 @@ export type {
 } from './tools'
 export type {
     AiInvestigationOptions,
+    CallTiming,
     CustomErrorDefinition,
     CustomInvestigationErrorDefinition,
     InvestigationBehavior,
@@ -54,8 +42,4 @@ export type {
     McpStdioServerConfig,
 } from './investigation/aiInvestigation/mcp/types'
 export type { Schema, SchemaInfer } from './schema/types'
-export {
-    redactInvestigationPrompts,
-    restoreInvestigationResponse,
-} from './investigation/aiInvestigation/redact/flareRedact'
 export type { LoggerLike, LoggingOptions, LoggingVerbosity } from './logger'

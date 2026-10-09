@@ -4,7 +4,7 @@ import { buildInvestigationContext } from './investigationContext'
 import { TrypatchFatalError } from '../errors'
 import type { Logger } from '../logger'
 import type { Schema } from '../schema/types'
-import type { InvestigationContext, MethodDescriptor, TryPatchOptions } from '../types'
+import type { CallTiming, InvestigationContext, MethodDescriptor, TryPatchOptions } from '../types'
 
 export async function investigateError<
     S extends Schema,
@@ -39,8 +39,9 @@ export async function runInvestigation<
     methodDescriptor: MethodDescriptor,
     receiver: unknown,
     args: unknown[],
+    timing: CallTiming,
 ): Promise<unknown> {
-    const investigationContext = buildInvestigationContext(error, methodDescriptor, receiver, args)
+    const investigationContext = buildInvestigationContext(error, methodDescriptor, receiver, args, timing)
     let signal: AbortSignal | undefined
 
     try {

@@ -55,6 +55,13 @@ export type InvestigationContext = {
         static: boolean
         private: boolean
     }
+    /** When the failed call started and how long it ran before failing. */
+    timing: CallTiming
+}
+
+export type CallTiming = {
+    startedAt: Date
+    durationMs: number
 }
 
 export type InvestigationBehavior = {

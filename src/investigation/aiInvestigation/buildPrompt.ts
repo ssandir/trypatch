@@ -23,6 +23,7 @@ export function buildInvestigationPrompt (
     const defaultUserPrompt = [
         `Method: ${methodName}`,
         `Method metadata: ${JSON.stringify(ctx.methodMetadata)}`,
+        `Call started at ${ctx.timing.startedAt.toISOString()} and failed after ${ctx.timing.durationMs} ms`,
         ...options.allowMethodSource
             ? [`Method source (as loaded at runtime, so it may be compiled or minified):\n${ctx.methodSource}`]
             : [],

@@ -1,4 +1,4 @@
-import type { InvestigationContext, MethodDescriptor } from '../types'
+import type { CallTiming, InvestigationContext, MethodDescriptor } from '../types'
 
 /** Stage-3 decoration time has no class reference at all, so this must run at call time to cover both dialects. */
 function resolveClassName (receiver: unknown): string | undefined {
@@ -21,6 +21,7 @@ export function buildInvestigationContext (
     methodDescriptor: MethodDescriptor,
     receiver: unknown,
     args: unknown[],
+    timing: CallTiming,
 ): InvestigationContext {
     const className = resolveClassName(receiver)
 
@@ -34,5 +35,6 @@ export function buildInvestigationContext (
             static: methodDescriptor.static,
             private: methodDescriptor.private,
         },
+        timing,
     }
 }

@@ -30,6 +30,7 @@ describe('aiInvestigation', () => {
             methodSource: 'charge(cardId) { return this.gateway.charge(cardId) }',
             args: ['card-1'],
             methodMetadata: { static: false, private: false },
+            timing: { startedAt: new Date('2026-10-09T08:15:00.000Z'), durationMs: 30_012 },
         }
 
         it('should include method and error details but not the outcome schema in the default prompt', () => {
@@ -46,6 +47,11 @@ describe('aiInvestigation', () => {
             }, ctx.args, {})
             expect(prompts.userPrompt).toContain('Method: BillingService.charge')
             expect(prompts.userPrompt).toContain('Method metadata: {"className":"BillingService","static":true,"private":true}')
+        })
+
+        it('should include when the call started and how long it ran', () => {
+            expect(buildInvestigationPrompt(ctx, ctx.args, {}).userPrompt)
+                .toContain('Call started at 2026-10-09T08:15:00.000Z and failed after 30012 ms')
         })
 
         it('should pass sanitized args to a custom prompt function', () => {

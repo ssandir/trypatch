@@ -318,6 +318,26 @@ describe('trypatch', () => {
             }), { signal: expect.any(AbortSignal) })
         })
 
+        it('should pass when the call started and how long it ran to the investigation', async () => {
+            const investigate = jest.fn((_ctx: InvestigationContext) => Promise.resolve({ inStock: true }))
+            jest.spyOn(performance, 'now').mockReturnValueOnce(1_000).mockReturnValueOnce(1_250)
+
+            class TimedService {
+                @trypatch({ customInvestigation: { investigate } })
+                run (): Promise<DecoratorResult> {
+                    return Promise.reject(new Error('failed'))
+                }
+            }
+
+            const before = Date.now()
+            await new TimedService().run()
+
+            const timing = investigate.mock.calls[0]?.[0].timing
+            expect(timing?.durationMs).toBe(250)
+            expect(timing?.startedAt.getTime()).toBeGreaterThanOrEqual(before)
+            expect(timing?.startedAt.getTime()).toBeLessThanOrEqual(Date.now())
+        })
+
         it('should send the decorated method\'s runtime code to the provider when allowMethodSource is set', async () => {
             class InventoryService {
                 @trypatch({
