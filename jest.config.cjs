@@ -12,6 +12,8 @@ const esmDependencyTransform = ['@swc/jest', {
 }]
 
 const shared = {
+    // Keeps e2e/ (real provider calls, its own runner) out of the default test match.
+    roots: ['<rootDir>/src'],
     testEnvironment: 'node',
     moduleFileExtensions: [...defaults.moduleFileExtensions, 'ts'],
     transformIgnorePatterns: [
