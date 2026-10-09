@@ -56,7 +56,8 @@ const QuoteSchema = z.object({
     service: z.enum(['standard', 'express']),
     priceCents: z.number().int(),
     currency: z.literal('EUR'),
-    etaDays: z.number().int(),
+    // Without this rule a range has no single correct value, and the model rightly refuses to guess.
+    etaDays: z.number().int().describe('Maximum days until delivery.'),
 })
 type Quote = z.infer<typeof QuoteSchema>
 
