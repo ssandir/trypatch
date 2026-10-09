@@ -1,6 +1,6 @@
 # @ssandir/trypatch
 
-**Production-ready error recovery.** When a method fails, `trypatch` investigates the error in your production environment and recovers from it by either running provided tools or generating the return value. Sensitive data stays local throughout. If no correct value can be produced, the method rethrows its original error.
+**Production-ready error recovery.** When a method fails, `trypatch` investigates the error immediately at runtime and recovers from it by either running provided tools or generating the return value. Sensitive data stays local throughout. If no correct value can be produced, the method rethrows its original error.
 
 ## What You Get
 

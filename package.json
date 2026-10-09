@@ -1,6 +1,6 @@
 {
     "name": "@ssandir/trypatch",
-    "version": "0.4.1",
+    "version": "0.4.2",
     "description": "Production error investigation and automatic resolution with AI-powered diagnostics",
     "repository": {
         "type": "git",
