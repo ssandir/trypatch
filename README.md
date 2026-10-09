@@ -361,6 +361,45 @@ For a signal not tied to a call, such as app shutdown: `getSignal: () => shutdow
 
 ---
 
+## Callbacks: Report Failures to Your Monitoring
+
+When trypatch recovers a call, the caller sees a success, so the failure behind it never reaches your usual error handling. Callbacks let you report it yourself: send the error to your error tracker (Sentry, Datadog, Bugsnag, ...), record a metric, or log it your own way.
+
+`onInvestigationStart` runs when the method fails, before the investigation starts. It gets the investigation context: the original error as `ctx.error`, plus the method's name, arguments and call timing.
+
+<details>
+<summary>Example</summary>
+
+```typescript
+import * as Sentry from '@sentry/node'
+
+class PricingService {
+  @trypatch({
+    onInvestigationStart: ctx => {
+      Sentry.captureException(ctx.error, { tags: { 'trypatch.method': ctx.methodName } })
+    },
+    aiInvestigation: {
+      resultSchema: QuoteSchema,
+      investigationProvider: { provider: 'openai', apiKey: process.env.OPENAI_API_KEY! },
+    },
+  })
+  async getQuote(productId: string): Promise<Quote> { /* ... */ }
+}
+```
+
+</details>
+
+<details>
+<summary>Details</summary>
+
+- **Awaited.** Callbacks can be async, but the method's result waits for them.
+- **A throw breaks the flow.** If `onInvestigationStart` throws, the investigation is skipped and handled like a failed one: logged, and the method rethrows its original error. Catch errors inside the callback if reporting must never affect the call.
+- **Not redacted.** Redaction only covers what is sent to the AI provider. `ctx.error` and `ctx.args` are the raw values, so scrub them before they reach a third party.
+
+</details>
+
+---
+
 ## JSON Schema and TypeScript
 
 <details>
