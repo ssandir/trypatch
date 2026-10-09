@@ -48,6 +48,15 @@ describe('aiInvestigation', () => {
             expect(prompts.userPrompt).toContain('Method metadata: {"className":"BillingService","static":true,"private":true}')
         })
 
+        it('should pass sanitized args to a custom prompt function', () => {
+            const prompt = jest.fn((promptCtx: InvestigationContext) => `args: ${String(promptCtx.args)}`)
+
+            const prompts = buildInvestigationPrompt(ctx, ['card-****'], { prompt })
+
+            expect(prompts.userPrompt).toBe('args: card-****')
+            expect(prompt).toHaveBeenCalledWith({ ...ctx, args: ['card-****'] })
+        })
+
         it('should leave the method source out of the default prompt unless allowMethodSource is set', () => {
             expect(buildInvestigationPrompt(ctx, ctx.args, {}).userPrompt)
                 .not.toContain(ctx.methodSource)

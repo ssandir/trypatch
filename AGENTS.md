@@ -66,7 +66,7 @@ Each provider config takes `apiKey: string` directly (optional for `openai-compa
 
 `investigationBehavior.allowMethodSource` (default `false`) adds `InvestigationContext.methodSource` to the default user prompt. It's `Function.prototype.toString()` of the decorated method, captured as `MethodDescriptor.method` for both dialects, so it's runtime (compiled, possibly minified) code; recovering the original TypeScript via source maps was considered and deferred.
 
-`formatError.ts` builds the prompt's error section with `util.inspect`, which adds what `stack` leaves out (own properties, the `cause` chain, `AggregateError.errors`) and handles thrown non-errors. It doesn't redact anything itself: error properties often carry credentials (an HTTP client's request headers), and the vault below covers them.
+`formatForPrompt.ts` formats the prompt's runtime values (the error and the arguments) with `util.inspect` rather than `JSON.stringify`, which throws on circular values and `BigInt`, loses `Map`/`Set`/class names and has no size cap. For errors it adds what `stack` leaves out (own properties, the `cause` chain, `AggregateError.errors`) and handles thrown non-errors. It doesn't redact anything itself: error properties often carry credentials (an HTTP client's request headers), and the vault below covers them.
 
 Prompts are always redacted reversibly with a [flare-redact](https://www.npmjs.com/package/flare-redact) vault (its default detectors, emails included) before they reach the provider, and placeholders are restored in the response. `redactConfig` (`VaultOptions`) adds `terms` or tunes detectors; `redactConfig: false` turns redaction off.
 

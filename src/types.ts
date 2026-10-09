@@ -58,9 +58,14 @@ export type InvestigationContext = {
 }
 
 export type InvestigationBehavior = {
+    /**
+     * Replaces the default user prompt. A function receives the investigation context with `args`
+     * already passed through {@link sanitizeArgs}.
+     */
     prompt?: string | ((ctx: InvestigationContext) => string)
     systemPrompt?: string
     maxTokens?: number
+    /** Transforms the call's arguments before they go into the prompt, default or custom. */
     sanitizeArgs?: (args: unknown[]) => unknown[]
     /**
      * Whether the default prompt includes the method's code ({@link InvestigationContext.methodSource}),
