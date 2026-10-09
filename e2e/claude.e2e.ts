@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
 import { after, before, describe, it } from 'node:test'
 import { inspect, styleText } from 'node:util'
-import { defineTool, trypatch, type InvestigationContext } from '@ssandir/trypatch'
+import { defineTool, trypatch, type InvestigationContext, type ResolvedOutcome } from '@ssandir/trypatch'
 import { z } from 'zod'
 import { startCarrierStub, type ApmEntry, type CarrierStub } from './support/carrierStub.ts'
 import {
@@ -34,7 +34,7 @@ const customerEmail = `maria.santana+${randomBytes(3).toString('hex')}@example.c
 
 const exchanges: RecordedExchange[] = []
 const logs: RecordedLog[] = []
-const investigationResults: { result: unknown, explanation: string }[] = []
+const investigationEnds: ResolvedOutcome[] = []
 const capturedContexts: InvestigationContext[] = []
 const toolCalls: { input: unknown, output: unknown }[] = []
 // Filled by the carrier stub; read by the investigation tool, like an APM backend would be.
@@ -122,8 +122,8 @@ class ShippingQuoteClient {
             toolContext: { apmLog } satisfies ApmToolContext,
             redactConfig: { terms: [carrierApiKey] },
             investigationBehavior: { allowUncertainResult: false },
-            onInvestigationResult: (result, { explanation }) => {
-                investigationResults.push({ result, explanation })
+            onAiInvestigationEnd: (_ctx, outcome) => {
+                investigationEnds.push(outcome)
             },
         },
     })
@@ -205,7 +205,7 @@ void describe('claude investigation', () => {
             scenario: 'carrier returns eta_days: null + eta_range for a remote route',
             model: exchanges[0]?.requestBody && (exchanges[0].requestBody as { model?: string }).model,
             outcome: { quote, thrown },
-            investigationResults,
+            investigationEnds,
             servedRemote,
             capturedContext: capturedContexts.at(-1),
             toolCalls,
@@ -229,7 +229,7 @@ void describe('claude investigation', () => {
         console.log(`\n${label('--- System prompt ---')}\n${output(text(firstRequest?.system))}`)
         console.log(`\n${label('--- First user message ---')}\n${output(text(firstRequest?.messages?.[0]?.content))}\n`)
         console.log(`${label('Returned quote:')} ${output(quote ?? thrown)}`)
-        console.log(`${label('Explanation:')} ${output(investigationResults[0]?.explanation ?? '(none)')}`)
+        console.log(`${label('Explanation:')} ${output(investigationEnds[0]?.explanation ?? '(none)')}`)
         console.log(`${label('Soft checks:')} ${output(soft)}`)
 
         assert.equal(thrown, undefined, 'getQuote should resolve with a recovered Quote, not reject')
@@ -246,9 +246,10 @@ void describe('claude investigation', () => {
             `etaDays ${quote.etaDays} should fall inside eta_range ${servedRemote.eta_range.min}-${servedRemote.eta_range.max}`,
         )
 
-        assert.equal(investigationResults.length, 1)
-        assert.deepEqual(investigationResults[0]?.result, quote)
-        assert.ok(investigationResults[0]?.explanation.trim())
+        assert.equal(investigationEnds.length, 1)
+        assert.equal(investigationEnds[0]?.type, 'result')
+        assert.deepEqual(investigationEnds[0].result, quote)
+        assert.ok(investigationEnds[0].explanation.trim())
 
         assert.ok(toolCalls.length > 0, 'the model should have looked at the APM log; the raw response is only there')
 

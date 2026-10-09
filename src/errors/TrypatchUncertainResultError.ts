@@ -1,4 +1,4 @@
-/** AI investigation had a candidate result but confidence was too low to return it; thrown only when `investigationBehavior.allowUncertainResult: true`. */
+/** The AI had a candidate return value, but too little confidence in it to return it. Passed to `onAiInvestigationEnd`; the decorated method rejects with its original error. */
 export class TrypatchUncertainResultError extends Error {
     constructor (message: string) {
         super(message)

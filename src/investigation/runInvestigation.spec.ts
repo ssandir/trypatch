@@ -245,6 +245,78 @@ describe('runInvestigation', () => {
             expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed, rethrowing the original error', startError)
         })
 
+        it('should discard a recovered value, log, and rethrow the original error when onAiInvestigationEnd throws', async () => {
+            const loggerLike = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+            }
+            const hookError = new Error('value rejected')
+            useOutcome({ type: 'result', explanation: 'test explanation', result: 'ok' })
+
+            await expect(runInvestigation(
+                originalError,
+                {
+                    aiInvestigation: {
+                        resultSchema: z.string(),
+                        investigationProvider: {
+                            provider: 'openai',
+                            apiKey: 'test-key',
+                        },
+                        onAiInvestigationEnd: () => Promise.reject(hookError),
+                    },
+                },
+                new Logger({
+                    logger: loggerLike,
+                    verbosity: 'high',
+                }),
+                mockMethodDescriptor(),
+                undefined,
+                [],
+                mockCallTiming(),
+            )).rejects.toBe(originalError)
+            expect(loggerLike.error).toHaveBeenCalledWith('[ssandir/trypatch] Investigation failed, rethrowing the original error', hookError)
+        })
+
+        it('should not call onAiInvestigationEnd once the caller aborted the investigation', async () => {
+            const controller = new AbortController()
+            const reason = new Error('cancelled')
+            const onAiInvestigationEnd = jest.fn()
+            useOutcome({ type: 'resultTool', explanation: 'test explanation', toolName: 'submit', input: {} })
+
+            await expect(runInvestigation(
+                originalError,
+                {
+                    getSignal: () => controller.signal,
+                    aiInvestigation: {
+                        investigationProvider: {
+                            provider: 'openai',
+                            apiKey: 'test-key',
+                        },
+                        resultTools: [defineTool({
+                            name: 'submit',
+                            description: 'Submit the result',
+                            execute: () => {
+                                controller.abort(reason)
+                                return 'submitted'
+                            },
+                        })],
+                        onAiInvestigationEnd,
+                    },
+                },
+                new Logger(),
+                mockMethodDescriptor(),
+                undefined,
+                [],
+                mockCallTiming(),
+            )).rejects.toBe(reason)
+            // The method settles as soon as the signal fires; let the abandoned investigation run to its end.
+            await new Promise(resolve => setImmediate(resolve))
+            expect(onAiInvestigationEnd).not.toHaveBeenCalled()
+        })
+
         it('should log an error thrown by the signal factory and rethrow the original error', async () => {
             const loggerLike = {
                 log: jest.fn(),
@@ -352,7 +424,7 @@ describe('runInvestigation', () => {
                 }
             }
 
-            useOutcome({ type: 'error', error: 'RetryableError', errorSchema: { reason: 'network blip' } })
+            useOutcome({ type: 'error', explanation: 'test explanation', error: 'RetryableError', errorSchema: { reason: 'network blip' } })
 
             await expect(runInvestigation(
                 new Error('original'),
@@ -386,7 +458,7 @@ describe('runInvestigation', () => {
                 }
             }
 
-            useOutcome({ type: 'error', error: 'StaleCacheError', errorSchema: { reason: 'ignored' } })
+            useOutcome({ type: 'error', explanation: 'test explanation', error: 'StaleCacheError', errorSchema: { reason: 'ignored' } })
 
             await expect(runInvestigation(
                 new Error('original'),
@@ -422,7 +494,7 @@ describe('runInvestigation', () => {
                 error: jest.fn(),
                 debug: jest.fn(),
             }
-            useOutcome({ type: 'error', error: 'RetryableError', errorSchema: { reason: 'network blip' } })
+            useOutcome({ type: 'error', explanation: 'test explanation', error: 'RetryableError', errorSchema: { reason: 'network blip' } })
 
             await expect(runInvestigation(
                 originalError,
@@ -461,7 +533,7 @@ describe('runInvestigation', () => {
                 error: jest.fn(),
                 debug: jest.fn(),
             }
-            useOutcome({ type: outcomeType, reason: 'not enough information' })
+            useOutcome({ type: outcomeType, explanation: 'test explanation', reason: 'not enough information' })
 
             await expect(runInvestigation(
                 originalError,
@@ -655,7 +727,7 @@ describe('runInvestigation', () => {
             expect(result).toEqual({ inStock: true })
         })
 
-        it('should log the outcome\'s explanation and pass it to onInvestigationResult', async () => {
+        it('should log the outcome\'s explanation and pass the result to onAiInvestigationEnd', async () => {
             const loggerLike = {
                 log: jest.fn(),
                 info: jest.fn(),
@@ -663,7 +735,7 @@ describe('runInvestigation', () => {
                 error: jest.fn(),
                 debug: jest.fn(),
             }
-            const onInvestigationResult = jest.fn()
+            const onAiInvestigationEnd = jest.fn()
             useOutcome({ type: 'result', explanation: 'upstream renamed price', result: 'ok' })
             const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), new (class Billing {})(), [], mockCallTiming())
 
@@ -674,12 +746,64 @@ describe('runInvestigation', () => {
                         provider: 'openai',
                         apiKey: 'test-key',
                     },
-                    onInvestigationResult,
+                    onAiInvestigationEnd,
                 },
             }, new Logger({ logger: loggerLike, verbosity: 'high' }))
 
             expect(loggerLike.info).toHaveBeenCalledWith('[ssandir/trypatch] Investigation of Billing.run returned a result', 'upstream renamed price')
-            expect(onInvestigationResult).toHaveBeenCalledWith('ok', { explanation: 'upstream renamed price' })
+            expect(onAiInvestigationEnd).toHaveBeenCalledWith(ctx, { type: 'result', result: 'ok', explanation: 'upstream renamed price' })
+        })
+
+        it('should pass an error outcome to onAiInvestigationEnd before throwing it', async () => {
+            class RetryableError extends Error {}
+            const onAiInvestigationEnd = jest.fn()
+            useOutcome({ type: 'error', explanation: 'upstream is rate limiting', error: 'RetryableError', errorSchema: {} })
+            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [], mockCallTiming())
+
+            await expect(investigateError(ctx, {
+                aiInvestigation: {
+                    investigationProvider: {
+                        provider: 'openai',
+                        apiKey: 'test-key',
+                    },
+                    customErrors: [{ errorConstructor: RetryableError }],
+                    onAiInvestigationEnd,
+                },
+            })).rejects.toThrow(RetryableError)
+            expect(onAiInvestigationEnd).toHaveBeenCalledWith(ctx, {
+                type: 'error',
+                error: expect.any(RetryableError),
+                explanation: 'upstream is rate limiting',
+            })
+        })
+
+        it('should pass a failure applying the outcome to onAiInvestigationEnd as an Error', async () => {
+            const onAiInvestigationEnd = jest.fn()
+            useOutcome({ type: 'resultTool', explanation: 'backup has the quote', toolName: 'fetch_backup', input: {} })
+            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [], mockCallTiming())
+
+            await expect(investigateError(ctx, {
+                aiInvestigation: {
+                    investigationProvider: {
+                        provider: 'openai',
+                        apiKey: 'test-key',
+                    },
+                    resultTools: [defineTool({
+                        name: 'fetch_backup',
+                        description: 'Fetch the quote from the backup service',
+                        execute: () => {
+                            // eslint-disable-next-line @typescript-eslint/only-throw-error -- a non-Error throw is what's under test
+                            throw 'backup unavailable'
+                        },
+                    })],
+                    onAiInvestigationEnd,
+                },
+            })).rejects.toThrow('backup unavailable')
+            expect(onAiInvestigationEnd).toHaveBeenCalledWith(ctx, {
+                type: 'error',
+                error: expect.objectContaining({ message: 'backup unavailable', cause: 'backup unavailable' }),
+                explanation: 'backup has the quote',
+            })
         })
 
         it('should throw the matching custom error when the provider returns an error outcome', async () => {
@@ -692,6 +816,7 @@ describe('runInvestigation', () => {
             const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [], mockCallTiming())
             useOutcome({
                 type: 'error',
+                explanation: 'test explanation',
                 error: 'RetryableError',
                 errorSchema: { reason: 'network blip' },
             })
@@ -716,7 +841,7 @@ describe('runInvestigation', () => {
 
         it('should throw TrypatchCannotDetermineError with the AI-provided reason when allowCannotDetermine is set', async () => {
             const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [], mockCallTiming())
-            useOutcome({ type: 'cannotDetermine', reason: 'logs contain no identifiable cause' })
+            useOutcome({ type: 'cannotDetermine', explanation: 'test explanation', reason: 'logs contain no identifiable cause' })
 
             await expect(investigateError(ctx, {
                 aiInvestigation: {

@@ -37,7 +37,7 @@ Every run writes `output/claude-<timestamp>.json`, even when the test fails:
 | Field | What it is |
 | --- | --- |
 | `outcome` | What `getQuote` returned (or threw) |
-| `investigationResults` | What `onInvestigationResult` received, including the model's `explanation` |
+| `investigationEnds` | The outcomes `onAiInvestigationEnd` received, including the model's `explanation` |
 | `servedRemote` | The body the stub actually returned for the failing call |
 | `capturedContext` | The `InvestigationContext` trypatch built, captured through `getSignal` |
 | `toolCalls` | Each `getRecentCarrierCalls` call: what the tool received (real values) and returned |

@@ -8,6 +8,7 @@ export type { InvestigationCannotDetermineOutcome, InvestigationNoApplicableOutc
 
 export type InvestigationErrorOutcome = {
     type: 'error'
+    explanation: string
     error: string
     errorSchema: unknown
 }

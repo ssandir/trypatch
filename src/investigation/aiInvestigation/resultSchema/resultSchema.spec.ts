@@ -39,6 +39,13 @@ describe('buildInvestigationResultSchema', () => {
         expect(variantTypes(schema)).toEqual(['result', 'cannotDetermine', 'uncertain', 'noApplicableOutcome'])
     })
 
+    it('should require an explanation on every variant', () => {
+        const schema = buildInvestigationResultSchema({ resultTools: [resultTool], customErrors })
+        const variants = outcomeVariants(schema) as { required: string[] }[]
+        expect(variants).toHaveLength(6)
+        expect(variants.every(variant => variant.required.includes('explanation'))).toBe(true)
+    })
+
     it('should describe the result as a JSON-encoded string when no resultSchema is given', () => {
         const schema = buildInvestigationResultSchema({})
         const [variant] = outcomeVariants(schema) as { properties: { result: unknown } }[]

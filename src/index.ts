@@ -21,8 +21,8 @@ export type {
     InvestigationBehavior,
     InvestigationContext,
     InvestigationProviderConfig,
-    InvestigationResultDetails,
     InvestigationTool,
+    ResolvedOutcome,
     ResultTool,
     TryPatchOptions,
 } from './types'

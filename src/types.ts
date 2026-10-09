@@ -174,16 +174,19 @@ export type AiInvestigationOptions<
     /** Custom error classes the AI can throw during investigation. */
     customErrors?: CustomErrorDefinition[]
     /**
-     * Callback invoked with the value the wrapped method is about to return in place of its error,
-     * plus the AI's explanation of why the call failed and why that value is correct.
+     * Called with the AI's outcome before the decorated method returns or rejects. If it throws, the decorated
+     * method rejects with its original error.
      */
-    onInvestigationResult?: (result: SchemaInfer<S>, details: InvestigationResultDetails) => void | Promise<void>
+    onAiInvestigationEnd?: (ctx: InvestigationContext, outcome: ResolvedOutcome<SchemaInfer<S>>) => void | Promise<void>
 }
 
-export type InvestigationResultDetails = {
-    /** The AI's explanation of why the call failed and why the returned value is correct for it. */
-    explanation: string
-}
+/**
+ * The AI's findings: its `explanation` of why the call failed and why its outcome is correct, with either the
+ * `result` the decorated method returns or the `error` the outcome ended with.
+ */
+export type ResolvedOutcome<T = unknown>
+    = | { type: 'result', result: T, explanation: string }
+        | { type: 'error', error: Error, explanation: string }
 
 export type CustomInvestigationErrorDefinition = {
     errorConstructor: new (...args: any[]) => Error
