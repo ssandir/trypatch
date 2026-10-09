@@ -20,7 +20,7 @@ describe('wait tool', () => {
         ['a negative', -1],
         ['an infinite', Infinity],
         ['a fractional', 1.5],
-        ['a beyond-timer-limit', 2_147_483_648],
+        ['an over-10-minute', 600_001],
     ])('rejects %s duration', async (_label, durationMs) => {
         await expect(callTool(waitTool, { durationMs }, undefined, { signal: undefined }))
             .rejects.toBeInstanceOf($ZodError)

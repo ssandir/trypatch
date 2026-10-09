@@ -3,8 +3,8 @@ import { z } from 'zod'
 import { defineTool } from '../tool'
 import { BUILTIN_TOOL_NAME_PREFIX } from './constants'
 
-// Node clamps a timer delay above 2^31 - 1 ms to 1ms, which would silently skip the wait.
-const MAX_WAIT_MS = 2_147_483_647
+// The decorated method's caller waits along with the AI. 10 min is a realistic upper bound for an AI investigation hold. 
+const MAX_WAIT_MS = 10 * 60 * 1000
 
 const waitTool = defineTool({
     name: `${BUILTIN_TOOL_NAME_PREFIX}wait`,
