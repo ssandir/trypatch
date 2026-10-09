@@ -76,13 +76,32 @@ aiInvestigation: {
 
 </details>
 
-With `redactConfig`, placeholders in the explanation are restored like the rest of the response, so treat it as sensitive.
+Redaction placeholders in the explanation are restored like the rest of the response, so treat it as sensitive.
+
+### Method Source: Show the AI What the Method Does
+
+Set `investigationBehavior.allowMethodSource: true` to also send the method's code, so the AI knows what the call was meant to return. Off by default, since your code goes to the provider (after redaction).
+
+<details>
+<summary>Example</summary>
+
+```typescript
+aiInvestigation: {
+  resultSchema: QuoteSchema,
+  investigationProvider: { provider: 'openai', apiKey: process.env.OPENAI_API_KEY! },
+  investigationBehavior: { allowMethodSource: true },
+}
+```
+
+</details>
+
+It's the runtime code from `toString()`: compiled (possibly minified) JavaScript, only the decorated method itself. Keep `@trypatch` directly above the method, or a wrapper from the decorators below it gets sent instead. Custom prompts and `investigate` get it as `InvestigationContext.methodSource`.
 
 ---
 
 ## Credential Censoring: Keep Secrets Local
 
-Automatically redact API keys, tokens, and PII before they leave your instance:
+API keys, tokens, and PII are redacted before they leave your instance, on by default. `redactConfig` adds your own `terms` or tunes flare-redact's detectors, and `redactConfig: false` turns redaction off:
 
 <details>
 <summary>Example</summary>
@@ -127,7 +146,7 @@ class CustomerRepository {
 </details>
 
 **How it works:**
-1. Before sending the investigation prompt to OpenAI, trypatch redacts all terms in `redactConfig.terms`
+1. Before sending the investigation prompt to OpenAI, trypatch redacts secrets found by [flare-redact](https://www.npmjs.com/package/flare-redact)'s default detectors (API keys, bearer tokens, emails, card numbers, …) plus all terms in `redactConfig.terms`
 2. Placeholders (e.g., `[REDACTED_0]`) replace the sensitive values
 3. OpenAI investigates with redacted data: *"Query failed at `[REDACTED_0]`..."*
 4. When the AI calls an investigation tool, placeholders in its input are restored before the tool runs, and the tool's output is redacted before it goes back to the AI
@@ -288,7 +307,7 @@ aiInvestigation: {
 
 ## Fallback Outcomes: Avoiding Fabricated Results
 
-Besides returning a `result`, calling a `resultTool`, or throwing a `customErrors` entry, the AI can report that it has no correct value to offer, instead of guessing one. Three booleans control this, all defaulting to `true`:
+Besides returning a `result`, calling a `resultTool`, or throwing a `customErrors` entry, the AI can report that it has no correct value to offer, instead of guessing one. Three `investigationBehavior` booleans control this, all defaulting to `true`:
 
 - `allowCannotDetermine`: not enough information to work out a correct return value → `TrypatchCannotDetermineError`
 - `allowUncertainResult`: a candidate value exists, but confidence is too low to return it → `TrypatchUncertainResultError`

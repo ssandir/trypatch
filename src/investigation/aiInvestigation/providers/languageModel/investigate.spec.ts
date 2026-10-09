@@ -7,6 +7,7 @@ import {
     mockLanguageModel,
     mockOutcomeTurn,
     mockToolCallTurn,
+    promptText,
     type MockCallOptions,
     type MockGenerateResult,
 } from '../../../../test/mockLanguageModel'
@@ -58,6 +59,18 @@ describe('investigateWithLanguageModel', () => {
 
     afterEach(() => {
         jest.clearAllMocks()
+    })
+
+    it.each([
+        ['claude', config, false],
+        ['openai-compatible with structured outputs', { provider: 'openai-compatible', baseURL: 'http://llm', model: 'm', supportsStructuredOutputs: true }, false],
+        ['openai-compatible without structured outputs', { provider: 'openai-compatible', baseURL: 'http://llm', model: 'm' }, true],
+    ] as const)('should put the outcome schema in the prompt only when the provider can\'t enforce it (%s)', async (_label, providerConfig, schemaInPrompt) => {
+        const model = useModel(finalOutcome('ok'))
+
+        await investigateWithLanguageModel(providerConfig, outcomeSchema, prompts, {})
+
+        expect(promptText(model.doGenerateCalls[0], 'user').includes('Return JSON matching this schema')).toBe(schemaInPrompt)
     })
 
     it('should return the outcome directly when the model calls no tools', async () => {

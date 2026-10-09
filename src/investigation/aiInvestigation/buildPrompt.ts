@@ -1,6 +1,6 @@
-import type { JSONSchema } from 'json-schema-to-ts'
 import type { InvestigationContext } from '../../types'
 import { qualifiedMethodName } from '../investigationContext'
+import { formatForPrompt } from './formatForPrompt'
 
 const DEFAULT_SYSTEM_PROMPT = [
     'A method call in application code threw an error, and you stand in for that call.',
@@ -12,28 +12,28 @@ const DEFAULT_SYSTEM_PROMPT = [
 export function buildInvestigationPrompt (
     ctx: InvestigationContext,
     sanitizedArgs: unknown[],
-    outcomeSchema: JSONSchema,
     options: {
         prompt?: string | ((ctx: InvestigationContext) => string)
         systemPrompt?: string
+        allowMethodSource?: boolean
     },
 ): { systemPrompt: string, userPrompt: string } {
-    const errorMessage = ctx.error instanceof Error
-        ? `${ctx.error.name}: ${ctx.error.message}\n${ctx.error.stack ?? ''}`
-        : String(ctx.error)
-
     const methodName = qualifiedMethodName(ctx)
 
     const defaultUserPrompt = [
         `Method: ${methodName}`,
         `Method metadata: ${JSON.stringify(ctx.methodMetadata)}`,
-        `Arguments: ${JSON.stringify(sanitizedArgs)}`,
-        `Error:\n${errorMessage}`,
-        `Your outcome replaces this failed call to ${methodName}: a result you construct, or the return value of a result tool you invoke, is what the call returns to its caller. Return JSON matching this schema:\n${JSON.stringify(outcomeSchema, null, 2)}`,
-    ].join('\n\n')
+        `Call started at ${ctx.timing.startedAt.toISOString()} and failed after ${ctx.timing.durationMs} ms`,
+        ...options.allowMethodSource
+            ? [`Method source (as loaded at runtime, so it may be compiled or minified):\n${ctx.methodSource}`]
+            : [],
+        `Arguments: ${formatForPrompt(sanitizedArgs)}`,
+        `Error:\n${formatForPrompt(ctx.error)}`,
+        `Your outcome replaces this failed call to method ${methodName}.`,
+    ].join('\n')
 
     const userPrompt = typeof options.prompt === 'function'
-        ? options.prompt(ctx)
+        ? options.prompt({ ...ctx, args: sanitizedArgs })
         : options.prompt ?? defaultUserPrompt
 
     return {

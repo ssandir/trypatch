@@ -26,8 +26,10 @@ function requireEnv (name: string): string {
 
 const anthropicApiKey = requireEnv('ANTHROPIC_API_KEY')
 
-// Fake secrets, random per run so a match in the captured traffic can only be a leak.
+// Fake secrets, random per run so a match in the captured traffic can only be a leak. Only the API key
+// is listed in `redactConfig.terms`; the access token and email must be caught by the default detectors.
 const carrierApiKey = `ck_live_${randomBytes(12).toString('hex')}`
+const carrierAccessToken = `ct_${randomBytes(16).toString('hex')}`
 const customerEmail = `maria.santana+${randomBytes(3).toString('hex')}@example.com`
 
 const exchanges: RecordedExchange[] = []
@@ -54,7 +56,8 @@ const QuoteSchema = z.object({
     service: z.enum(['standard', 'express']),
     priceCents: z.number().int(),
     currency: z.literal('EUR'),
-    etaDays: z.number().int(),
+    // Without this rule a range has no single correct value, and the model rightly refuses to guess.
+    etaDays: z.number().int().describe('Maximum days until delivery.'),
 })
 type Quote = z.infer<typeof QuoteSchema>
 
@@ -70,6 +73,19 @@ const CarrierQuoteResponse = z.object({
 
 type ApmToolContext = { apmLog: ApmEntry[] }
 
+type CarrierRequest = { method: string, url: string, headers: Record<string, string>, body: string }
+
+// Shaped like an HTTP client's error: it carries the request it made, auth header included.
+class CarrierError extends Error {
+    readonly request: CarrierRequest
+
+    constructor (message: string, options: { request: CarrierRequest, cause?: unknown }) {
+        super(message, { cause: options.cause })
+        this.name = 'CarrierError'
+        this.request = options.request
+    }
+}
+
 const getRecentCarrierCalls = defineTool({
     name: 'getRecentCarrierCalls',
     description: 'Returns the most recent HTTP calls to the shipping carrier API from the APM request log, newest last, including response bodies.',
@@ -82,7 +98,11 @@ const getRecentCarrierCalls = defineTool({
 })
 
 class ShippingQuoteClient {
-    constructor (private readonly baseUrl: string, private readonly apiKey: string) {}
+    constructor (
+        private readonly baseUrl: string,
+        private readonly apiKey: string,
+        private readonly accessToken: string,
+    ) {}
 
     @trypatch({
         logging: { logger: createRecordingLogger(logs) },
@@ -100,24 +120,31 @@ class ShippingQuoteClient {
             },
             investigationTools: [getRecentCarrierCalls],
             toolContext: { apmLog } satisfies ApmToolContext,
-            redactConfig: { terms: [carrierApiKey, customerEmail] },
-            allowUncertainResult: false,
+            redactConfig: { terms: [carrierApiKey] },
+            investigationBehavior: { allowUncertainResult: false },
             onInvestigationResult: (result, { explanation }) => {
                 investigationResults.push({ result, explanation })
             },
         },
     })
     async getQuote (order: Order): Promise<Quote> {
-        const response = await fetch(`${this.baseUrl}/v2/quotes?api_key=${this.apiKey}`, {
+        const request: CarrierRequest = {
             method: 'POST',
-            headers: { 'content-type': 'application/json' },
+            url: `${this.baseUrl}/v2/quotes?api_key=${this.apiKey}`,
+            headers: { 'content-type': 'application/json', authorization: `Bearer ${this.accessToken}` },
             body: JSON.stringify(order),
-        })
+        }
+        const response = await fetch(request.url, request)
         if (!response.ok) {
-            throw new Error(`Carrier quote request failed with ${response.status}`)
+            throw new CarrierError(`Carrier quote request failed with ${response.status}`, { request })
         }
 
-        const body = CarrierQuoteResponse.parse(await response.json())
+        const parsed = CarrierQuoteResponse.safeParse(await response.json())
+        if (!parsed.success) {
+            throw new CarrierError('Carrier quote response did not match the expected schema', { request, cause: parsed.error })
+        }
+
+        const body = parsed.data
         return {
             quoteId: body.quote_id,
             carrier: body.carrier,
@@ -144,7 +171,7 @@ void describe('claude investigation', () => {
     let stub: CarrierStub
 
     before(async () => {
-        stub = await startCarrierStub(carrierApiKey, apmLog)
+        stub = await startCarrierStub(carrierApiKey, carrierAccessToken, apmLog)
     })
 
     after(async () => {
@@ -152,7 +179,7 @@ void describe('claude investigation', () => {
     })
 
     void it('recovers a Quote when the carrier returns eta_days: null for a remote route', { timeout: 180_000 }, async () => {
-        const client = new ShippingQuoteClient(stub.baseUrl, carrierApiKey)
+        const client = new ShippingQuoteClient(stub.baseUrl, carrierApiKey, carrierAccessToken)
 
         // Normal traffic first, so the APM log has history to compare against.
         await client.getQuote(order('ord_1001', { line1: 'Torstraße 1', city: 'Berlin', postalCode: '10119', country: 'DE' }, 1200))
@@ -227,9 +254,14 @@ void describe('claude investigation', () => {
 
         assert.ok(exchanges.length > 0 && exchanges.every(exchange => exchange.url.includes('/v1/messages')))
         assert.ok(requestBodies[0]?.includes('ShippingQuoteClient.getQuote'))
+        assert.ok(requestBodies[0]?.includes('CarrierError'))
+        // eta_days only appears in the ZodError, so this also checks the error's cause reached the prompt.
         assert.ok(requestBodies[0]?.includes('eta_days'))
+        // The auth header is in the error's properties; it must be there, but as a placeholder.
+        assert.ok(requestBodies[0]?.includes('[FR_BEARER_TOKEN_'), 'the error\'s request headers should reach the prompt redacted')
         for (const [index, body] of requestBodies.entries()) {
             assert.ok(!body.includes(carrierApiKey), `request ${index} leaked the carrier API key`)
+            assert.ok(!body.includes(carrierAccessToken), `request ${index} leaked the carrier access token`)
             assert.ok(!body.includes(customerEmail), `request ${index} leaked the customer email`)
         }
         assert.ok(JSON.stringify(capturedContexts.at(-1)?.args).includes(customerEmail), 'redaction should happen at the provider boundary, not before')

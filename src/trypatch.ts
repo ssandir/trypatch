@@ -64,6 +64,7 @@ function applyStage3Decorator<S extends Schema, C> (
     const methodDescriptor = {
         dialect: 'stage3',
         name: context.name,
+        method: originalMethod,
         static: context.static,
         private: context.private,
         context,
@@ -87,6 +88,7 @@ function applyLegacyDecorator<S extends Schema, C> (
     const methodDescriptor = {
         dialect: 'legacy',
         name: propertyKey,
+        method: originalMethod as AnyMethod,
         static: typeof target === 'function',
         private: false,
         target,
@@ -95,7 +97,7 @@ function applyLegacyDecorator<S extends Schema, C> (
 
     return {
         ...descriptor,
-        value: wrapMethod(originalMethod as AnyMethod, options, logger, methodDescriptor),
+        value: wrapMethod(methodDescriptor.method, options, logger, methodDescriptor),
     }
 }
 
@@ -106,6 +108,10 @@ function wrapMethod<S extends Schema, C> (
     methodDescriptor: MethodDescriptor,
 ): AnyMethod {
     return function trypatchedMethod (this: unknown, ...args: unknown[]): unknown {
+        const startedAt = new Date()
+        // Monotonic, unlike Date, so a clock adjustment mid-call can't skew the duration.
+        const start = performance.now()
+
         return Promise.resolve()
             .then(() => originalMethod.apply(this, args))
             .catch((error: unknown) => runInvestigation(
@@ -115,6 +121,7 @@ function wrapMethod<S extends Schema, C> (
                 methodDescriptor,
                 this,
                 args,
+                { startedAt, durationMs: Math.round(performance.now() - start) },
             ))
     }
 }

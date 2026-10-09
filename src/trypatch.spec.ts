@@ -5,7 +5,7 @@ import { TrypatchFatalError } from './errors'
 import { defineTool } from './tools'
 import type { InvestigationContext, TryPatchOptions } from './types'
 import { mockMethodDecoratorContext } from './test/mockMethodDecoratorContext'
-import { mockLanguageModel, mockOutcomeTurn } from './test/mockLanguageModel'
+import { mockLanguageModel, mockOutcomeTurn, promptText } from './test/mockLanguageModel'
 import { createLanguageModel } from './investigation/aiInvestigation/providers/languageModel/createLanguageModel'
 
 jest.mock('./investigation/aiInvestigation/providers/languageModel/createLanguageModel')
@@ -316,6 +316,47 @@ describe('trypatch', () => {
             expect(investigate).toHaveBeenCalledWith(expect.objectContaining({
                 methodMetadata: { className: 'BillingService', static: true, private: false },
             }), { signal: expect.any(AbortSignal) })
+        })
+
+        it('should pass when the call started and how long it ran to the investigation', async () => {
+            const investigate = jest.fn((_ctx: InvestigationContext) => Promise.resolve({ inStock: true }))
+            jest.spyOn(performance, 'now').mockReturnValueOnce(1_000).mockReturnValueOnce(1_250)
+
+            class TimedService {
+                @trypatch({ customInvestigation: { investigate } })
+                run (): Promise<DecoratorResult> {
+                    return Promise.reject(new Error('failed'))
+                }
+            }
+
+            const before = Date.now()
+            await new TimedService().run()
+
+            const timing = investigate.mock.calls[0]?.[0].timing
+            expect(timing?.durationMs).toBe(250)
+            expect(timing?.startedAt.getTime()).toBeGreaterThanOrEqual(before)
+            expect(timing?.startedAt.getTime()).toBeLessThanOrEqual(Date.now())
+        })
+
+        it('should send the decorated method\'s runtime code to the provider when allowMethodSource is set', async () => {
+            class InventoryService {
+                @trypatch({
+                    aiInvestigation: {
+                        resultSchema,
+                        investigationProvider,
+                        investigationBehavior: { allowMethodSource: true },
+                    },
+                })
+                checkStock (sku: string): Promise<DecoratorResult> {
+                    const warehouse = 'eu-central-warehouse'
+                    throw new Error(`${sku} unavailable`, { cause: warehouse })
+                }
+            }
+
+            const model = mockInvestigationResponse({ inStock: false })
+
+            await expect(new InventoryService().checkStock('sku-1')).resolves.toEqual({ inStock: false })
+            expect(promptText(model.doGenerateCalls[0], 'user')).toContain('eu-central-warehouse')
         })
 
         it('should resolve the signal per call from the call arguments for instance and static methods', async () => {

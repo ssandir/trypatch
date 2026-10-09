@@ -20,6 +20,7 @@ export type MethodDescriptor =
     | {
         dialect: 'stage3'
         name: string | symbol
+        method: AnyMethod
         static: boolean
         private: boolean
         context: AnyMethodContext
@@ -27,6 +28,7 @@ export type MethodDescriptor =
     | {
         dialect: 'legacy'
         name: string | symbol
+        method: AnyMethod
         static: boolean
         /** Legacy decorators cannot be applied to true `#private` methods, so this is always false. */
         private: false
@@ -41,19 +43,66 @@ export type InvestigationProviderConfig
 export type InvestigationContext = {
     error: unknown
     methodName: string
+    /**
+     * The decorated method's code as loaded at runtime (`Function.prototype.toString()`), so compiled
+     * and possibly minified rather than the original TypeScript. Decorators applied below `@trypatch`
+     * replace the method first, so this is their wrapper's code instead.
+     */
+    methodSource: string
     args: unknown[]
     methodMetadata: {
         className?: string
         static: boolean
         private: boolean
     }
+    /** When the failed call started and how long it ran before failing. */
+    timing: CallTiming
+}
+
+export type CallTiming = {
+    startedAt: Date
+    durationMs: number
 }
 
 export type InvestigationBehavior = {
+    /**
+     * Replaces the default user prompt. A function receives the investigation context with `args`
+     * already passed through {@link sanitizeArgs}.
+     */
     prompt?: string | ((ctx: InvestigationContext) => string)
     systemPrompt?: string
     maxTokens?: number
+    /** Transforms the call's arguments before they go into the prompt, default or custom. */
     sanitizeArgs?: (args: unknown[]) => unknown[]
+    /**
+     * Whether the default prompt includes the method's code ({@link InvestigationContext.methodSource}),
+     * so the AI can see what the failed call was meant to do. It is sent to the provider (after
+     * `redactConfig`), so leave it off if your code must not leave your infrastructure. Defaults to `false`.
+     */
+    allowMethodSource?: boolean
+    /**
+     * Whether the AI may return a `result` directly, versus only via {@link AiInvestigationOptions.resultTools}/{@link AiInvestigationOptions.customErrors}.
+     * Defaults to `true`.
+     */
+    allowDirectResultCreation?: boolean
+    /**
+     * Whether the AI may report that there isn't enough information to work out a correct return value.
+     * Ends the investigation with {@link TrypatchCannotDetermineError}, which is logged; the method then
+     * rethrows its original error. Defaults to `true`.
+     */
+    allowCannotDetermine?: boolean
+    /**
+     * Whether the AI may report that a plausible return value exists but its confidence in it is too low
+     * to return it, instead of guessing. Ends the investigation with {@link TrypatchUncertainResultError},
+     * which is logged; the method then rethrows its original error. Defaults to `true`.
+     */
+    allowUncertainResult?: boolean
+    /**
+     * Whether the AI may report that none of the configured outcomes actually fit the situation.
+     * Ends the investigation with {@link TrypatchNoApplicableOutcomeError}, which is logged; the method
+     * then rethrows its original error. Defaults to `true`.
+     */
+    allowNoApplicableOutcome?: boolean
 }
 
 /**
@@ -97,10 +146,12 @@ export type AiInvestigationOptions<
     /** Optional prompts, timeouts, token limits, and argument sanitization. */
     investigationBehavior?: InvestigationBehavior
     /**
-     * Optional flare-redact vault options. When set, investigation prompts are redacted
-     * before they are sent to the provider and placeholders are restored in the response.
+     * flare-redact vault options. Investigation prompts and tool output are always redacted reversibly
+     * before they reach the provider (flare-redact's default detectors: API keys, tokens, emails, card
+     * numbers, …), and placeholders are restored in the response and in tool input. Use this to add
+     * `terms` or tune detectors, or set it to `false` to send everything unredacted.
      */
-    redactConfig?: VaultOptions
+    redactConfig?: VaultOptions | false
     /** Context passed to {@link investigationTools} and {@link resultTools} execute handlers. */
     toolContext?: C
     /**
@@ -122,29 +173,6 @@ export type AiInvestigationOptions<
     resultTools?: ResultTool<S, C>[]
     /** Custom error classes the AI can throw during investigation. */
     customErrors?: CustomErrorDefinition[]
-    /**
-     * Whether the AI may return a `result` directly, versus only via {@link resultTools}/{@link customErrors}.
-     * Defaults to `true`.
-     */
-    allowDirectResultCreation?: boolean
-    /**
-     * Whether the AI may report that there isn't enough information to work out a correct return value.
-     * Ends the investigation with {@link TrypatchCannotDetermineError}, which is logged; the method then
-     * rethrows its original error. Defaults to `true`.
-     */
-    allowCannotDetermine?: boolean
-    /**
-     * Whether the AI may report that a plausible return value exists but its confidence in it is too low
-     * to return it, instead of guessing. Ends the investigation with {@link TrypatchUncertainResultError},
-     * which is logged; the method then rethrows its original error. Defaults to `true`.
-     */
-    allowUncertainResult?: boolean
-    /**
-     * Whether the AI may report that none of the configured outcomes actually fit the situation.
-     * Ends the investigation with {@link TrypatchNoApplicableOutcomeError}, which is logged; the method
-     * then rethrows its original error. Defaults to `true`.
-     */
-    allowNoApplicableOutcome?: boolean
     /**
      * Callback invoked with the value the wrapped method is about to return in place of its error,
      * plus the AI's explanation of why the call failed and why that value is correct.
