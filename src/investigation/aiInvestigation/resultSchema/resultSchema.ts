@@ -28,7 +28,7 @@ export function buildInvestigationResultSchema<C> ({
     allowUncertainResult = true,
     allowNoApplicableOutcome = true,
 }: {
-    resultSchema?: Schema | undefined
+    resultSchema?: Schema
     customErrors?: CustomErrorDefinition[] | undefined
     resultTools?: ResultTool<Schema, C>[] | undefined
     allowDirectResultCreation?: boolean | undefined

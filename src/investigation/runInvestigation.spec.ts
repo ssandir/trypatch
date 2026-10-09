@@ -323,6 +323,36 @@ describe('runInvestigation', () => {
             )).rejects.toThrow(RetryableError)
         })
 
+        it('should construct a custom error without errorParameterSchema with no parameter, whatever the model sent', async () => {
+            let constructedWith: unknown[] | undefined
+            class StaleCacheError extends Error {
+                constructor (...args: unknown[]) {
+                    super('stale cache')
+                    constructedWith = args
+                }
+            }
+
+            useOutcome({ type: 'error', error: 'StaleCacheError', errorSchema: { reason: 'ignored' } })
+
+            await expect(runInvestigation(
+                new Error('original'),
+                {
+                    aiInvestigation: {
+                        investigationProvider: {
+                            provider: 'openai',
+                            apiKey: 'test-key',
+                        },
+                        customErrors: [{ errorConstructor: StaleCacheError, propagate: true }],
+                    },
+                },
+                new Logger(),
+                mockMethodDescriptor(),
+                undefined,
+                [],
+            )).rejects.toThrow(StaleCacheError)
+            expect(constructedWith).toEqual([undefined])
+        })
+
         it('should log an AI investigation custom error and rethrow the original error when propagate is not set', async () => {
             class RetryableError extends Error {
                 constructor (public readonly param: { reason: string }) {

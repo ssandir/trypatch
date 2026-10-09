@@ -42,7 +42,7 @@ export function createJsonSchemaValidator (
     }
 }
 
-export function toJsonSchemaObject (schema: Schema): JSONSchema {
+export function toJsonSchemaObject (schema: NonNullable<Schema>): JSONSchema {
     if (isZodSchema(schema)) {
         return zodToJsonSchemaRecord(schema)
     }
@@ -52,7 +52,7 @@ export function toJsonSchemaObject (schema: Schema): JSONSchema {
 
 /** With no schema, `value` is a JSON-encoded string (nothing else could constrain its shape) and gets parsed. */
 export function parseWithSchema (
-    schema: Schema | undefined,
+    schema: Schema,
     value: unknown,
     label = 'value',
 ): unknown {
@@ -66,6 +66,10 @@ export function parseWithSchema (
 
     createJsonSchemaValidator(schema, label)(value)
     return value
+}
+
+export function parseParameter (schema: Schema, value: unknown, label: string): unknown {
+    return schema === undefined ? undefined : parseWithSchema(schema, value, label)
 }
 
 export function extractJsonFromText (text: string): unknown {
