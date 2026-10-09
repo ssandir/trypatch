@@ -18,14 +18,15 @@ cd e2e
 npm test
 ```
 
-`pretest` builds the root, repacks and reinstalls the tarball, and type-checks this folder. The key comes from the environment or `e2e/.env` (gitignored).
+`npm test -- <name>` runs only the named `<name>.e2e.ts` files (`scripts/test.mjs`; with no names it runs every `*.e2e.ts`). `pretest` builds the root, repacks and reinstalls the tarball, and type-checks this folder. The key comes from the environment or `e2e/.env` (gitignored).
 
 ## Layout
 
-- `claude.e2e.ts`: the test. The "application code" (a shipping-quote client decorated with `@trypatch`) lives at the top of the file on purpose, so the scenario reads like a real consumer.
-- `support/carrierStub.ts`: local fake carrier API plus an APM-style request log the investigation tool reads.
+- `claude.e2e.ts`: the changed-response-format test. The "application code" (a shipping-quote client decorated with `@trypatch`) lives at the top of the file on purpose, so the scenario reads like a real consumer.
+- `claude-retry-after.e2e.ts`: the transient-failure test. The stub answers 503 + `Retry-After`, and the model must use the built-in `trypatch_builtin_wait` before the `retryQuoteRequest` result tool succeeds. Its application code is a trimmed copy of the first file's, kept in the file for the same reason.
+- `support/carrierStub.ts`: local fake carrier API plus an APM-style request log the investigation tool reads; `throttle(seconds)` makes it answer 503 + `Retry-After`.
 - `support/recorder.ts`: captures provider HTTP traffic through the public `fetch` option, trypatch's log calls, and writes the report.
-- `output/` (gitignored): one JSON report per run, written even when the test fails.
+- `output/` (gitignored): one JSON report per test per run, written even when the test fails.
 
 ## Assertions
 

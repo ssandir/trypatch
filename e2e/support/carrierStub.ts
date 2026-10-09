@@ -1,6 +1,7 @@
 // A fake shipping carrier API plus the APM-style request log an app would have in production.
 // Remote routes (Canary Islands) come back with `eta_days: null` and an `eta_range` instead:
-// the change the client below never expected.
+// the change the client below never expected. `throttle()` makes quote requests answer 503 with a
+// `Retry-After` header until that time has passed, like an overloaded upstream.
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
@@ -17,6 +18,8 @@ export type CarrierStub = {
     baseUrl: string
     /** Every quote body the stub served, in order, for asserting against what the AI reconstructed. */
     served: Record<string, unknown>[]
+    /** Answer quote requests with 503 + `Retry-After` for the next `seconds`; a retry before then gets 503 again. */
+    throttle: (seconds: number) => void
     close: () => Promise<void>
 }
 
@@ -58,12 +61,13 @@ async function readJson (request: import('node:http').IncomingMessage): Promise<
 
 export async function startCarrierStub (expectedApiKey: string, expectedAccessToken: string, apmLog: ApmEntry[]): Promise<CarrierStub> {
     const served: Record<string, unknown>[] = []
+    let throttledUntil = 0
 
     const server: Server = createServer((request, response) => {
         const startedAt = Date.now()
         const url = new URL(request.url ?? '/', 'http://localhost')
 
-        const respond = (status: number, body: unknown): void => {
+        const respond = (status: number, body: unknown, headers: Record<string, string> = {}): void => {
             apmLog.push({
                 at: new Date(startedAt).toISOString(),
                 method: request.method ?? 'GET',
@@ -72,7 +76,7 @@ export async function startCarrierStub (expectedApiKey: string, expectedAccessTo
                 durationMs: Date.now() - startedAt + 40 + Math.floor(Math.random() * 80),
                 responseBody: body,
             })
-            response.writeHead(status, { 'content-type': 'application/json' })
+            response.writeHead(status, { 'content-type': 'application/json', ...headers })
             response.end(JSON.stringify(body))
         }
 
@@ -91,6 +95,12 @@ export async function startCarrierStub (expectedApiKey: string, expectedAccessTo
             return
         }
 
+        if (Date.now() < throttledUntil) {
+            const retryAfterSeconds = Math.ceil((throttledUntil - Date.now()) / 1000)
+            respond(503, { error: 'service_unavailable', message: 'Quote service is temporarily overloaded' }, { 'retry-after': String(retryAfterSeconds) })
+            return
+        }
+
         readJson(request)
             .then((body) => {
                 const quote = quoteFor(body as QuoteRequest, served.length)
@@ -106,6 +116,9 @@ export async function startCarrierStub (expectedApiKey: string, expectedAccessTo
     return {
         baseUrl,
         served,
+        throttle: (seconds) => {
+            throttledUntil = Date.now() + seconds * 1000
+        },
         close: async () => await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())),
     }
 }
