@@ -349,6 +349,7 @@ describe('runInvestigation', () => {
                 mockMethodDescriptor(),
                 undefined,
                 [],
+                mockCallTiming(),
             )).rejects.toThrow(StaleCacheError)
             expect(constructedWith).toEqual([undefined])
         })
