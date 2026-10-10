@@ -1,4 +1,4 @@
-export { buildInvestigationResultSchema, outcomeSchemaPrompt, parseProviderOutcome } from './resultSchema'
+export { buildInvestigationResultSchema, getOutcomeSchema, outcomeSchemaPrompt, parseProviderOutcome } from './resultSchema'
 export type {
     InvestigationCannotDetermineOutcome,
     InvestigationErrorOutcome,

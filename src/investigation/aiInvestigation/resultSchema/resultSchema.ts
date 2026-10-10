@@ -1,6 +1,6 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import { TrypatchConfigError } from '../../../errors'
-import type { CustomErrorDefinition, ResultTool } from '../../../types'
+import type { AiInvestigationOptions, CustomErrorDefinition, ResultTool } from '../../../types'
 import type { Schema } from '../../../schema/types'
 import { parseWithSchema } from '../../../schema/utils'
 import {
@@ -57,6 +57,29 @@ export function buildInvestigationResultSchema<C> ({
         required: ['outcome'],
         additionalProperties: false,
     } as const satisfies JSONSchema
+}
+
+// Ajv caches compiled validators by schema object, so a schema rebuilt per investigation would compile again and stay cached forever.
+const outcomeSchemas = new WeakMap<object, JSONSchema>()
+
+/** {@link buildInvestigationResultSchema} for `options`, built once per options object. */
+export function getOutcomeSchema<S extends Schema, C> (options: AiInvestigationOptions<S, C>): JSONSchema {
+    let outcomeSchema = outcomeSchemas.get(options)
+    if (outcomeSchema === undefined) {
+        const { resultSchema, customErrors, resultTools, investigationBehavior = {} } = options
+        outcomeSchema = buildInvestigationResultSchema({
+            resultSchema,
+            customErrors,
+            resultTools,
+            allowDirectResultCreation: investigationBehavior.allowDirectResultCreation,
+            allowCannotDetermine: investigationBehavior.allowCannotDetermine,
+            allowUncertainResult: investigationBehavior.allowUncertainResult,
+            allowNoApplicableOutcome: investigationBehavior.allowNoApplicableOutcome,
+        })
+        outcomeSchemas.set(options, outcomeSchema)
+    }
+
+    return outcomeSchema
 }
 
 /**

@@ -15,7 +15,6 @@ import type {
 import type { Logger } from '../../logger'
 import { buildInvestigationPrompt } from './buildPrompt'
 import { qualifiedMethodName } from '../investigationContext'
-import { validateMcpServers } from './mcp/servers'
 import type { Schema, SchemaInfer } from '../../schema/types'
 import { parseParameter, parseWithSchema } from '../../schema/utils'
 import { withSafeToolbox } from './tools/builtin'
@@ -25,7 +24,7 @@ import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithLanguageModel } from './providers/languageModel/investigate'
 import type { LanguageModelInvestigationOptions } from './providers/languageModel/types'
 import type { InvestigationOutcome } from './resultSchema'
-import { buildInvestigationResultSchema } from './resultSchema'
+import { getOutcomeSchema } from './resultSchema'
 
 async function applyOutcome<S extends Schema, C> (
     outcome: InvestigationOutcome,
@@ -103,26 +102,6 @@ async function callInvestigationProvider<C> (
     return await investigateWithLanguageModel(investigationProvider, outcomeSchema, prompts, options)
 }
 
-function buildOutcomeSchema<S extends Schema, C> (
-    { resultSchema, customErrors, resultTools, investigationBehavior = {} }: AiInvestigationOptions<S, C>,
-): JSONSchema {
-    return buildInvestigationResultSchema({
-        resultSchema,
-        customErrors,
-        resultTools,
-        allowDirectResultCreation: investigationBehavior.allowDirectResultCreation,
-        allowCannotDetermine: investigationBehavior.allowCannotDetermine,
-        allowUncertainResult: investigationBehavior.allowUncertainResult,
-        allowNoApplicableOutcome: investigationBehavior.allowNoApplicableOutcome,
-    })
-}
-
-/** Throws on options that would fail every investigation, so they surface when the decorator is applied rather than after a failure. */
-export function validateAiInvestigationOptions<S extends Schema, C> (options: AiInvestigationOptions<S, C>): void {
-    validateMcpServers(options.mcpServers, options.investigationProvider.provider)
-    buildOutcomeSchema(options)
-}
-
 export async function runAiInvestigation<S extends Schema, C> (
     ctx: InvestigationContext,
     options: AiInvestigationOptions<S, C>,
@@ -144,7 +123,7 @@ export async function runAiInvestigation<S extends Schema, C> (
     const sanitizedArgs = investigationBehavior.sanitizeArgs
         ? investigationBehavior.sanitizeArgs(ctx.args)
         : ctx.args
-    const outcomeSchema = buildOutcomeSchema(options)
+    const outcomeSchema = getOutcomeSchema(options)
     const builtPrompts = buildInvestigationPrompt(ctx, sanitizedArgs, investigationBehavior)
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)
     const rawOutcome = await callInvestigationProvider(investigationProvider, outcomeSchema, prompts, {

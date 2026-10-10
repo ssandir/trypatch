@@ -1,4 +1,5 @@
 import { MockLanguageModelV4 } from 'ai/test'
+import Ajv from 'ajv'
 import { z } from 'zod/v4'
 import { investigateError, runInvestigation } from './runInvestigation'
 import { buildInvestigationContext } from './investigationContext'
@@ -692,6 +693,30 @@ describe('runInvestigation', () => {
             })
 
             expect(result).toEqual({ inStock: true })
+        })
+
+        it('should compile the outcome schema once across investigations with the same options', async () => {
+            const compile = jest.spyOn(Ajv.prototype, 'compile')
+            jest.mocked(createLanguageModel).mockImplementation(() => mockLanguageModel(mockOutcomeTurn({
+                type: 'result',
+                explanation: 'test explanation',
+                result: { inStock: true },
+            })))
+            const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [], mockCallTiming())
+            const options: TryPatchOptions = {
+                aiInvestigation: {
+                    resultSchema: z.object({ inStock: z.boolean() }),
+                    investigationProvider: {
+                        provider: 'openai',
+                        apiKey: 'test-key',
+                    },
+                },
+            }
+
+            await investigateError(ctx, options)
+            await investigateError(ctx, options)
+
+            expect(new Set(compile.mock.calls.map(([schema]) => schema)).size).toBe(1)
         })
 
         it('should invoke result tools when the provider returns a resultTool outcome', async () => {
