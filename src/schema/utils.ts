@@ -1,7 +1,7 @@
 import Ajv, { type AnySchema } from 'ajv'
 import type { JSONSchema } from 'json-schema-to-ts'
 import { parse, toJSONSchema } from 'zod/v4/core'
-import type { $ZodObject, $ZodType } from 'zod/v4/core'
+import type { $ZodType } from 'zod/v4/core'
 import type { Schema } from './types'
 
 const ajv = new Ajv()
@@ -10,10 +10,6 @@ export function isZodSchema (value: unknown): value is $ZodType {
     return typeof value === 'object'
         && value !== null
         && '_zod' in value
-}
-
-export function isZodObject (value: unknown): value is $ZodObject {
-    return isZodSchema(value) && value._zod.def.type === 'object'
 }
 
 export function isJsonSchema (value: unknown): value is JSONSchema {

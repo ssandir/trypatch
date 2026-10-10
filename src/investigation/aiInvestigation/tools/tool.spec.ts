@@ -115,6 +115,18 @@ describe('defineTool and callTool', () => {
         await expect(callTool(created, { id: 'a', count: 2 }, testContext, { signal: undefined })).resolves.toBe('a:2')
     })
 
+    it.each([
+        ['zod', z.string()],
+        ['JSON schema', { type: 'string' } as const],
+    ])('rejects non-object %s parameters', (_kind, parameters) => {
+        expect(() => defineTool({
+            name: 'string_input',
+            description: 'String input',
+            parameters,
+            execute: (): string => 'ok',
+        })).toThrow('Tool string_input parameters must be an object schema')
+    })
+
     it('propagates errors from execute', async () => {
         const created = defineTool({
             name: 'always_fails',

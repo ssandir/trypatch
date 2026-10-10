@@ -1,10 +1,6 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import { TrypatchFatalError } from '../../../errors'
-import {
-    isJsonSchema,
-    isZodObject,
-    toJsonSchemaObject,
-} from '../../../schema/utils'
+import { isJsonSchema, toJsonSchemaObject } from '../../../schema/utils'
 import type { Schema } from '../../../schema/types'
 
 const EMPTY_OBJECT_SCHEMA = {
@@ -29,7 +25,7 @@ export function getSchema (parameters: Schema): JSONSchema {
         return { ...EMPTY_OBJECT_SCHEMA }
     }
 
-    if (isZodObject(parameters) || isJsonSchema(parameters)) {
+    if (isJsonSchema(parameters)) {
         return toJsonSchemaObject(parameters)
     }
 
