@@ -13,9 +13,8 @@ import type {
     ResultTool,
 } from '../../types'
 import type { Logger } from '../../logger'
-import { buildInvestigationPrompt } from './buildPrompt'
+import { buildInvestigationPrompt } from './prompt/buildPrompt'
 import { qualifiedMethodName } from '../investigationContext'
-import { validateMcpServers } from './mcp/servers'
 import type { Schema, SchemaInfer } from '../../schema/types'
 import { parseParameter, parseWithSchema } from '../../schema/utils'
 import { withSafeToolbox } from './tools/builtin'
@@ -24,8 +23,13 @@ import { redactInvestigationPrompts, restoreInvestigationResponse } from './reda
 import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithLanguageModel } from './providers/languageModel/investigate'
 import type { LanguageModelInvestigationOptions } from './providers/languageModel/types'
-import type { InvestigationOutcome } from './resultSchema'
-import { buildInvestigationResultSchema } from './resultSchema'
+import type { InvestigationOutcome } from './outcomeSchema'
+import {
+    buildOutcomeEnvelopeSchema,
+    buildOutcomeSchema,
+    outcomeSchemaOptions,
+    parseProviderOutcome,
+} from './outcomeSchema'
 
 async function applyOutcome<S extends Schema, C> (
     outcome: InvestigationOutcome,
@@ -95,32 +99,12 @@ async function callInvestigationProvider<C> (
     outcomeSchema: JSONSchema,
     prompts: { systemPrompt: string, userPrompt: string },
     options: LanguageModelInvestigationOptions<C>,
-): Promise<InvestigationOutcome> {
+): Promise<unknown> {
     if (investigationProvider.provider === 'cursor') {
         return await investigateWithCursor(investigationProvider, outcomeSchema, prompts, options)
     }
 
     return await investigateWithLanguageModel(investigationProvider, outcomeSchema, prompts, options)
-}
-
-function buildOutcomeSchema<S extends Schema, C> (
-    { resultSchema, customErrors, resultTools, investigationBehavior = {} }: AiInvestigationOptions<S, C>,
-): JSONSchema {
-    return buildInvestigationResultSchema({
-        resultSchema,
-        customErrors,
-        resultTools,
-        allowDirectResultCreation: investigationBehavior.allowDirectResultCreation,
-        allowCannotDetermine: investigationBehavior.allowCannotDetermine,
-        allowUncertainResult: investigationBehavior.allowUncertainResult,
-        allowNoApplicableOutcome: investigationBehavior.allowNoApplicableOutcome,
-    })
-}
-
-/** Throws on options that would fail every investigation, so they surface when the decorator is applied rather than after a failure. */
-export function validateAiInvestigationOptions<S extends Schema, C> (options: AiInvestigationOptions<S, C>): void {
-    validateMcpServers(options.mcpServers, options.investigationProvider.provider)
-    buildOutcomeSchema(options)
 }
 
 export async function runAiInvestigation<S extends Schema, C> (
@@ -144,11 +128,10 @@ export async function runAiInvestigation<S extends Schema, C> (
     const sanitizedArgs = investigationBehavior.sanitizeArgs
         ? investigationBehavior.sanitizeArgs(ctx.args)
         : ctx.args
-    const outcomeSchema = buildOutcomeSchema(options)
+    const schemaOptions = outcomeSchemaOptions(options)
     const builtPrompts = buildInvestigationPrompt(ctx, sanitizedArgs, investigationBehavior)
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)
-    const rawOutcome = await callInvestigationProvider(investigationProvider, outcomeSchema, prompts, {
-        maxTokens: investigationBehavior.maxTokens,
+    const response = await callInvestigationProvider(investigationProvider, buildOutcomeSchema(schemaOptions), prompts, {
         investigationTools: withSafeToolbox({ error: ctx.error, args: sanitizedArgs }, investigationTools, investigationBehavior.allowSafeToolbox),
         toolContext,
         vault,
@@ -157,7 +140,7 @@ export async function runAiInvestigation<S extends Schema, C> (
         signal,
     })
 
-    const outcome = restoreInvestigationResponse(rawOutcome, vault)
+    const outcome = restoreInvestigationResponse(parseProviderOutcome(response, buildOutcomeEnvelopeSchema(schemaOptions)), vault)
     const resolved = await resolveOutcome(outcome, resultSchema, customErrors, resultTools, toolContext, signal)
     
     signal?.throwIfAborted()

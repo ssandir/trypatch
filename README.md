@@ -11,12 +11,6 @@
 - 🧾 **No Silent Fallbacks**: If the investigation can't produce a correct value, callers get the method's original error
 - 🤖 **Multiple Providers**: OpenAI, Claude (Anthropic), any OpenAI-compatible endpoint (Gemini, Mistral, Groq, Ollama, OpenRouter, vLLM, ...), or Cursor Cloud Agents for investigation logic
 
-Requires Node.js 22.12 or later. Decorated methods must be `async` (or return a `Promise`): recovering a value takes network calls, so the decorated method always returns a Promise.
-
-Zod schemas need Zod 4 (`zod` `^4.1.8`). On `zod` `^3.25.76`, import from `zod/v4` instead of `zod`: classic Zod 3 schemas aren't supported.
-
-Every schema (`resultSchema`, tool `parameters`, `errorParameterSchema`) is sent to the AI as JSON Schema, so Zod types JSON Schema can't represent, like `.transform()`, aren't supported. `@trypatch` throws a `TrypatchFatalError` naming the option when it's applied, and `defineTool` throws one when the tool is defined.
-
 ---
 
 ## Quick Start: Recover the Return Value
@@ -59,6 +53,8 @@ When `getQuote` fails:
 - If the AI can't produce a correct `Quote`, `getQuote` rethrows its original error (see [Fallback Outcomes](#fallback-outcomes-avoiding-fabricated-results))
 
 The type of `getQuote` is checked against `resultSchema`: with standard (stage-3) decorators, a method that doesn't return `Promise<Quote>` is a compile error.
+
+Requires Node.js 22.12 or later. Decorated methods must be `async` (or return a `Promise`): recovering a value takes network calls, so the decorated method always returns a Promise.
 
 ### Explanations: Why a Value Was Returned
 
@@ -413,10 +409,24 @@ aiInvestigation: {
 
 ---
 
-## JSON Schema and TypeScript
+## Schemas
+
+Schemas can be Zod or JSON Schema. One trypatch can't use throws a `TrypatchFatalError` when `@trypatch` is applied or the tool is defined.
+
+Zod schemas need Zod 4 (`zod` `^4.1.8`). On `zod` `^3.25.76`, import from `zod/v4` instead of `zod`: classic Zod 3 schemas aren't supported.
 
 <details>
-<summary>Details and example</summary>
+<summary>Schema support</summary>
+
+- Every schema (`resultSchema`, tool `parameters`, `errorParameterSchema`) is sent to the AI as JSON Schema, so Zod types JSON Schema can't represent, like `.transform()`, aren't supported.
+- JSON Schemas can be draft-07, or draft 2020-12 with `$schema` set to it.
+- `format`s such as `email` are validated.
+- Unknown keywords, including OpenAPI's `example` and `nullable`, are rejected.
+
+</details>
+
+<details>
+<summary>JSON Schema types in TypeScript</summary>
 
 JSON Schema tool parameters and `@trypatch` result schemas map to `any`, not `FromSchema<T>`. Resolving
 `FromSchema` through generic `Tool` / `@trypatch` types triggers TS2589 (excessively deep instantiation).
@@ -468,7 +478,7 @@ Use `as const satisfies JSONSchema` so `FromSchema<typeof quoteSchema>` stays pr
 
 ## Providers
 
-Every provider config takes the API key directly; resolve it however you like (env var, secret manager, etc.) before passing it in. `openai`, `claude` and `openai-compatible` are built on the [Vercel AI SDK](https://ai-sdk.dev), which trypatch installs as its own dependency; none of its types are part of trypatch's API.
+Every provider config takes the API key directly; resolve it however you like (env var, secret manager, etc.) before passing it in.
 
 ### OpenAI
 
@@ -481,7 +491,7 @@ investigationProvider: {
 }
 ```
 
-Optional fields: `model` (default `gpt-5.5`), `baseURL`, `organization`, `project`, and `fetch`.
+Optional fields: `model` (default `gpt-5.5`), `baseURL` (default `https://api.openai.com/v1`), `organization`, `project`, and `fetch`.
 
 ### Claude (Anthropic)
 
@@ -494,7 +504,7 @@ investigationProvider: {
 }
 ```
 
-Optional fields: `model` (default `claude-sonnet-5`), `baseURL` (without the `/v1` suffix), `apiVersion` (`anthropic-version` header, default `2023-06-01`), and `fetch`.
+Optional fields: `model` (default `claude-sonnet-5`), `baseURL` (without the `/v1` suffix, default `https://api.anthropic.com`), `apiVersion` (`anthropic-version` header, default `2023-06-01`), and `fetch`.
 
 ### OpenAI-compatible endpoints
 

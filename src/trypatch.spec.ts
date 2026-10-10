@@ -3,7 +3,7 @@ import { z } from 'zod/v4'
 import { trypatch } from './trypatch'
 import { TrypatchFatalError } from './errors'
 import { defineTool } from './investigation/aiInvestigation/tools'
-import type { InvestigationContext, TryPatchOptions } from './types'
+import type { InvestigationContext, TrypatchOptions } from './types'
 import { mockMethodDecoratorContext } from './test/mockMethodDecoratorContext'
 import { mockLanguageModel, mockOutcomeTurn, promptText } from './test/mockLanguageModel'
 import { createLanguageModel } from './investigation/aiInvestigation/providers/languageModel/createLanguageModel'
@@ -27,7 +27,7 @@ describe('trypatch', () => {
     function trypatchMethod<This, Args extends unknown[], Return extends Promise<unknown>> (
         prototype: This,
         methodName: string,
-        options: TryPatchOptions,
+        options: TrypatchOptions,
     ): void {
         const originalMethod = (prototype as Record<string, (...args: Args) => Return>)[methodName]!
         const trypatchedMethod = trypatch(options)(
@@ -155,7 +155,7 @@ describe('trypatch', () => {
             customInvestigation: {
                 investigate: () => Promise.resolve({}),
             },
-        } satisfies TryPatchOptions
+        } satisfies TrypatchOptions
 
         function callDecorator (...args: unknown[]): unknown {
             return (trypatch(options) as unknown as (...callArgs: unknown[]) => unknown)(...args)
@@ -216,6 +216,21 @@ describe('trypatch', () => {
                 },
             })).toThrow('resultSchema can\'t be converted to JSON Schema')
         })
+
+        it('should throw when created with a JSON Schema that doesn\'t compile', () => {
+            // A schema loaded at runtime, which the JSONSchema type can't check.
+            const invalidSchema = { type: 'object', properties: { reason: { type: 'strnig' } } } as unknown as JSONSchema
+
+            expect(() => trypatch({
+                aiInvestigation: { resultSchema: invalidSchema, investigationProvider },
+            })).toThrow('resultSchema is not a valid JSON Schema')
+            expect(() => trypatch({
+                aiInvestigation: {
+                    investigationProvider,
+                    customErrors: [{ errorConstructor: class RetryableError extends Error {}, errorParameterSchema: invalidSchema }],
+                },
+            })).toThrow('customErrors entry RetryableError errorParameterSchema is not a valid JSON Schema')
+        })
     })
 
     describe('trypatch as decorator', () => {
@@ -257,7 +272,7 @@ describe('trypatch', () => {
             additionalProperties: false,
         } as const satisfies JSONSchema
 
-        it('should apply CustomInvestigateTryPatchOptions via @trypatch when the method throws', async () => {
+        it('should apply CustomInvestigateTrypatchOptions via @trypatch when the method throws', async () => {
             const investigate = jest.fn((): Promise<DecoratorResult> => Promise.resolve({ inStock: true }))
 
             const customOptions = {
@@ -265,7 +280,7 @@ describe('trypatch', () => {
                 customInvestigation: {
                     investigate,
                 },
-            } satisfies TryPatchOptions
+            } satisfies TrypatchOptions
 
             class CustomInvestigateService {
                 @trypatch(customOptions)
@@ -301,12 +316,29 @@ describe('trypatch', () => {
             await expect(new FailingInvestigationService().run()).rejects.toBe(methodError)
         })
 
+        it('should run the method body at call time, before the caller\'s next statement', async () => {
+            class StatefulService {
+                state = 'before'
+
+                @trypatch({ customInvestigation: { investigate: () => Promise.resolve({ inStock: false }) } })
+                run (): Promise<DecoratorResult> {
+                    return Promise.resolve({ inStock: this.state === 'before' })
+                }
+            }
+
+            const service = new StatefulService()
+            const pending = service.run()
+            service.state = 'after'
+
+            await expect(pending).resolves.toEqual({ inStock: true })
+        })
+
         it('should resolve className and static from the real receiver at call time', async () => {
             const investigate = jest.fn((): Promise<DecoratorResult> => Promise.resolve({ inStock: true }))
 
             const customOptions = {
                 customInvestigation: { investigate },
-            } satisfies TryPatchOptions
+            } satisfies TrypatchOptions
 
             class BillingService {
                 @trypatch(customOptions)
@@ -379,7 +411,7 @@ describe('trypatch', () => {
             const signalOptions = {
                 getSignal: (ctx: InvestigationContext) => (ctx.args[1] as { signal?: AbortSignal } | undefined)?.signal,
                 customInvestigation: { investigate },
-            } satisfies TryPatchOptions
+            } satisfies TrypatchOptions
 
             class ReportService {
                 @trypatch(signalOptions)
@@ -463,11 +495,11 @@ describe('trypatch', () => {
                         baseURL: 'https://api.openai.com/v1',
                         organization: 'org-test',
                         project: 'proj-test',
+                        maxTokens: 512,
                     },
                     investigationBehavior: {
                         systemPrompt: 'Investigate production errors.',
                         prompt: (ctx: InvestigationContext) => `Method ${ctx.methodName} failed with ${String(ctx.error)}`,
-                        maxTokens: 512,
                         sanitizeArgs: (args: unknown[]) => args.map(String),
                     },
                     toolContext,
@@ -501,7 +533,7 @@ describe('trypatch', () => {
                     ],
                     onAiInvestigationEnd,
                 },
-            } satisfies TryPatchOptions<typeof resultSchema, ServiceToolContext>
+            } satisfies TrypatchOptions<typeof resultSchema, ServiceToolContext>
 
             const model = mockInvestigationResponse({ inStock: false })
 

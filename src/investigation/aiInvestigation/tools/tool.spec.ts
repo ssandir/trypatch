@@ -74,6 +74,16 @@ describe('defineTool and callTool', () => {
         })
     })
 
+    it('rejects JSON schema parameters that don\'t compile when the tool is defined', () => {
+        expect(() => defineTool({
+            name: 'lookup_order',
+            description: 'Look up an order',
+            // A schema loaded at runtime, which the JSONSchema type can't check.
+            parameters: { type: 'object', properties: { orderId: { type: 'strnig' } } } as unknown as JSONSchema,
+            execute: () => undefined,
+        })).toThrow('Tool lookup_order parameters is not a valid JSON Schema')
+    })
+
     it('rejects JSON schema parameters input that fails validation', async () => {
         const parameters = {
             type: 'object',

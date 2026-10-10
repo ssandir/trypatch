@@ -24,7 +24,7 @@ export type {
     InvestigationTool,
     ResolvedOutcome,
     ResultTool,
-    TryPatchOptions,
+    TrypatchOptions,
 } from './types'
 export type { VaultOptions } from 'flare-redact'
 export type { CursorInvestigationConfig, CursorRepositoryConfig } from './investigation/aiInvestigation/providers/cursor/types'

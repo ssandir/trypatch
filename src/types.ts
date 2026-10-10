@@ -71,7 +71,6 @@ export type InvestigationBehavior = {
      */
     prompt?: string | ((ctx: InvestigationContext) => string)
     systemPrompt?: string
-    maxTokens?: number
     /** Transforms the call's arguments before they go into the prompt, default or custom. */
     sanitizeArgs?: (args: unknown[]) => unknown[]
     /**
@@ -118,7 +117,7 @@ export type InvestigationTool<C = unknown> = Tool<Schema, C, unknown>
 /**
  * Tool the AI may pick as its outcome; trypatch calls it after the investigation and its return value
  * is returned from the decorated method in place of the error.
- * When {@link TryPatchOptions} includes {@link resultSchema}, execute must return {@link SchemaInfer} for that schema.
+ * When {@link TrypatchOptions} includes {@link resultSchema}, execute must return {@link SchemaInfer} for that schema.
  */
 export type ResultTool<S extends Schema = Schema, C = unknown> = Tool<Schema, C, SchemaInfer<S>>
 
@@ -197,7 +196,7 @@ export type CustomInvestigationErrorDefinition = {
     errorConstructor: new (...args: any[]) => Error
 }
 
-type CustomInvestigateTryPatchOptions = {
+type CustomInvestigateTrypatchOptions = {
     /**
      * Custom investigation handler; replaces the built-in AI provider flow when provided. Its resolved
      * value is returned from the decorated method in place of the error.
@@ -207,7 +206,7 @@ type CustomInvestigateTryPatchOptions = {
     customErrors?: CustomInvestigationErrorDefinition[]
 }
 
-type TryPatchOptionsBase = {
+type TrypatchOptionsBase = {
     logging?: LoggingOptions
     /** Resolves an abort signal from the investigation context (including the call's arguments). Aborts the investigation when the signal fires. */
     getSignal?: (ctx: InvestigationContext) => AbortSignal | undefined
@@ -220,10 +219,10 @@ type TryPatchOptionsBase = {
     onInvestigationStart?: (ctx: InvestigationContext) => void | Promise<void>
 }
 
-export type TryPatchOptions<
+export type TrypatchOptions<
     S extends Schema = Schema,
     C = unknown,
-> = TryPatchOptionsBase & (
+> = TrypatchOptionsBase & (
     | { aiInvestigation: AiInvestigationOptions<S, C>, customInvestigation?: never }
-    | { customInvestigation: CustomInvestigateTryPatchOptions, aiInvestigation?: never }
+    | { customInvestigation: CustomInvestigateTrypatchOptions, aiInvestigation?: never }
 )

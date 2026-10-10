@@ -1,11 +1,11 @@
 import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
 import { z } from 'zod/v4'
 import { trypatch } from './trypatch'
-import type { TryPatchOptions } from './types'
+import type { TrypatchOptions } from './types'
 import { mockMethodDecoratorContext } from './test/mockMethodDecoratorContext'
 
 /**
- * Compile-time-only checks for TryPatchOptions/@trypatch generic constraints. Nothing here runs —
+ * Compile-time-only checks for TrypatchOptions/@trypatch generic constraints. Nothing here runs —
  * `tsc` (via the `type-check` script) is what "tests" this file, since `src` is compiled as a
  * whole regardless of imports. Keep runtime behavior in trypatch.spec.ts.
  */
@@ -63,7 +63,7 @@ void ({
             },
         ],
     },
-} satisfies TryPatchOptions)
+} satisfies TrypatchOptions)
 
 const jsonSchemaErrorSchema = {
     type: 'object',
@@ -94,24 +94,24 @@ void ({
             },
         ],
     },
-} satisfies TryPatchOptions)
+} satisfies TrypatchOptions)
 
 // `getSignal` is resolved per call from the investigation context, so it must be a factory.
 void ({
     getSignal: ctx => (ctx.args[0] as { signal?: AbortSignal } | undefined)?.signal,
     customInvestigation: { investigate: () => Promise.resolve(undefined) },
-} satisfies TryPatchOptions)
+} satisfies TrypatchOptions)
 
 void ({
     // @ts-expect-error - a bare AbortSignal would exist once per decorator, not once per call
     getSignal: new AbortController().signal,
     customInvestigation: { investigate: () => Promise.resolve(undefined) },
-} satisfies TryPatchOptions)
+} satisfies TrypatchOptions)
 
 // Custom investigate handlers may ignore the options argument.
 void ({
     customInvestigation: { investigate: ctx => Promise.resolve(ctx.methodName) },
-} satisfies TryPatchOptions)
+} satisfies TrypatchOptions)
 
 void ({
     customInvestigation: {
@@ -120,4 +120,4 @@ void ({
             return Promise.resolve(optionalSignal)
         },
     },
-} satisfies TryPatchOptions)
+} satisfies TrypatchOptions)

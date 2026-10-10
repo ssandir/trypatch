@@ -4,14 +4,14 @@ import { buildInvestigationContext } from './investigationContext'
 import { TrypatchFatalError } from '../errors'
 import type { Logger } from '../logger'
 import type { Schema } from '../schema/types'
-import type { CallTiming, InvestigationContext, MethodDescriptor, TryPatchOptions } from '../types'
+import type { CallTiming, InvestigationContext, MethodDescriptor, TrypatchOptions } from '../types'
 
 export async function investigateError<
     S extends Schema,
     C = unknown,
 > (
     ctx: InvestigationContext,
-    options: TryPatchOptions<S, C>,
+    options: TrypatchOptions<S, C>,
     logger?: Logger,
     signal?: AbortSignal,
 ): Promise<unknown> {
@@ -23,7 +23,7 @@ export async function investigateError<
     )
 }
 
-function shouldPropagateCustomError (investigationError: unknown, options: TryPatchOptions<any, any>): boolean {
+function shouldPropagateCustomError (investigationError: unknown, options: TrypatchOptions<any, any>): boolean {
     return 'customInvestigation' in options
         ? options.customInvestigation.customErrors?.some(definition => investigationError instanceof definition.errorConstructor) ?? false
         : options.aiInvestigation.customErrors?.some(definition => definition.propagate && investigationError instanceof definition.errorConstructor) ?? false
@@ -34,7 +34,7 @@ export async function runInvestigation<
     C = unknown,
 > (
     error: unknown,
-    options: TryPatchOptions<S, C>,
+    options: TrypatchOptions<S, C>,
     logger: Logger,
     methodDescriptor: MethodDescriptor,
     receiver: unknown,

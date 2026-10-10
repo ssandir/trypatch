@@ -1,6 +1,6 @@
 import { types } from 'node:util'
 import { z } from 'zod/v4'
-import { formatForLLM } from '../../../formatForLLM'
+import { formatForLLM } from '../../../prompt/formatForLLM'
 import { defineTool } from '../../tool'
 import { BUILTIN_TOOL_NAME_PREFIX } from '../constants'
 import type { CallContext } from './types'

@@ -9,7 +9,7 @@ import {
 import type { Vault } from 'flare-redact'
 import { withDeadline } from '../../../../abort/withDeadline'
 import { callTool } from '../../tools/tool'
-import { getSchema } from '../../tools/schema'
+import { toInputJsonSchema } from '../../tools/schema'
 import { restoreInvestigationResponse } from '../../redact/flareRedact'
 import type { InvestigationTool } from '../../../../types'
 
@@ -42,7 +42,7 @@ export function toolsToAiSdkTools<C> (
         tool({
             description: investigationTool.description,
             // callTool already validates its own input; the cast drops json-schema-to-ts's boolean and readonly variants.
-            inputSchema: jsonSchema(getSchema(investigationTool.parameters, `Tool ${investigationTool.name} parameters`) as JSONSchema7),
+            inputSchema: jsonSchema(toInputJsonSchema(investigationTool.parameters, `Tool ${investigationTool.name} parameters`) as JSONSchema7),
             execute: guardToolExecution(
                 (input, options) => callTool(investigationTool, input, toolContext, { signal: options.abortSignal }),
                 vault,
