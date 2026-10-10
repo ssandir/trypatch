@@ -13,7 +13,7 @@ import type {
     ResultTool,
 } from '../../types'
 import type { Logger } from '../../logger'
-import { buildInvestigationPrompt } from './buildPrompt'
+import { buildInvestigationPrompt } from './prompt/buildPrompt'
 import { qualifiedMethodName } from '../investigationContext'
 import type { Schema, SchemaInfer } from '../../schema/types'
 import { parseParameter, parseWithSchema } from '../../schema/utils'

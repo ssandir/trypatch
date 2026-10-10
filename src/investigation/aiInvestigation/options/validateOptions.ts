@@ -1,7 +1,7 @@
-import type { Schema } from '../../schema/types'
-import type { AiInvestigationOptions } from '../../types'
-import { validateMcpServers } from './mcp/servers'
-import { getOutcomeSchema } from './resultSchema'
+import type { Schema } from '../../../schema/types'
+import type { AiInvestigationOptions } from '../../../types'
+import { validateMcpServers } from '../mcp/servers'
+import { getOutcomeSchema } from '../resultSchema'
 
 /** Throws on options that would fail every investigation, so they surface when the decorator is applied rather than after a failure. */
 export function validateAiInvestigationOptions<S extends Schema, C> (options: AiInvestigationOptions<S, C>): void {

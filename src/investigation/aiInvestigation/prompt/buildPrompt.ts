@@ -1,5 +1,5 @@
-import type { InvestigationContext } from '../../types'
-import { qualifiedMethodName } from '../investigationContext'
+import type { InvestigationContext } from '../../../types'
+import { qualifiedMethodName } from '../../investigationContext'
 import { formatForLLM } from './formatForLLM'
 
 const DEFAULT_SYSTEM_PROMPT = [

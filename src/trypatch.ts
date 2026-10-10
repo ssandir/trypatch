@@ -1,5 +1,5 @@
 import { TrypatchFatalError } from './errors'
-import { validateAiInvestigationOptions } from './investigation/aiInvestigation/validateOptions'
+import { validateAiInvestigationOptions } from './investigation/aiInvestigation/options/validateOptions'
 import { runInvestigation } from './investigation/runInvestigation'
 import { Logger } from './logger'
 import type { SchemaInfer, Schema } from './schema/types'
