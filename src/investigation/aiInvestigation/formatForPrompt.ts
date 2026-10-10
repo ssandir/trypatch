@@ -1,7 +1,8 @@
-import { inspect } from 'node:util'
+import { inspect, type InspectOptions } from 'node:util'
 
 const INSPECT_OPTIONS = {
-    depth: 6,
+    // Deeper values stay reachable through the built-in inspect tool, so the prompt can stay small.
+    depth: 4,
     maxArrayLength: 20,
     maxStringLength: 2_000,
     breakLength: 120,
@@ -14,6 +15,6 @@ const INSPECT_OPTIONS = {
  * blow up the prompt. For errors it adds what `stack` leaves out: own properties such as
  * `code`/`errno`/`status`, the `cause` chain and an `AggregateError`'s errors.
  */
-export function formatForPrompt (value: unknown): string {
-    return inspect(value, INSPECT_OPTIONS)
+export function formatForPrompt (value: unknown, options?: InspectOptions): string {
+    return inspect(value, { ...INSPECT_OPTIONS, ...options })
 }

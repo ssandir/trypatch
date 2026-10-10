@@ -138,7 +138,7 @@ export async function runAiInvestigation<S extends Schema, C> (
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)
     const rawOutcome = await callInvestigationProvider(investigationProvider, outcomeSchema, prompts, {
         maxTokens: investigationBehavior.maxTokens,
-        investigationTools: withSafeToolbox(investigationTools, investigationBehavior.allowSafeToolbox),
+        investigationTools: withSafeToolbox({ error: ctx.error, args: sanitizedArgs }, investigationTools, investigationBehavior.allowSafeToolbox),
         toolContext,
         vault,
         mcpServers,

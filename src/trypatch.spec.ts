@@ -515,6 +515,9 @@ describe('trypatch', () => {
 
             expect(model.doGenerateCalls[0]?.tools?.map(tool => tool.name)).toEqual([
                 'trypatch_builtin_wait',
+                'trypatch_builtin_read_call_context',
+                'trypatch_builtin_decode',
+                'trypatch_builtin_encode',
                 'search_logs',
                 'count_retries',
             ])
