@@ -2,6 +2,7 @@ import Ajv, { type AnySchema } from 'ajv'
 import type { JSONSchema } from 'json-schema-to-ts'
 import { parse, toJSONSchema } from 'zod/v4/core'
 import type { $ZodType } from 'zod/v4/core'
+import { TrypatchFatalError } from '../errors'
 import type { Schema } from './types'
 
 const ajv = new Ajv()
@@ -16,8 +17,14 @@ export function isJsonSchema (value: unknown): value is JSONSchema {
     return typeof value === 'object' && value !== null
 }
 
-function zodToJsonSchemaRecord (schema: $ZodType): JSONSchema {
-    const converted = toJSONSchema(schema)
+function zodToJsonSchemaRecord (schema: $ZodType, label: string): JSONSchema {
+    let converted
+    try {
+        converted = toJSONSchema(schema)
+    } catch (error) {
+        // Zod throws for types JSON Schema can't express (transforms, dates, bigints); its message doesn't say which option.
+        throw new TrypatchFatalError(`${label} can't be converted to JSON Schema: ${error instanceof Error ? error.message : String(error)}`)
+    }
     if ('schema' in converted && converted.schema && typeof converted.schema === 'object') {
         return converted.schema
     }
@@ -38,9 +45,10 @@ export function createJsonSchemaValidator (
     }
 }
 
-export function toJsonSchemaObject (schema: NonNullable<Schema>): JSONSchema {
+/** `label` names the option `schema` came from, for the error thrown when it can't be converted. */
+export function toJsonSchemaObject (schema: NonNullable<Schema>, label: string): JSONSchema {
     if (isZodSchema(schema)) {
-        return zodToJsonSchemaRecord(schema)
+        return zodToJsonSchemaRecord(schema, label)
     }
 
     return schema

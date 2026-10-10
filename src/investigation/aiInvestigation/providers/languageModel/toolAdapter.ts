@@ -42,7 +42,7 @@ export function toolsToAiSdkTools<C> (
         tool({
             description: investigationTool.description,
             // callTool already validates its own input; the cast drops json-schema-to-ts's boolean and readonly variants.
-            inputSchema: jsonSchema(getSchema(investigationTool.parameters) as JSONSchema7),
+            inputSchema: jsonSchema(getSchema(investigationTool.parameters, `Tool ${investigationTool.name} parameters`) as JSONSchema7),
             execute: guardToolExecution(
                 (input, options) => callTool(investigationTool, input, toolContext, { signal: options.abortSignal }),
                 vault,

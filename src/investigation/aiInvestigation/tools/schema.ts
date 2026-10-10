@@ -20,13 +20,13 @@ export function toFunctionToolName (name: string): string {
     return normalized
 }
 
-export function getSchema (parameters: Schema): JSONSchema {
+export function getSchema (parameters: Schema, label: string): JSONSchema {
     if (parameters === undefined) {
         return { ...EMPTY_OBJECT_SCHEMA }
     }
 
     if (isJsonSchema(parameters)) {
-        return toJsonSchemaObject(parameters)
+        return toJsonSchemaObject(parameters, label)
     }
 
     throw new TrypatchFatalError('Invalid parameters schema')

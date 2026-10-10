@@ -20,7 +20,7 @@ export function errorOutcomeVariant (definition: CustomErrorDefinition) {
             type: { enum: ['error'] },
             ...explanationProperties('why this error is the right outcome for it.'),
             error: { enum: [definition.errorConstructor.name] },
-            errorSchema: getSchema(definition.errorParameterSchema),
+            errorSchema: getSchema(definition.errorParameterSchema, `customErrors entry ${definition.errorConstructor.name} errorParameterSchema`),
         },
         required: ['type', 'explanation', 'error', 'errorSchema'],
         additionalProperties: false,
@@ -35,7 +35,7 @@ export function resultToolOutcomeVariant<C> (tool: ResultTool<Schema, C>) {
             type: { enum: ['resultTool'] },
             ...valueExplanationProperties,
             toolName: { enum: [tool.name] },
-            input: getSchema(tool.parameters),
+            input: getSchema(tool.parameters, `Result tool ${tool.name} parameters`),
         },
         required: ['type', 'explanation', 'toolName', 'input'],
         additionalProperties: false,
@@ -50,7 +50,7 @@ export function explicitResultOutcomeVariant (resultSchema: Schema) {
             type: { enum: ['result'] },
             ...valueExplanationProperties,
             result: resultSchema !== undefined
-                ? toJsonSchemaObject(resultSchema)
+                ? toJsonSchemaObject(resultSchema, 'resultSchema')
                 : {
                     type: 'string',
                     description: 'The method\'s return value, JSON-encoded. It is parsed with JSON.parse and returned in place of the error.',
