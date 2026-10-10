@@ -1,6 +1,7 @@
 import {
     jsonSchema,
     tool,
+    type JSONSchema7,
     type Tool,
     type ToolExecutionOptions,
     type ToolSet,
@@ -40,8 +41,8 @@ export function toolsToAiSdkTools<C> (
         investigationTool.name,
         tool({
             description: investigationTool.description,
-            // callTool already validates its own input.
-            inputSchema: jsonSchema(getSchema(investigationTool.parameters) as Parameters<typeof jsonSchema>[0]),
+            // callTool already validates its own input; the cast drops json-schema-to-ts's boolean and readonly variants.
+            inputSchema: jsonSchema(getSchema(investigationTool.parameters, `Tool ${investigationTool.name} parameters`) as JSONSchema7),
             execute: guardToolExecution(
                 (input, options) => callTool(investigationTool, input, toolContext, { signal: options.abortSignal }),
                 vault,

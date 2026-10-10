@@ -1,10 +1,6 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import { TrypatchFatalError } from '../../../errors'
-import {
-    isJsonSchema,
-    isZodObject,
-    toJsonSchemaObject,
-} from '../../../schema/utils'
+import { isJsonSchema, toJsonSchemaObject } from '../../../schema/utils'
 import type { Schema } from '../../../schema/types'
 
 const EMPTY_OBJECT_SCHEMA = {
@@ -24,13 +20,13 @@ export function toFunctionToolName (name: string): string {
     return normalized
 }
 
-export function getSchema (parameters: Schema): JSONSchema {
+export function getSchema (parameters: Schema, label: string): JSONSchema {
     if (parameters === undefined) {
         return { ...EMPTY_OBJECT_SCHEMA }
     }
 
-    if (isZodObject(parameters) || isJsonSchema(parameters)) {
-        return toJsonSchemaObject(parameters)
+    if (isJsonSchema(parameters)) {
+        return toJsonSchemaObject(parameters, label)
     }
 
     throw new TrypatchFatalError('Invalid parameters schema')
