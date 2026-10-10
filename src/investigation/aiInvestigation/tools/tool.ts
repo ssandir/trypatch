@@ -1,6 +1,6 @@
 import { withDeadline } from '../../../abort/withDeadline'
 import { TrypatchFatalError } from '../../../errors'
-import { parseParameter } from '../../../schema/utils'
+import { assertValidJsonSchema, parseParameter } from '../../../schema/utils'
 import { getSchema, toFunctionToolName } from './schema'
 import type {
     Tool,
@@ -19,6 +19,7 @@ export function defineTool<
     if (typeof schema !== 'object' || schema.type !== 'object') {
         throw new TrypatchFatalError(`Tool ${definition.name} parameters must be an object schema`)
     }
+    assertValidJsonSchema(definition.parameters, `Tool ${definition.name} parameters`)
 
     return { ...definition, name: toFunctionToolName(definition.name) }
 }

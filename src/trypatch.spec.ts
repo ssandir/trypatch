@@ -216,6 +216,21 @@ describe('trypatch', () => {
                 },
             })).toThrow('resultSchema can\'t be converted to JSON Schema')
         })
+
+        it('should throw when created with a JSON Schema that doesn\'t compile', () => {
+            // A schema loaded at runtime, which the JSONSchema type can't check.
+            const invalidSchema = { type: 'object', properties: { reason: { type: 'strnig' } } } as unknown as JSONSchema
+
+            expect(() => trypatch({
+                aiInvestigation: { resultSchema: invalidSchema, investigationProvider },
+            })).toThrow('resultSchema is not a valid JSON Schema')
+            expect(() => trypatch({
+                aiInvestigation: {
+                    investigationProvider,
+                    customErrors: [{ errorConstructor: class RetryableError extends Error {}, errorParameterSchema: invalidSchema }],
+                },
+            })).toThrow('customErrors entry RetryableError errorParameterSchema is not a valid JSON Schema')
+        })
     })
 
     describe('trypatch as decorator', () => {
