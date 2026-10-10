@@ -135,7 +135,7 @@ class CustomerRepository {
 3. OpenAI investigates with redacted data
 4. When the AI calls an investigation tool, placeholders in its input are restored before the tool runs, and the tool's output is redacted before it goes back to the AI
 5. Response placeholders are restored locally before the value is returned
-6. **Original secrets never leave your infrastructure**
+6. **Detected and listed secrets never leave your infrastructure**
 
 ---
 
