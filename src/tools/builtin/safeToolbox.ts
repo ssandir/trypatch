@@ -1,5 +1,6 @@
 import { setTimeout as sleep } from 'node:timers/promises'
 import { z } from 'zod'
+import type { InvestigationTool } from '../../types'
 import { defineTool } from '../tool'
 import { BUILTIN_TOOL_NAME_PREFIX } from './constants'
 
@@ -18,4 +19,11 @@ const waitTool = defineTool({
     },
 })
 
-export const safeTools = [waitTool]
+export const safeToolbox = [waitTool]
+
+export function withSafeToolbox<C> (
+    investigationTools: InvestigationTool<C>[] | undefined,
+    allowSafeToolbox = true,
+): InvestigationTool<C>[] | undefined {
+    return allowSafeToolbox ? [...safeToolbox, ...investigationTools ?? []] : investigationTools
+}

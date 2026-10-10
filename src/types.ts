@@ -81,10 +81,10 @@ export type InvestigationBehavior = {
      */
     allowMethodSource?: boolean
     /**
-     * Whether the AI may also call trypatch's built-in safe investigation tools (currently `trypatch_builtin_wait`) alongside
+     * Whether the AI may also call the tools in trypatch's built-in safe toolbox (currently `trypatch_builtin_wait`) alongside
      * {@link AiInvestigationOptions.investigationTools}. Defaults to `true`.
      */
-    allowSafeTools?: boolean
+    allowSafeToolbox?: boolean
     /**
      * Whether the AI may return a `result` directly, versus only via {@link AiInvestigationOptions.resultTools}/{@link AiInvestigationOptions.customErrors}.
      * Defaults to `true`.
