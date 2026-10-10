@@ -39,9 +39,7 @@ describe('createLanguageModel', () => {
         )
 
         expect(result).toEqual({
-            type: 'result',
-            explanation: 'test explanation',
-            result: { inStock: true },
+            outcome: { type: 'result', explanation: 'test explanation', result: { inStock: true } },
         })
         expect(fetchMock).toHaveBeenCalledWith(
             'https://api.anthropic.com/v1/messages',
@@ -77,9 +75,7 @@ describe('createLanguageModel', () => {
         )
 
         expect(result).toEqual({
-            type: 'result',
-            explanation: 'test explanation',
-            result: { inStock: true },
+            outcome: { type: 'result', explanation: 'test explanation', result: { inStock: true } },
         })
         expect(fetchMock).toHaveBeenCalledWith(
             'https://api.openai.com/v1/responses',
@@ -112,7 +108,9 @@ describe('createLanguageModel', () => {
             {},
         )
 
-        expect(result.type).toBe('result')
+        expect(result).toEqual({
+            outcome: { type: 'result', explanation: 'test explanation', result: { inStock: true } },
+        })
         expect(fetchMock).toHaveBeenCalledWith('http://localhost:11434/v1/chat/completions', expect.anything())
     })
 })

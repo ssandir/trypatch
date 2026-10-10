@@ -37,6 +37,10 @@ export function createJsonSchemaValidator (
 ): (value: unknown) => void {
     // json-schema-to-ts and Ajv model JSON Schema with different types; compile accepts the runtime object.
     const validate = ajv.compile(schema as unknown as AnySchema)
+    // Ajv keeps every schema object it compiles and has no option to turn that off; outcome schemas are rebuilt per investigation.
+    if (typeof schema === 'object') {
+        ajv.removeSchema(schema as AnySchema)
+    }
 
     return (value: unknown) => {
         if (!validate(value)) {

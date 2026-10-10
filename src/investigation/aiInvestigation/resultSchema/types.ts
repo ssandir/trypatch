@@ -1,3 +1,5 @@
+import type { Schema } from '../../../schema/types'
+import type { CustomErrorDefinition, ResultTool } from '../../../types'
 import type {
     InvestigationCannotDetermineOutcome,
     InvestigationNoApplicableOutcome,
@@ -5,6 +7,16 @@ import type {
 } from './outcomeVariants'
 
 export type { InvestigationCannotDetermineOutcome, InvestigationNoApplicableOutcome, InvestigationUncertainOutcome }
+
+export type OutcomeSchemaOptions<C> = {
+    resultSchema?: Schema
+    customErrors?: CustomErrorDefinition[] | undefined
+    resultTools?: ResultTool<Schema, C>[] | undefined
+    allowDirectResultCreation?: boolean | undefined
+    allowCannotDetermine?: boolean | undefined
+    allowUncertainResult?: boolean | undefined
+    allowNoApplicableOutcome?: boolean | undefined
+}
 
 export type InvestigationErrorOutcome = {
     type: 'error'

@@ -4,7 +4,7 @@ import { Logger } from '../../../../logger'
 import { extractJsonFromText } from '../../../../schema/utils'
 import { resolveMcpServers } from '../../mcp/servers'
 import type { ResolvedMcpServerConfig } from '../../mcp/types'
-import { outcomeSchemaPrompt, parseProviderOutcome, type InvestigationOutcome } from '../../resultSchema'
+import { outcomeSchemaPrompt } from '../../resultSchema'
 import { CANCEL_TIMEOUT_MS, DEFAULT_BASE_URL, DEFAULT_POLL_INTERVAL_MS, TERMINAL_RUN_STATUSES } from './constants'
 import type {
     CursorCreateAgentResponse,
@@ -125,16 +125,7 @@ async function createCursorAgent (
     return { agentId, runId }
 }
 
-function parseTerminalRunResult (
-    runPayload: CursorRunResponse,
-    outcomeSchema: JSONSchema,
-): InvestigationOutcome | null {
-    const status = runPayload.status?.toUpperCase()
-
-    if (!status || !TERMINAL_RUN_STATUSES.has(status)) {
-        return null
-    }
-
+function terminalRunOutput (runPayload: CursorRunResponse, status: string): unknown {
     if (status !== 'FINISHED') {
         throw new Error(`Cursor investigation run ended with status ${status}`)
     }
@@ -143,7 +134,7 @@ function parseTerminalRunResult (
         throw new Error('Cursor investigation run finished without a result')
     }
 
-    return parseProviderOutcome(JSON.stringify(extractJsonFromText(runPayload.result)), outcomeSchema)
+    return extractJsonFromText(runPayload.result)
 }
 
 async function pollCursorRun (
@@ -151,11 +142,10 @@ async function pollCursorRun (
     authorization: string,
     agentId: string,
     runId: string,
-    outcomeSchema: JSONSchema,
     pollIntervalMs: number,
     doFetch: typeof fetch,
     signal: AbortSignal | undefined,
-): Promise<InvestigationOutcome> {
+): Promise<unknown> {
     for (;;) {
         const runResponse = await doFetch(`${baseURL}/v1/agents/${agentId}/runs/${runId}`, {
             headers: {
@@ -170,9 +160,9 @@ async function pollCursorRun (
             throw new Error(runPayload.error?.message ?? `Cursor run lookup failed with status ${runResponse.status}`)
         }
 
-        const result = parseTerminalRunResult(runPayload, outcomeSchema)
-        if (result !== null) {
-            return result
+        const status = runPayload.status?.toUpperCase()
+        if (status !== undefined && TERMINAL_RUN_STATUSES.has(status)) {
+            return terminalRunOutput(runPayload, status)
         }
 
         await sleep(pollIntervalMs, undefined, { signal })
@@ -212,7 +202,7 @@ export async function investigateWithCursor (
     outcomeSchema: JSONSchema,
     prompts: { systemPrompt: string, userPrompt: string },
     options: CursorInvestigationOptions,
-): Promise<InvestigationOutcome> {
+): Promise<unknown> {
     const baseURL = (config.baseURL ?? DEFAULT_BASE_URL).replace(/\/$/, '')
     const authorization = buildAuthorizationHeader(config.apiKey)
     const pollIntervalMs = config.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
@@ -233,7 +223,6 @@ export async function investigateWithCursor (
             authorization,
             agentId,
             runId,
-            outcomeSchema,
             pollIntervalMs,
             doFetch,
             signal,

@@ -1,5 +1,5 @@
 import { z } from 'zod/v4'
-import { buildInvestigationResultSchema } from './resultSchema'
+import { buildInvestigationResultEnvelopeSchema, buildInvestigationResultSchema, parseProviderOutcome } from './resultSchema'
 import { TrypatchConfigError } from '../../../errors'
 import { defineTool } from '../tools'
 import type { CustomErrorDefinition } from '../../../types'
@@ -113,5 +113,23 @@ describe('buildInvestigationResultSchema', () => {
             allowNoApplicableOutcome: false,
         })
         expect(variantTypes(schema)).toEqual(['cannotDetermine'])
+    })
+
+    it('should accept any payload in the envelope schema, but still check the outcome around it', () => {
+        const envelope = buildInvestigationResultEnvelopeSchema({
+            resultSchema: z.object({ email: z.email() }),
+            resultTools: [resultTool],
+            customErrors,
+        })
+        const anything = { not: ['what', 'the', 'schemas', 'describe'] }
+
+        expect(parseProviderOutcome({ outcome: { type: 'result', explanation: 'x', result: anything } }, envelope))
+            .toEqual({ type: 'result', explanation: 'x', result: anything })
+        expect(parseProviderOutcome({ outcome: { type: 'resultTool', explanation: 'x', toolName: 'submit_investigation', input: anything } }, envelope))
+            .toMatchObject({ input: anything })
+        expect(parseProviderOutcome({ outcome: { type: 'error', explanation: 'x', error: 'RetryableError', errorSchema: anything } }, envelope))
+            .toMatchObject({ errorSchema: anything })
+        expect(() => parseProviderOutcome({ outcome: { type: 'resultTool', explanation: 'x', toolName: 'unregistered', input: anything } }, envelope))
+            .toThrow('Invalid investigation outcome')
     })
 })

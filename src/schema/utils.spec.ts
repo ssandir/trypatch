@@ -1,6 +1,7 @@
+import type { JSONSchema } from 'json-schema-to-ts'
 import { z } from 'zod/v4'
 import { TrypatchFatalError } from '../errors'
-import { extractJsonFromText, parseWithSchema, toJsonSchemaObject } from './utils'
+import { createJsonSchemaValidator, extractJsonFromText, parseWithSchema, toJsonSchemaObject } from './utils'
 
 describe('schemaUtils', () => {
     const schema = z.object({
@@ -28,6 +29,13 @@ describe('schemaUtils', () => {
         expect(parseWithSchema(schema, { inStock: true })).toEqual({
             inStock: true,
         })
+    })
+
+    it('should validate rebuilt copies of a schema, even one with an $id', () => {
+        const buildSchema = (): JSONSchema => ({ $id: 'quote', type: 'object', properties: { price: { type: 'number' } } })
+
+        expect(() => createJsonSchemaValidator(buildSchema(), 'quote')({ price: 1 })).not.toThrow()
+        expect(() => createJsonSchemaValidator(buildSchema(), 'quote')({ price: 'free' })).toThrow('Invalid quote')
     })
 
     it('should parse a JSON-encoded string when no schema is given', () => {

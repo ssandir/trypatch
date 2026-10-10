@@ -1,11 +1,10 @@
-import Ajv from 'ajv'
 import { z } from 'zod/v4'
 import { TrypatchCannotDetermineError } from '../../errors'
 import { Logger } from '../../logger'
 import { mockCallTiming } from '../../test/mockCallTiming'
 import { mockLanguageModel, mockOutcomeTurn, promptText } from '../../test/mockLanguageModel'
 import { mockMethodDescriptor } from '../../test/mockMethodDecoratorContext'
-import type { AiInvestigationOptions, CustomErrorDefinition } from '../../types'
+import type { CustomErrorDefinition } from '../../types'
 import { buildInvestigationContext } from '../investigationContext'
 import { createLanguageModel } from './providers/languageModel/createLanguageModel'
 import { runAiInvestigation } from './runAiInvestigation'
@@ -40,6 +39,32 @@ describe('runAiInvestigation', () => {
         const result = await runAiInvestigation(ctx, { investigationProvider })
 
         expect(result).toEqual({ inStock: true })
+    })
+
+    it('should return a result for a Zod resultSchema with string formats', async () => {
+        const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [], mockCallTiming())
+        const order = { email: 'buyer@example.com', id: '123e4567-e89b-12d3-a456-426614174000', placedAt: '2026-10-09T08:15:00Z' }
+        useOutcome({ type: 'result', explanation: 'test explanation', result: order })
+
+        await expect(runAiInvestigation(ctx, {
+            resultSchema: z.object({ email: z.email(), id: z.uuid(), placedAt: z.iso.datetime() }),
+            investigationProvider,
+        })).resolves.toEqual(order)
+    })
+
+    it('should reject an outcome type the options leave out without calling onAiInvestigationEnd', async () => {
+        class RetryableError extends Error {}
+        const onAiInvestigationEnd = jest.fn()
+        useOutcome({ type: 'result', explanation: 'test explanation', result: JSON.stringify('ok') })
+        const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [], mockCallTiming())
+
+        await expect(runAiInvestigation(ctx, {
+            investigationProvider,
+            investigationBehavior: { allowDirectResultCreation: false },
+            customErrors: [{ errorConstructor: RetryableError }],
+            onAiInvestigationEnd,
+        })).rejects.toThrow('Invalid investigation outcome')
+        expect(onAiInvestigationEnd).not.toHaveBeenCalled()
     })
 
     it('should invoke result tools when the provider returns a resultTool outcome', async () => {
@@ -234,6 +259,23 @@ describe('runAiInvestigation', () => {
         })
     })
 
+    it('should pass a result that doesn\'t match resultSchema to onAiInvestigationEnd as an error', async () => {
+        const onAiInvestigationEnd = jest.fn()
+        useOutcome({ type: 'result', explanation: 'test explanation', result: { inStock: 'yes' } })
+        const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [], mockCallTiming())
+
+        await expect(runAiInvestigation(ctx, {
+            resultSchema: z.object({ inStock: z.boolean() }),
+            investigationProvider,
+            onAiInvestigationEnd,
+        })).rejects.toThrow()
+        expect(onAiInvestigationEnd).toHaveBeenCalledWith(ctx, {
+            type: 'error',
+            error: expect.any(Error),
+            explanation: 'test explanation',
+        })
+    })
+
     it('should reject with the error onAiInvestigationEnd throws instead of returning the recovered value', async () => {
         const hookError = new Error('value rejected')
         useOutcome({ type: 'result', explanation: 'test explanation', result: 'ok' })
@@ -307,22 +349,4 @@ describe('runAiInvestigation', () => {
         expect(promptText(model.doGenerateCalls[0], 'user')).toContain(secret)
     })
 
-    it('should compile the outcome schema once across investigations with the same options', async () => {
-        const compile = jest.spyOn(Ajv.prototype, 'compile')
-        jest.mocked(createLanguageModel).mockImplementation(() => mockLanguageModel(mockOutcomeTurn({
-            type: 'result',
-            explanation: 'test explanation',
-            result: { inStock: true },
-        })))
-        const ctx = buildInvestigationContext(new Error('boom'), mockMethodDescriptor(), undefined, [], mockCallTiming())
-        const options: AiInvestigationOptions = {
-            resultSchema: z.object({ inStock: z.boolean() }),
-            investigationProvider,
-        }
-
-        await runAiInvestigation(ctx, options)
-        await runAiInvestigation(ctx, options)
-
-        expect(new Set(compile.mock.calls.map(([schema]) => schema)).size).toBe(1)
-    })
 })

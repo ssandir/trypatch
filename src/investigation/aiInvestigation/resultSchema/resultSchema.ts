@@ -1,6 +1,6 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import { TrypatchConfigError } from '../../../errors'
-import type { AiInvestigationOptions, CustomErrorDefinition, ResultTool } from '../../../types'
+import type { AiInvestigationOptions } from '../../../types'
 import type { Schema } from '../../../schema/types'
 import { parseWithSchema } from '../../../schema/utils'
 import {
@@ -11,7 +11,7 @@ import {
     resultToolOutcomeVariant,
     uncertainOutcomeVariant,
 } from './outcomeVariants'
-import type { InvestigationOutcome } from './types'
+import type { InvestigationOutcome, OutcomeSchemaOptions } from './types'
 
 /**
  * Builds a strict-mode-compatible JSON Schema (per OpenAI's structured outputs rules: object root,
@@ -27,15 +27,7 @@ export function buildInvestigationResultSchema<C> ({
     allowCannotDetermine = true,
     allowUncertainResult = true,
     allowNoApplicableOutcome = true,
-}: {
-    resultSchema?: Schema
-    customErrors?: CustomErrorDefinition[] | undefined
-    resultTools?: ResultTool<Schema, C>[] | undefined
-    allowDirectResultCreation?: boolean | undefined
-    allowCannotDetermine?: boolean | undefined
-    allowUncertainResult?: boolean | undefined
-    allowNoApplicableOutcome?: boolean | undefined
-}) {
+}: OutcomeSchemaOptions<C>) {
     const variants = [
         ...(customErrors ?? []).map(errorOutcomeVariant),
         ...(resultTools ?? []).map(resultToolOutcomeVariant),
@@ -59,27 +51,35 @@ export function buildInvestigationResultSchema<C> ({
     } as const satisfies JSONSchema
 }
 
-// Ajv caches compiled validators by schema object, so a schema rebuilt per investigation would compile again and stay cached forever.
-const outcomeSchemas = new WeakMap<object, JSONSchema>()
+const ANY_PAYLOAD = {} as const satisfies JSONSchema
 
-/** {@link buildInvestigationResultSchema} for `options`, built once per options object. */
-export function getOutcomeSchema<S extends Schema, C> (options: AiInvestigationOptions<S, C>): JSONSchema {
-    let outcomeSchema = outcomeSchemas.get(options)
-    if (outcomeSchema === undefined) {
-        const { resultSchema, customErrors, resultTools, investigationBehavior = {} } = options
-        outcomeSchema = buildInvestigationResultSchema({
-            resultSchema,
-            customErrors,
-            resultTools,
-            allowDirectResultCreation: investigationBehavior.allowDirectResultCreation,
-            allowCannotDetermine: investigationBehavior.allowCannotDetermine,
-            allowUncertainResult: investigationBehavior.allowUncertainResult,
-            allowNoApplicableOutcome: investigationBehavior.allowNoApplicableOutcome,
-        })
-        outcomeSchemas.set(options, outcomeSchema)
+/**
+ * {@link buildInvestigationResultSchema} with every payload (`result`, `input`, `errorSchema`) accepting anything, for
+ * validating a provider's response. Payloads are parsed with the consumer's own schemas when the outcome is applied, so a
+ * Zod schema is never validated through its JSON Schema conversion, which Ajv can't compile (Zod emits `format`s).
+ */
+export function buildInvestigationResultEnvelopeSchema<C> (options: OutcomeSchemaOptions<C>) {
+    return buildInvestigationResultSchema({
+        ...options,
+        resultSchema: ANY_PAYLOAD,
+        resultTools: options.resultTools?.map(tool => ({ ...tool, parameters: ANY_PAYLOAD })),
+        customErrors: options.customErrors?.map(definition => ({ ...definition, errorParameterSchema: ANY_PAYLOAD })),
+    })
+}
+
+/** The outcome schema builders' inputs, picked from the decorator's AI investigation options. */
+export function outcomeSchemaOptions<S extends Schema, C> (
+    { resultSchema, customErrors, resultTools, investigationBehavior = {} }: AiInvestigationOptions<S, C>,
+): OutcomeSchemaOptions<C> {
+    return {
+        resultSchema,
+        customErrors,
+        resultTools,
+        allowDirectResultCreation: investigationBehavior.allowDirectResultCreation,
+        allowCannotDetermine: investigationBehavior.allowCannotDetermine,
+        allowUncertainResult: investigationBehavior.allowUncertainResult,
+        allowNoApplicableOutcome: investigationBehavior.allowNoApplicableOutcome,
     }
-
-    return outcomeSchema
 }
 
 /**
@@ -90,12 +90,8 @@ export function outcomeSchemaPrompt (outcomeSchema: JSONSchema): string {
     return `Return JSON matching this schema:\n${JSON.stringify(outcomeSchema, null, 2)}`
 }
 
-/**
- * Parses a provider's raw response text into its {@link InvestigationOutcome}, validating it against
- * `outcomeSchema`. The nested `result`/`errorSchema`/`input` payloads are validated against the caller's
- * actual schemas separately, in {@link investigateError}.
- */
-export function parseProviderOutcome (content: string, outcomeSchema: JSONSchema): InvestigationOutcome {
-    const parsed = parseWithSchema(outcomeSchema, JSON.parse(content), 'investigation outcome') as { outcome: InvestigationOutcome }
+/** Validates a provider's response against the {@link buildInvestigationResultEnvelopeSchema | envelope} and returns its {@link InvestigationOutcome}. */
+export function parseProviderOutcome (response: unknown, envelopeSchema: JSONSchema): InvestigationOutcome {
+    const parsed = parseWithSchema(envelopeSchema, response, 'investigation outcome') as { outcome: InvestigationOutcome }
     return parsed.outcome
 }

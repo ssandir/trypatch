@@ -53,9 +53,7 @@ describe('investigateWithCursor', () => {
         )
 
         expect(result).toEqual({
-            type: 'result',
-            explanation: 'test explanation',
-            result: { inStock: false },
+            outcome: { type: 'result', explanation: 'test explanation', result: { inStock: false } },
         })
         expect(fetchMock).toHaveBeenNthCalledWith(
             1,

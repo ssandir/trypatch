@@ -24,7 +24,12 @@ import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithLanguageModel } from './providers/languageModel/investigate'
 import type { LanguageModelInvestigationOptions } from './providers/languageModel/types'
 import type { InvestigationOutcome } from './resultSchema'
-import { getOutcomeSchema } from './resultSchema'
+import {
+    buildInvestigationResultEnvelopeSchema,
+    buildInvestigationResultSchema,
+    outcomeSchemaOptions,
+    parseProviderOutcome,
+} from './resultSchema'
 
 async function applyOutcome<S extends Schema, C> (
     outcome: InvestigationOutcome,
@@ -94,7 +99,7 @@ async function callInvestigationProvider<C> (
     outcomeSchema: JSONSchema,
     prompts: { systemPrompt: string, userPrompt: string },
     options: LanguageModelInvestigationOptions<C>,
-): Promise<InvestigationOutcome> {
+): Promise<unknown> {
     if (investigationProvider.provider === 'cursor') {
         return await investigateWithCursor(investigationProvider, outcomeSchema, prompts, options)
     }
@@ -123,10 +128,10 @@ export async function runAiInvestigation<S extends Schema, C> (
     const sanitizedArgs = investigationBehavior.sanitizeArgs
         ? investigationBehavior.sanitizeArgs(ctx.args)
         : ctx.args
-    const outcomeSchema = getOutcomeSchema(options)
+    const schemaOptions = outcomeSchemaOptions(options)
     const builtPrompts = buildInvestigationPrompt(ctx, sanitizedArgs, investigationBehavior)
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)
-    const rawOutcome = await callInvestigationProvider(investigationProvider, outcomeSchema, prompts, {
+    const response = await callInvestigationProvider(investigationProvider, buildInvestigationResultSchema(schemaOptions), prompts, {
         maxTokens: investigationBehavior.maxTokens,
         investigationTools: withSafeToolbox({ error: ctx.error, args: sanitizedArgs }, investigationTools, investigationBehavior.allowSafeToolbox),
         toolContext,
@@ -136,7 +141,7 @@ export async function runAiInvestigation<S extends Schema, C> (
         signal,
     })
 
-    const outcome = restoreInvestigationResponse(rawOutcome, vault)
+    const outcome = restoreInvestigationResponse(parseProviderOutcome(response, buildInvestigationResultEnvelopeSchema(schemaOptions)), vault)
     const resolved = await resolveOutcome(outcome, resultSchema, customErrors, resultTools, toolContext, signal)
     
     signal?.throwIfAborted()
