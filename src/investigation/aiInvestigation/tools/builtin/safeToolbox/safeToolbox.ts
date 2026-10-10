@@ -1,4 +1,4 @@
-import type { InvestigationTool } from '../../../types'
+import type { InvestigationTool } from '../../../../../types'
 import { decodeTool, encodeTool } from './encoding'
 import { createReadCallContextTool } from './readCallContext'
 import type { CallContext } from './types'

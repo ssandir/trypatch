@@ -12,7 +12,7 @@ import {
     type MockGenerateResult,
 } from '../../../../test/mockLanguageModel'
 import { Logger } from '../../../../logger'
-import { defineTool } from '../../../../tools'
+import { defineTool } from '../../tools'
 import { buildInvestigationResultSchema } from '../../resultSchema'
 import { createLanguageModel } from './createLanguageModel'
 import { investigateWithLanguageModel } from './investigate'

@@ -1,6 +1,6 @@
 import type { VaultOptions } from 'flare-redact'
 import type { LoggingOptions } from './logger'
-import type { Tool } from './tools'
+import type { Tool } from './investigation/aiInvestigation/tools'
 import type { CursorInvestigationConfig } from './investigation/aiInvestigation/providers/cursor/types'
 import type { LanguageModelInvestigationConfig } from './investigation/aiInvestigation/providers/languageModel/types'
 import type { McpServerConfig } from './investigation/aiInvestigation/mcp/types'

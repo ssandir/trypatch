@@ -1,11 +1,11 @@
-import { withDeadline } from '../abort/withDeadline'
-import { parseParameter } from '../schema/utils'
+import { withDeadline } from '../../../abort/withDeadline'
+import { parseParameter } from '../../../schema/utils'
 import { getSchema, toFunctionToolName } from './schema'
 import type {
     Tool,
     ToolDefinition,
 } from './types'
-import type { Schema, SchemaInfer } from '../schema/types'
+import type { Schema, SchemaInfer } from '../../../schema/types'
 
 export function defineTool<
     TSchema extends Schema = undefined,

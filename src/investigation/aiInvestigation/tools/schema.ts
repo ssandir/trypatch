@@ -1,11 +1,11 @@
 import type { JSONSchema } from 'json-schema-to-ts'
-import { TrypatchFatalError } from '../errors'
+import { TrypatchFatalError } from '../../../errors'
 import {
     isJsonSchema,
     isZodObject,
     toJsonSchemaObject,
-} from '../schema/utils'
-import type { Schema } from '../schema/types'
+} from '../../../schema/utils'
+import type { Schema } from '../../../schema/types'
 
 const EMPTY_OBJECT_SCHEMA = {
     type: 'object',

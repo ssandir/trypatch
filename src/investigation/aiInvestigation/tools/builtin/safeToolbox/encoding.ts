@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { defineTool } from '../../tool'
 import { BUILTIN_TOOL_NAME_PREFIX } from '../constants'
 
-const MAX_INPUT_LENGTH = 100_000
+const MAX_INPUT_LENGTH = 10_000
 
 // Buffer.from skips characters outside the alphabet, which would turn a malformed value into silently wrong bytes.
 const ENCODED_PATTERNS = {

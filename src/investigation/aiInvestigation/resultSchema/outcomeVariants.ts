@@ -2,7 +2,7 @@ import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
 import type { CustomErrorDefinition, ResultTool } from '../../../types'
 import type { Schema } from '../../../schema/types'
 import { toJsonSchemaObject } from '../../../schema/utils'
-import { getSchema } from '../../../tools/schema'
+import { getSchema } from '../tools/schema'
 
 function explanationProperties<WhyThisOutcome extends string> (whyThisOutcome: WhyThisOutcome) {
     return {

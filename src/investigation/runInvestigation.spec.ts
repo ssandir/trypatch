@@ -10,7 +10,7 @@ import {
     TrypatchUncertainResultError,
 } from '../errors'
 import { Logger } from '../logger'
-import { defineTool } from '../tools'
+import { defineTool } from './aiInvestigation/tools'
 import type { CustomErrorDefinition, InvestigationContext, TryPatchOptions } from '../types'
 import { mockMethodDescriptor } from '../test/mockMethodDecoratorContext'
 import { mockTimeoutSignal } from '../test/abort'

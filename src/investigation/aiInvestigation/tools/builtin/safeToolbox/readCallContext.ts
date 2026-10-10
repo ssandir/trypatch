@@ -1,15 +1,9 @@
 import { types } from 'node:util'
 import { z } from 'zod'
-import { formatForPrompt } from '../../../investigation/aiInvestigation/formatForPrompt'
+import { formatForLLM, INSPECT_OPTIONS } from '../../../formatForLLM'
 import { defineTool } from '../../tool'
 import { BUILTIN_TOOL_NAME_PREFIX } from '../constants'
 import type { CallContext } from './types'
-
-// Same depth as the prompt so the model drills down step by step, but long strings and arrays come back whole.
-const INSPECT_OPTIONS = {
-    maxArrayLength: 200,
-    maxStringLength: 50_000,
-} as const
 
 type PathSegment = string | number
 
@@ -89,7 +83,7 @@ export function createReadCallContextTool (callContext: CallContext) {
         execute: ({ root, path }): string => {
             const value = resolvePath(callContext, [root, ...path])
             // inspect would quote a string and split it into concatenated lines, which is hard to read for a stack.
-            return typeof value === 'string' ? value.slice(0, INSPECT_OPTIONS.maxStringLength) : formatForPrompt(value, INSPECT_OPTIONS)
+            return typeof value === 'string' ? value.slice(0, INSPECT_OPTIONS.maxStringLength) : formatForLLM(value)
         },
     })
 }
