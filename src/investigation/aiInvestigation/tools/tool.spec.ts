@@ -1,5 +1,5 @@
 import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 import { mockTimeoutSignal } from '../../../test/abort'
 import { callTool, defineTool } from './tool'
 import type { SchemaInfer } from '../../../schema/types'

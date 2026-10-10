@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from 'zod/v4'
 import { buildInvestigationResultSchema } from './resultSchema'
 import { TrypatchConfigError } from '../../../errors'
 import { defineTool } from '../tools'

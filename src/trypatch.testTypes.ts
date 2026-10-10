@@ -1,5 +1,5 @@
 import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 import { trypatch } from './trypatch'
 import type { TryPatchOptions } from './types'
 import { mockMethodDecoratorContext } from './test/mockMethodDecoratorContext'

@@ -1,5 +1,5 @@
 import { MockLanguageModelV4 } from 'ai/test'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 import { investigateError, runInvestigation } from './runInvestigation'
 import { buildInvestigationContext } from './investigationContext'
 import {

@@ -2,7 +2,7 @@ import { createMCPClient, type MCPClient } from '@ai-sdk/mcp'
 import { Experimental_StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio'
 import { jsonSchema, tool, type ToolSet } from 'ai'
 import { createVault } from 'flare-redact'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 import {
     mockLanguageModel,
     mockOutcomeTurn,

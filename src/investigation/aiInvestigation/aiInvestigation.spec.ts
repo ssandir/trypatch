@@ -1,5 +1,5 @@
 import { setTimeout as sleep } from 'node:timers/promises'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 import { Logger } from '../../logger'
 import { mockTimeoutSignal } from '../../test/abort'
 import type { InvestigationContext } from '../../types'
