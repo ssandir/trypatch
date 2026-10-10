@@ -478,7 +478,7 @@ Use `as const satisfies JSONSchema` so `FromSchema<typeof quoteSchema>` stays pr
 
 ## Providers
 
-Every provider config takes the API key directly; resolve it however you like (env var, secret manager, etc.) before passing it in. `openai`, `claude` and `openai-compatible` are built on the [Vercel AI SDK](https://ai-sdk.dev), which trypatch installs as its own dependency; none of its types are part of trypatch's API.
+Every provider config takes the API key directly; resolve it however you like (env var, secret manager, etc.) before passing it in.
 
 ### OpenAI
 
@@ -491,7 +491,7 @@ investigationProvider: {
 }
 ```
 
-Optional fields: `model` (default `gpt-5.5`), `baseURL`, `organization`, `project`, and `fetch`.
+Optional fields: `model` (default `gpt-5.5`), `baseURL` (default `https://api.openai.com/v1`), `organization`, `project`, and `fetch`.
 
 ### Claude (Anthropic)
 
@@ -504,7 +504,7 @@ investigationProvider: {
 }
 ```
 
-Optional fields: `model` (default `claude-sonnet-5`), `baseURL` (without the `/v1` suffix), `apiVersion` (`anthropic-version` header, default `2023-06-01`), and `fetch`.
+Optional fields: `model` (default `claude-sonnet-5`), `baseURL` (without the `/v1` suffix, default `https://api.anthropic.com`), `apiVersion` (`anthropic-version` header, default `2023-06-01`), and `fetch`.
 
 ### OpenAI-compatible endpoints
 

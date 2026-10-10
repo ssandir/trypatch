@@ -17,6 +17,7 @@ describe('createLanguageModel', () => {
 
     afterEach(() => {
         fetchMock.mockReset()
+        jest.restoreAllMocks()
     })
 
     it('should call Claude through the custom fetch and return the parsed outcome', async () => {
@@ -112,5 +113,18 @@ describe('createLanguageModel', () => {
             outcome: { type: 'result', explanation: 'test explanation', result: { inStock: true } },
         })
         expect(fetchMock).toHaveBeenCalledWith('http://localhost:11434/v1/chat/completions', expect.anything())
+    })
+
+    it.each([
+        ['claude', 'ANTHROPIC_BASE_URL', 'https://api.anthropic.com/v1/messages'],
+        ['openai', 'OPENAI_BASE_URL', 'https://api.openai.com/v1/responses'],
+    ] as const)('should call %s at its default URL whatever %s is set to', async (provider, variable, url) => {
+        jest.replaceProperty(process, 'env', { ...process.env, [variable]: 'https://proxy.example.com' })
+        // A client error isn't retried, so the first request is the only one.
+        fetchMock.mockResolvedValue(new Response('{}', { status: 400 }))
+
+        await expect(investigateWithLanguageModel({ provider, apiKey: 'key', fetch: fetchMock }, outcomeSchema, prompts, {}))
+            .rejects.toThrow()
+        expect(fetchMock).toHaveBeenCalledWith(url, expect.anything())
     })
 })
