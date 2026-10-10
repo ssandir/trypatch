@@ -111,14 +111,16 @@ function wrapMethod<S extends Schema, C> (
     logger: Logger,
     methodDescriptor: MethodDescriptor,
 ): AnyMethod {
-    return function trypatchedMethod (this: unknown, ...args: unknown[]): unknown {
+    // An async function rather than a promise chain, so the method body runs at call time like an undecorated method.
+    return async function trypatchedMethod (this: unknown, ...args: unknown[]): Promise<unknown> {
         const startedAt = new Date()
         // Monotonic, unlike Date, so a clock adjustment mid-call can't skew the duration.
         const start = performance.now()
 
-        return Promise.resolve()
-            .then(() => originalMethod.apply(this, args))
-            .catch((error: unknown) => runInvestigation(
+        try {
+            return await originalMethod.apply(this, args)
+        } catch (error) {
+            return await runInvestigation(
                 error,
                 options,
                 logger,
@@ -126,6 +128,7 @@ function wrapMethod<S extends Schema, C> (
                 this,
                 args,
                 { startedAt, durationMs: Math.round(performance.now() - start) },
-            ))
+            )
+        }
     }
 }

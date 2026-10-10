@@ -301,6 +301,23 @@ describe('trypatch', () => {
             await expect(new FailingInvestigationService().run()).rejects.toBe(methodError)
         })
 
+        it('should run the method body at call time, before the caller\'s next statement', async () => {
+            class StatefulService {
+                state = 'before'
+
+                @trypatch({ customInvestigation: { investigate: () => Promise.resolve({ inStock: false }) } })
+                run (): Promise<DecoratorResult> {
+                    return Promise.resolve({ inStock: this.state === 'before' })
+                }
+            }
+
+            const service = new StatefulService()
+            const pending = service.run()
+            service.state = 'after'
+
+            await expect(pending).resolves.toEqual({ inStock: true })
+        })
+
         it('should resolve className and static from the real receiver at call time', async () => {
             const investigate = jest.fn((): Promise<DecoratorResult> => Promise.resolve({ inStock: true }))
 
