@@ -1,4 +1,4 @@
-import { generateText, isLoopFinished, jsonSchema, Output, stepCountIs, type ToolSet } from 'ai'
+import { generateText, isLoopFinished, jsonSchema, Output, stepCountIs, type JSONSchema7, type ToolSet } from 'ai'
 import type { JSONSchema } from 'json-schema-to-ts'
 import { TrypatchConfigError } from '../../../../errors'
 import { Logger } from '../../../../logger'
@@ -50,7 +50,8 @@ export async function investigateWithLanguageModel<C> (
             system: prompts.systemPrompt,
             prompt: enforcesOutputSchema(config) ? prompts.userPrompt : `${prompts.userPrompt}\n\n${outcomeSchemaPrompt(outcomeSchema)}`,
             ...tools ? { tools } : {},
-            output: Output.object({ schema: jsonSchema(outcomeSchema as Parameters<typeof jsonSchema>[0]) }),
+            // json-schema-to-ts also allows boolean schemas and readonly arrays; ours is always a plain object.
+            output: Output.object({ schema: jsonSchema(outcomeSchema as JSONSchema7) }),
             // Producing the structured output is a step of its own on top of the tool rounds. Without a cap the
             // loop still ends once the model returns its outcome; generateText's own default would allow no tool rounds.
             stopWhen: maxToolIterations === undefined ? isLoopFinished() : stepCountIs(maxToolIterations + 1),
