@@ -2,7 +2,7 @@ import type { JSONSchema } from 'json-schema-to-ts'
 import { z } from 'zod'
 import { trypatch } from './trypatch'
 import { TrypatchFatalError } from './errors'
-import { defineTool } from './tools'
+import { defineTool } from './investigation/aiInvestigation/tools'
 import type { InvestigationContext, TryPatchOptions } from './types'
 import { mockMethodDecoratorContext } from './test/mockMethodDecoratorContext'
 import { mockLanguageModel, mockOutcomeTurn, promptText } from './test/mockLanguageModel'
@@ -515,6 +515,9 @@ describe('trypatch', () => {
 
             expect(model.doGenerateCalls[0]?.tools?.map(tool => tool.name)).toEqual([
                 'trypatch_builtin_wait',
+                'trypatch_builtin_read_call_context',
+                'trypatch_builtin_decode',
+                'trypatch_builtin_encode',
                 'search_logs',
                 'count_retries',
             ])

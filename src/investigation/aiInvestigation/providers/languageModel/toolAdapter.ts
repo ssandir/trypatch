@@ -7,8 +7,8 @@ import {
 } from 'ai'
 import type { Vault } from 'flare-redact'
 import { withDeadline } from '../../../../abort/withDeadline'
-import { callTool } from '../../../../tools/tool'
-import { getSchema } from '../../../../tools/schema'
+import { callTool } from '../../tools/tool'
+import { getSchema } from '../../tools/schema'
 import { restoreInvestigationResponse } from '../../redact/flareRedact'
 import type { InvestigationTool } from '../../../../types'
 

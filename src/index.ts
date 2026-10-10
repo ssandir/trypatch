@@ -7,12 +7,12 @@ export {
     TrypatchNoApplicableOutcomeError,
     TrypatchTimeoutError,
 } from './errors'
-export { defineTool } from './tools'
+export { defineTool } from './investigation/aiInvestigation/tools'
 export type {
     Tool,
     ToolDefinition,
     ToolHandler,
-} from './tools'
+} from './investigation/aiInvestigation/tools'
 export type {
     AiInvestigationOptions,
     CallTiming,

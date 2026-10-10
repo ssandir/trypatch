@@ -143,7 +143,7 @@ class CustomerRepository {
 
 There are two kinds of tools:
 
-- **Investigation tools** (`investigationTools`): the AI calls them while investigating and reads their output. Their output only goes back to the AI, never to your caller. Keep them read-only. trypatch adds its own built-in safe tools to them by default (currently `trypatch_builtin_wait`, which lets the AI pause, e.g. for a rate limit to reset); turn that off with `investigationBehavior.allowSafeTools: false`.
+- **Investigation tools** (`investigationTools`): the AI calls them while investigating and reads their output. Their output only goes back to the AI, never to your caller. Keep them read-only. trypatch adds its own built-in safe toolbox to them by default (`trypatch_builtin_wait` to pause, e.g. for a rate limit to reset; `trypatch_builtin_read_call_context` to read parts of the error or arguments the prompt cut short; `trypatch_builtin_decode`/`trypatch_builtin_encode` for base64, hex and JWTs, the latter decoded only and never verified); turn that off with `investigationBehavior.allowSafeToolbox: false`.
 - **Result tools** (`resultTools`): the AI picks one as its outcome, together with its input. trypatch calls it once the investigation is done, and **its return value is what the decorated method returns**. This is where recovery actions belong: retries, fallbacks, cache reads.
 
 <details>

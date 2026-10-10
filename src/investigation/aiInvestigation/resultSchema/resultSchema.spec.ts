@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { buildInvestigationResultSchema } from './resultSchema'
 import { TrypatchConfigError } from '../../../errors'
-import { defineTool } from '../../../tools'
+import { defineTool } from '../tools'
 import type { CustomErrorDefinition } from '../../../types'
 
 function outcomeVariants (outcomeSchema: ReturnType<typeof buildInvestigationResultSchema>) {

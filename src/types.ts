@@ -1,6 +1,6 @@
 import type { VaultOptions } from 'flare-redact'
 import type { LoggingOptions } from './logger'
-import type { Tool } from './tools'
+import type { Tool } from './investigation/aiInvestigation/tools'
 import type { CursorInvestigationConfig } from './investigation/aiInvestigation/providers/cursor/types'
 import type { LanguageModelInvestigationConfig } from './investigation/aiInvestigation/providers/languageModel/types'
 import type { McpServerConfig } from './investigation/aiInvestigation/mcp/types'
@@ -81,10 +81,10 @@ export type InvestigationBehavior = {
      */
     allowMethodSource?: boolean
     /**
-     * Whether the AI may also call trypatch's built-in safe investigation tools (currently `trypatch_builtin_wait`) alongside
+     * Whether the AI may also call the tools in trypatch's built-in safe toolbox (waiting, reading truncated parts of the failed call, encoding/decoding) alongside
      * {@link AiInvestigationOptions.investigationTools}. Defaults to `true`.
      */
-    allowSafeTools?: boolean
+    allowSafeToolbox?: boolean
     /**
      * Whether the AI may return a `result` directly, versus only via {@link AiInvestigationOptions.resultTools}/{@link AiInvestigationOptions.customErrors}.
      * Defaults to `true`.

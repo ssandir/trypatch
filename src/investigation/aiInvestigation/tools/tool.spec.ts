@@ -1,8 +1,8 @@
 import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
 import { z } from 'zod'
-import { mockTimeoutSignal } from '../test/abort'
+import { mockTimeoutSignal } from '../../../test/abort'
 import { callTool, defineTool } from './tool'
-import type { SchemaInfer } from '../schema/types'
+import type { SchemaInfer } from '../../../schema/types'
 
 type TestContext = {
     value: string

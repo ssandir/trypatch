@@ -1,6 +1,6 @@
 import type { InvestigationContext } from '../../types'
 import { qualifiedMethodName } from '../investigationContext'
-import { formatForPrompt } from './formatForPrompt'
+import { formatForLLM } from './formatForLLM'
 
 const DEFAULT_SYSTEM_PROMPT = [
     'A method call in application code threw an error, and you stand in for that call.',
@@ -27,8 +27,8 @@ export function buildInvestigationPrompt (
         ...options.allowMethodSource
             ? [`Method source (as loaded at runtime, so it may be compiled or minified):\n${ctx.methodSource}`]
             : [],
-        `Arguments: ${formatForPrompt(sanitizedArgs)}`,
-        `Error:\n${formatForPrompt(ctx.error)}`,
+        `Arguments: ${formatForLLM(sanitizedArgs)}`,
+        `Error:\n${formatForLLM(ctx.error)}`,
         `Your outcome replaces this failed call to method ${methodName}.`,
     ].join('\n')
 
