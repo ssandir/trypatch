@@ -44,13 +44,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # 22.12 is the engines floor: the CJS build require()s ESM-only dependencies.
+          # Node 22.12 is the engines floor (CJS build require()s ESM-only deps); zod versions are the peer floors.
           - node: '22.12'
+            zod: '3.25.76'
           - node: '24'
+            zod: '4.1.8'
           - node: '26'
-          # Must match the floor of peerDependencies.zod in package.json; the other legs use the lockfile's zod.
-          - node: '24'
-            zod: '4.2.0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -13,6 +13,8 @@
 
 Requires Node.js 22 or later. Decorated methods must be `async` (or return a `Promise`): recovering a value takes network calls, so the decorated method always returns a Promise.
 
+Zod schemas need Zod 4 (`zod` `^4.1.8`). On `zod` `^3.25.76`, import from `zod/v4` instead of `zod`: classic Zod 3 schemas aren't supported.
+
 ---
 
 ## Quick Start: Recover the Return Value

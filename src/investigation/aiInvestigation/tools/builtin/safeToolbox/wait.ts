@@ -1,5 +1,5 @@
 import { setTimeout as sleep } from 'node:timers/promises'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 import { defineTool } from '../../tool'
 import { BUILTIN_TOOL_NAME_PREFIX } from '../constants'
 

@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from 'zod/v4'
 import { extractJsonFromText, parseWithSchema, toJsonSchemaObject } from './utils'
 
 describe('schemaUtils', () => {
