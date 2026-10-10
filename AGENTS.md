@@ -27,6 +27,10 @@ The AI SDK is ESM-only; `jest.config.cjs` lists it among the ESM dependencies th
 
 `e2e/` is a vibecoded harness that runs real provider calls against the packed tarball; it has its own `AGENTS.md` and README, and its code is not a style reference for `src/`. It is not part of `npm test`, but root `npm run lint` covers it and needs `npm run e2e:setup` first.
 
+## README
+
+`README.md` is for consumers: describe behavior they can observe (what callers get, what's logged, what callbacks receive), not internals they never see, like how a timeout becomes `TrypatchTimeoutError` (consumers only get it as `onAiInvestigationEnd`'s `outcome.error` when a result tool exceeds its own `timeoutMs`) or the validator behind a check. Internals belong in this file.
+
 ## Type-checking
 
 `tsc` does not reject `await` on non-Promise values; type-aware ESLint (`@typescript-eslint/await-thenable`) catches those, so `npm run lint` is part of type safety, not just style. The `type-check` script runs `tsc` only. A husky pre-commit hook (installed by `npm install` through the `prepare` script; config in `lint-staged.config.js`) runs `lint:fix` on staged files and `type-check` on the whole project.

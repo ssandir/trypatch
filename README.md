@@ -11,7 +11,7 @@
 - 🧾 **No Silent Fallbacks**: If the investigation can't produce a correct value, callers get the method's original error
 - 🤖 **Multiple Providers**: OpenAI, Claude (Anthropic), any OpenAI-compatible endpoint (Gemini, Mistral, Groq, Ollama, OpenRouter, vLLM, ...), or Cursor Cloud Agents for investigation logic
 
-Requires Node.js 22 or later. Decorated methods must be `async` (or return a `Promise`): recovering a value takes network calls, so the decorated method always returns a Promise.
+Requires Node.js 22.12 or later. Decorated methods must be `async` (or return a `Promise`): recovering a value takes network calls, so the decorated method always returns a Promise.
 
 Zod schemas need Zod 4 (`zod` `^4.1.8`). On `zod` `^3.25.76`, import from `zod/v4` instead of `zod`: classic Zod 3 schemas aren't supported.
 
@@ -62,7 +62,7 @@ The type of `getQuote` is checked against `resultSchema`: with standard (stage-3
 
 ### Explanations: Why a Value Was Returned
 
-Along with the value, the AI explains why the call failed and why its value is correct. Callers only get the value. trypatch logs the explanation with `logger.info`, as the argument after the message, so it only shows at `verbosity: 'high'`. It also passes the explanation to [`onAiInvestigationEnd`](#callbacks-report-failures-to-your-monitoring).
+Along with the value, the AI explains why the call failed and why its value is correct. Callers only get the value. trypatch logs the explanation with `logger.info`, so it only shows at `verbosity: 'high'`. It also passes the explanation to [`onAiInvestigationEnd`](#callbacks-report-failures-to-your-monitoring).
 
 Redaction placeholders in the explanation are restored like the rest of the response, so treat it as sensitive.
 
@@ -135,8 +135,8 @@ class CustomerRepository {
 
 **How it works:**
 1. Before sending the investigation prompt to OpenAI, trypatch redacts secrets found by [flare-redact](https://www.npmjs.com/package/flare-redact)'s default detectors (API keys, bearer tokens, emails, card numbers, …) plus all terms in `redactConfig.terms`
-2. Placeholders (e.g., `[REDACTED_0]`) replace the sensitive values
-3. OpenAI investigates with redacted data: *"Query failed at `[REDACTED_0]`..."*
+2. Placeholders replace the sensitive values
+3. OpenAI investigates with redacted data
 4. When the AI calls an investigation tool, placeholders in its input are restored before the tool runs, and the tool's output is redacted before it goes back to the AI
 5. Response placeholders are restored locally before the value is returned
 6. **Original secrets never leave your infrastructure**
@@ -147,7 +147,7 @@ class CustomerRepository {
 
 There are two kinds of tools:
 
-- **Investigation tools** (`investigationTools`): the AI calls them while investigating and reads their output. Their output only goes back to the AI, never to your caller. Keep them read-only. trypatch adds its own built-in safe toolbox to them by default (`trypatch_builtin_wait` to pause, e.g. for a rate limit to reset; `trypatch_builtin_read_call_context` to read parts of the error or arguments the prompt cut short; `trypatch_builtin_decode`/`trypatch_builtin_encode` for base64, hex and JWTs, the latter decoded only and never verified); turn that off with `investigationBehavior.allowSafeToolbox: false`.
+- **Investigation tools** (`investigationTools`): the AI calls them while investigating and reads their output. Their output only goes back to the AI, never to your caller. Keep them read-only. trypatch adds its own built-in safe toolbox to them by default (tools to pause, e.g. for a rate limit to reset; to read parts of the error or arguments the prompt cut short; and to decode and encode base64, hex and JWTs, the latter decoded only and never verified); turn that off with `investigationBehavior.allowSafeToolbox: false`.
 - **Result tools** (`resultTools`): the AI picks one as its outcome, together with its input. trypatch calls it once the investigation is done, and **its return value is what the decorated method returns**. This is where recovery actions belong: retries, fallbacks, cache reads.
 
 <details>
@@ -266,7 +266,7 @@ aiInvestigation: {
 <details>
 <summary>Server options and behavior</summary>
 
-- **Tool names:** the AI sees each tool as `<server name>__<tool name>` (`grafana__query_logs`), so two servers can't collide. Server names may only contain letters, digits, `_` and `-`.
+- **Server names** may only contain letters, digits, `_` and `-`.
 - **Auth:** static `headers`, or a `headers` function that is called once per investigation (short-lived tokens, secret managers, client-credentials OAuth where you fetch the token yourself). Stdio servers get secrets through `env`. Interactive OAuth isn't supported: nobody is around to complete a browser login when an error fires on a server.
 - **Recommended: read-only tools.** The AI decides which tools to call, and MCP servers often expose tools that change things (`delete_*`, `create_*`). Narrow each server with `allowedTools`. trypatch doesn't enforce this; which servers and tools to expose is your call.
 - **Connection lifetime:** servers are connected when an investigation starts and closed when it ends. For stdio that means starting a new process on every investigated failure.
@@ -339,10 +339,10 @@ For a signal not tied to a call, such as app shutdown: `getSignal: () => shutdow
 <summary>Details</summary>
 
 - **Your abort, your error.** The decorated method rejects with the signal's `reason`, like `fetch` does. An already-aborted signal skips the investigation.
-- **Our timeout, our error.** `timeoutMs` and your signal are combined. If the timeout fires first, trypatch logs a `TrypatchTimeoutError` and the method rethrows its original error, like any investigation failure.
-- **Tools** get `{ signal }` as `execute`'s third argument; it also fires on the tool's own `timeoutMs` (throwing `TrypatchTimeoutError`). A tool still running is abandoned; listen to `signal` to actually stop it. Result tools get the same combined signal, so `timeoutMs` covers them too.
-- **MCP** connections and tool calls share the combined signal.
-- **Custom investigations** get `investigate(ctx, { signal })`; the signal also fires on `timeoutMs` (if set, throwing `TrypatchTimeoutError`). An `investigate` that ignores the signal is abandoned.
+- **Our timeout, our error.** `timeoutMs` and your signal are combined. If the timeout fires first, trypatch logs it and the method rethrows its original error, like any investigation failure.
+- **Tools** get `{ signal }` as `execute`'s third argument; it also fires on the tool's own `timeoutMs`. A tool still running is abandoned; listen to `signal` to actually stop it. Result tools get the same combined signal, so `timeoutMs` covers them too.
+- **MCP** connections and tool calls are cancelled too.
+- **Custom investigations** get `investigate(ctx, { signal })`; the signal also fires on `timeoutMs` (if set). An `investigate` that ignores the signal is abandoned.
 - **Cursor** stops polling on abort and asks Cursor to cancel the remote run. That request is best effort: if it fails, trypatch logs a warning and the run may keep going.
 
 </details>
@@ -377,7 +377,7 @@ class PricingService {
 
 </details>
 
-`aiInvestigation.onAiInvestigationEnd` runs once the AI's outcome has been applied, before the method returns or the investigation throws. It gets the same context and the outcome: `{ type: 'result', result, explanation }` with the value the method returns, or `{ type: 'error', error, explanation }`. The error is the `customErrors` entry or [fallback outcome](#fallback-outcomes-avoiding-fabricated-results) the AI picked, or whatever failed while applying its outcome (e.g. a result tool throwing). Either way, `explanation` is the AI's account of why the call failed and why it picked that outcome.
+`aiInvestigation.onAiInvestigationEnd` runs once the AI's outcome has been applied, before the method returns or the investigation throws. It gets the same context and the outcome: `{ type: 'result', result, explanation }` with the value the method returns, or `{ type: 'error', error, explanation }`. The error is the `customErrors` entry or [fallback outcome](#fallback-outcomes-avoiding-fabricated-results) the AI picked, or whatever failed while applying its outcome (e.g. a result tool throwing, or a `TrypatchTimeoutError` when it exceeds its own `timeoutMs`). Either way, `explanation` is the AI's account of why the call failed and why it picked that outcome.
 
 <details>
 <summary>Example</summary>
@@ -420,7 +420,7 @@ aiInvestigation: {
 
 JSON Schema tool parameters and `@trypatch` result schemas map to `any`, not `FromSchema<T>`. Resolving
 `FromSchema` through generic `Tool` / `@trypatch` types triggers TS2589 (excessively deep instantiation).
-Runtime validation still runs (Ajv for tools; provider parsing for results). **Zod schemas infer types normally.**
+Values are still validated against the schema at runtime. **Zod schemas infer types normally.**
 
 For JSON Schema, define the shape locally and annotate handlers with it:
 
@@ -468,7 +468,7 @@ Use `as const satisfies JSONSchema` so `FromSchema<typeof quoteSchema>` stays pr
 
 ## Providers
 
-Every provider config takes the API key directly; resolve it however you like (env var, secret manager, etc.) before passing it in. `openai`, `claude` and `openai-compatible` are built on the [Vercel AI SDK](https://ai-sdk.dev), bundled internally, so its types and versions never show up in your code.
+Every provider config takes the API key directly; resolve it however you like (env var, secret manager, etc.) before passing it in. `openai`, `claude` and `openai-compatible` are built on the [Vercel AI SDK](https://ai-sdk.dev), which trypatch installs as its own dependency; none of its types are part of trypatch's API.
 
 ### OpenAI
 
@@ -557,14 +557,12 @@ class PricingService {
 
 </details>
 
-Cursor's provider calls this for both the agent-creation and run-polling requests.
-
 ---
 
 <details>
 <summary>Decorator dialect compatibility</summary>
 
-`@trypatch` works whether your project compiles with TypeScript's legacy `experimentalDecorators` (the default for NestJS, TypeORM, and similar frameworks) or with the standard stage-3 decorators TS 5 uses by default. No configuration needed — it detects which dialect is calling it at runtime.
+`@trypatch` works whether your project compiles with TypeScript's legacy `experimentalDecorators` (the default for NestJS, TypeORM, and similar frameworks) or with the standard stage-3 decorators TS 5 uses by default. No configuration needed.
 
 With stage-3 decorators, TypeScript checks that the method returns `Promise<…>` of your `resultSchema` type. Legacy decorators don't see the method's return type, so that check can't happen there: declare decorated methods `async` and give them the schema's type yourself. Under both dialects, the decorated method always returns a Promise.
 
