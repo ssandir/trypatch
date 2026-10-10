@@ -1,9 +1,13 @@
 import { types } from 'node:util'
 import { z } from 'zod'
-import { formatForLLM, INSPECT_OPTIONS } from '../../../formatForLLM'
+import { formatForLLM } from '../../../formatForLLM'
 import { defineTool } from '../../tool'
 import { BUILTIN_TOOL_NAME_PREFIX } from '../constants'
 import type { CallContext } from './types'
+
+// The model asked for this one value, so it gets more room.
+const MAX_STRING_LENGTH = 50_000
+const MAX_ARRAY_LENGTH = 200
 
 type PathSegment = string | number
 
@@ -83,7 +87,11 @@ export function createReadCallContextTool (callContext: CallContext) {
         execute: ({ root, path }): string => {
             const value = resolvePath(callContext, [root, ...path])
             // inspect would quote a string and split it into concatenated lines, which is hard to read for a stack.
-            return typeof value === 'string' ? value.slice(0, INSPECT_OPTIONS.maxStringLength) : formatForLLM(value)
+            if (typeof value === 'string') {
+                return value.slice(0, MAX_STRING_LENGTH)
+            }
+
+            return formatForLLM(value, Array.isArray(value) ? { maxArrayLength: MAX_ARRAY_LENGTH } : undefined)
         },
     })
 }

@@ -26,6 +26,13 @@ describe('read_call_context tool', () => {
         await expect(read({ error, args: [] }, 'error', ['stack'])).resolves.toBe(error.stack)
     })
 
+    it('returns more of a string or an array than the prompt shows, since the model asked for it', async () => {
+        const callContext = { error: new Error('boom'), args: ['x'.repeat(3_000), Array.from({ length: 50 }, (_, index) => index)] }
+
+        await expect(read(callContext, 'args', [0])).resolves.toHaveLength(3_000)
+        await expect(read(callContext, 'args', [1])).resolves.not.toContain('more items')
+    })
+
     it('reads Map entries by key and Set entries by index', async () => {
         const callContext = { error: new Error('boom'), args: [new Map([['sku', 'A-1']]), new Set(['first', 'second'])] }
 

@@ -1,4 +1,4 @@
-import { inspect } from 'node:util'
+import { inspect, type InspectOptions } from 'node:util'
 
 export const INSPECT_OPTIONS = {
     // Deeper values stay reachable through the built-in read_call_context tool, so the prompt can stay small.
@@ -15,6 +15,6 @@ export const INSPECT_OPTIONS = {
  * blow up the prompt. For errors it adds what `stack` leaves out: own properties such as
  * `code`/`errno`/`status`, the `cause` chain and an `AggregateError`'s errors.
  */
-export function formatForLLM (value: unknown): string {
-    return inspect(value, INSPECT_OPTIONS)
+export function formatForLLM (value: unknown, options?: Partial<InspectOptions>): string {
+    return inspect(value, { ...INSPECT_OPTIONS, ...options })
 }
