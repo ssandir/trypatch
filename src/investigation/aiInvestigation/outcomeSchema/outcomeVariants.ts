@@ -2,7 +2,7 @@ import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
 import type { CustomErrorDefinition, ResultTool } from '../../../types'
 import type { Schema } from '../../../schema/types'
 import { toJsonSchemaObject } from '../../../schema/utils'
-import { getSchema } from '../tools/schema'
+import { toInputJsonSchema } from '../tools/schema'
 
 function explanationProperties<WhyThisOutcome extends string> (whyThisOutcome: WhyThisOutcome) {
     return {
@@ -20,7 +20,7 @@ export function errorOutcomeVariant (definition: CustomErrorDefinition) {
             type: { enum: ['error'] },
             ...explanationProperties('why this error is the right outcome for it.'),
             error: { enum: [definition.errorConstructor.name] },
-            errorSchema: getSchema(definition.errorParameterSchema, `customErrors entry ${definition.errorConstructor.name} errorParameterSchema`),
+            errorSchema: toInputJsonSchema(definition.errorParameterSchema, `customErrors entry ${definition.errorConstructor.name} errorParameterSchema`),
         },
         required: ['type', 'explanation', 'error', 'errorSchema'],
         additionalProperties: false,
@@ -35,7 +35,7 @@ export function resultToolOutcomeVariant<C> (tool: ResultTool<Schema, C>) {
             type: { enum: ['resultTool'] },
             ...valueExplanationProperties,
             toolName: { enum: [tool.name] },
-            input: getSchema(tool.parameters, `Result tool ${tool.name} parameters`),
+            input: toInputJsonSchema(tool.parameters, `Result tool ${tool.name} parameters`),
         },
         required: ['type', 'explanation', 'toolName', 'input'],
         additionalProperties: false,

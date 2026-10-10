@@ -1,6 +1,6 @@
 import type { JSONSchema } from 'json-schema-to-ts'
 import { TrypatchFatalError } from '../../../errors'
-import { isJsonSchema, toJsonSchemaObject } from '../../../schema/utils'
+import { toJsonSchemaObject } from '../../../schema/utils'
 import type { Schema } from '../../../schema/types'
 
 const EMPTY_OBJECT_SCHEMA = {
@@ -20,14 +20,7 @@ export function toFunctionToolName (name: string): string {
     return normalized
 }
 
-export function getSchema (parameters: Schema, label: string): JSONSchema {
-    if (parameters === undefined) {
-        return { ...EMPTY_OBJECT_SCHEMA }
-    }
-
-    if (isJsonSchema(parameters)) {
-        return toJsonSchemaObject(parameters, label)
-    }
-
-    throw new TrypatchFatalError('Invalid parameters schema')
+/** A tool's or custom error's input as JSON Schema; with no schema there's no input, shown to the model as an empty object. */
+export function toInputJsonSchema (parameters: Schema, label: string): JSONSchema {
+    return parameters === undefined ? { ...EMPTY_OBJECT_SCHEMA } : toJsonSchemaObject(parameters, label)
 }

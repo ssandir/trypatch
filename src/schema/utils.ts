@@ -22,10 +22,6 @@ export function isZodSchema (value: unknown): value is $ZodType {
         && '_zod' in value
 }
 
-export function isJsonSchema (value: unknown): value is JSONSchema {
-    return typeof value === 'object' && value !== null
-}
-
 function zodToJsonSchemaRecord (schema: $ZodType, label: string): JSONSchema {
     let converted
     try {
