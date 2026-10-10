@@ -1,4 +1,5 @@
 import { TrypatchFatalError } from './errors'
+import { validateAiInvestigationOptions } from './investigation/aiInvestigation/runAiInvestigation'
 import { runInvestigation } from './investigation/runInvestigation'
 import { Logger } from './logger'
 import type { SchemaInfer, Schema } from './schema/types'
@@ -31,6 +32,9 @@ export function trypatch<
     C = unknown,
 > (options: TryPatchOptions<S, C>): LegacyMethodDecorator & Stage3MethodDecorator<S> {
     const logger = new Logger(options.logging)
+    if ('aiInvestigation' in options) {
+        validateAiInvestigationOptions(options.aiInvestigation)
+    }
 
     return ((...args: unknown[]): unknown => {
         const [first, second, third] = args

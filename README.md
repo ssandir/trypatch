@@ -15,6 +15,8 @@ Requires Node.js 22 or later. Decorated methods must be `async` (or return a `Pr
 
 Zod schemas need Zod 4 (`zod` `^4.1.8`). On `zod` `^3.25.76`, import from `zod/v4` instead of `zod`: classic Zod 3 schemas aren't supported.
 
+Every schema (`resultSchema`, tool `parameters`, `errorParameterSchema`) is sent to the AI as JSON Schema, so Zod types JSON Schema can't represent, like `.transform()`, aren't supported. `@trypatch` throws a `TrypatchFatalError` naming the option when it's applied, and `defineTool` throws one when the tool is defined.
+
 ---
 
 ## Quick Start: Recover the Return Value

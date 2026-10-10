@@ -207,6 +207,15 @@ describe('trypatch', () => {
             expect(() => callDecorator(class Foo {}))
                 .toThrow('trypatch can only decorate methods')
         })
+
+        it('should throw when created with AI options that would fail every investigation', () => {
+            expect(() => trypatch({
+                aiInvestigation: {
+                    resultSchema: z.object({ count: z.string().transform(Number) }),
+                    investigationProvider,
+                },
+            })).toThrow('resultSchema can\'t be converted to JSON Schema')
+        })
     })
 
     describe('trypatch as decorator', () => {

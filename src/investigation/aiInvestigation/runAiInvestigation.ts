@@ -103,9 +103,33 @@ async function callInvestigationProvider<C> (
     return await investigateWithLanguageModel(investigationProvider, outcomeSchema, prompts, options)
 }
 
+function buildOutcomeSchema<S extends Schema, C> (
+    { resultSchema, customErrors, resultTools, investigationBehavior = {} }: AiInvestigationOptions<S, C>,
+): JSONSchema {
+    return buildInvestigationResultSchema({
+        resultSchema,
+        customErrors,
+        resultTools,
+        allowDirectResultCreation: investigationBehavior.allowDirectResultCreation,
+        allowCannotDetermine: investigationBehavior.allowCannotDetermine,
+        allowUncertainResult: investigationBehavior.allowUncertainResult,
+        allowNoApplicableOutcome: investigationBehavior.allowNoApplicableOutcome,
+    })
+}
+
+/** Throws on options that would fail every investigation, so they surface when the decorator is applied rather than after a failure. */
+export function validateAiInvestigationOptions<S extends Schema, C> (options: AiInvestigationOptions<S, C>): void {
+    validateMcpServers(options.mcpServers, options.investigationProvider.provider)
+    buildOutcomeSchema(options)
+}
+
 export async function runAiInvestigation<S extends Schema, C> (
     ctx: InvestigationContext,
-    {
+    options: AiInvestigationOptions<S, C>,
+    logger?: Logger,
+    signal?: AbortSignal,
+): Promise<unknown> {
+    const {
         resultSchema,
         investigationProvider,
         investigationBehavior = {},
@@ -116,24 +140,11 @@ export async function runAiInvestigation<S extends Schema, C> (
         resultTools,
         customErrors,
         onAiInvestigationEnd,
-    }: AiInvestigationOptions<S, C>,
-    logger?: Logger,
-    signal?: AbortSignal,
-): Promise<unknown> {
-    validateMcpServers(mcpServers, investigationProvider.provider)
-
+    } = options
     const sanitizedArgs = investigationBehavior.sanitizeArgs
         ? investigationBehavior.sanitizeArgs(ctx.args)
         : ctx.args
-    const outcomeSchema = buildInvestigationResultSchema({
-        resultSchema,
-        customErrors,
-        resultTools,
-        allowDirectResultCreation: investigationBehavior.allowDirectResultCreation,
-        allowCannotDetermine: investigationBehavior.allowCannotDetermine,
-        allowUncertainResult: investigationBehavior.allowUncertainResult,
-        allowNoApplicableOutcome: investigationBehavior.allowNoApplicableOutcome,
-    })
+    const outcomeSchema = buildOutcomeSchema(options)
     const builtPrompts = buildInvestigationPrompt(ctx, sanitizedArgs, investigationBehavior)
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)
     const rawOutcome = await callInvestigationProvider(investigationProvider, outcomeSchema, prompts, {
