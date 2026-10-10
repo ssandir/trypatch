@@ -1,11 +1,11 @@
 import { z } from 'zod/v4'
 import { jsonResponse, requestBody } from '../../../../test/fetch'
-import { buildInvestigationResultSchema } from '../../resultSchema'
+import { buildOutcomeSchema } from '../../outcomeSchema'
 import { investigateWithLanguageModel } from './investigate'
 
 // Unlike investigate.spec.ts, createLanguageModel isn't mocked: each provider config runs the real AI SDK provider against a mocked fetch.
 describe('createLanguageModel', () => {
-    const outcomeSchema = buildInvestigationResultSchema({
+    const outcomeSchema = buildOutcomeSchema({
         resultSchema: z.object({ inStock: z.boolean() }),
     })
     const outcomeText = JSON.stringify({

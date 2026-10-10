@@ -11,7 +11,7 @@ import {
 } from '../errors'
 import { Logger } from '../logger'
 import { defineTool } from './aiInvestigation/tools'
-import type { InvestigationContext, TryPatchOptions } from '../types'
+import type { InvestigationContext, TrypatchOptions } from '../types'
 import { mockMethodDescriptor } from '../test/mockMethodDecoratorContext'
 import { mockTimeoutSignal } from '../test/abort'
 import { mockLanguageModel, mockOutcomeTurn } from '../test/mockLanguageModel'
@@ -458,7 +458,7 @@ describe('runInvestigation', () => {
 
     describe('investigateError', () => {
         it('should use custom investigate override when provided', async () => {
-            const options: TryPatchOptions = {
+            const options: TrypatchOptions = {
                 customInvestigation: {
                     investigate: () => Promise.resolve({ inStock: true }),
                 },

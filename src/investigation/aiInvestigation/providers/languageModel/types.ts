@@ -12,6 +12,8 @@ export type ClaudeInvestigationConfig = {
     apiVersion?: string
     /** Maximum model turns spent calling investigation and MCP tools before returning an outcome. Unlimited by default. */
     maxToolIterations?: number
+    /** Maximum tokens the model may generate per turn. */
+    maxTokens?: number
     /** Custom `fetch` implementation, used instead of the global one (proxying, custom auth, logging, retries, ...). */
     fetch?: typeof fetch
 }
@@ -25,6 +27,8 @@ export type OpenAiInvestigationConfig = {
     project?: string
     /** Maximum model turns spent calling investigation and MCP tools before returning an outcome. Unlimited by default. */
     maxToolIterations?: number
+    /** Maximum tokens the model may generate per turn. */
+    maxTokens?: number
     /** Custom `fetch` implementation, used instead of the global one (proxying, custom auth, logging, retries, ...). */
     fetch?: typeof fetch
 }
@@ -44,6 +48,8 @@ export type OpenAiCompatibleInvestigationConfig = {
     supportsStructuredOutputs?: boolean
     /** Maximum model turns spent calling investigation and MCP tools before returning an outcome. Unlimited by default. */
     maxToolIterations?: number
+    /** Maximum tokens the model may generate per turn. */
+    maxTokens?: number
     /** Custom `fetch` implementation, used instead of the global one (proxying, custom auth, logging, retries, ...). */
     fetch?: typeof fetch
 }
@@ -54,7 +60,6 @@ export type LanguageModelInvestigationConfig
         | OpenAiCompatibleInvestigationConfig
 
 export type LanguageModelInvestigationOptions<C = unknown> = {
-    maxTokens?: number | undefined
     investigationTools?: InvestigationTool<C>[] | undefined
     toolContext?: C | undefined
     vault?: Vault | undefined

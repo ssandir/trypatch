@@ -44,7 +44,7 @@ export type InvestigationExplicitResultOutcome = {
  * a thrown {@link CustomErrorDefinition}, a call into a {@link ResultTool}, an explicit
  * result matching `resultSchema`, or a report that no proper result is available (`cannotDetermine`,
  * `uncertain`, `noApplicableOutcome`). Each branch is only present in
- * {@link buildInvestigationResultSchema}'s output when the matching option is configured.
+ * {@link buildOutcomeSchema}'s output when the matching option is configured.
  */
 export type InvestigationOutcome
     = | InvestigationErrorOutcome

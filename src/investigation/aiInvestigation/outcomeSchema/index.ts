@@ -1,10 +1,10 @@
 export {
-    buildInvestigationResultEnvelopeSchema,
-    buildInvestigationResultSchema,
+    buildOutcomeEnvelopeSchema,
+    buildOutcomeSchema,
     outcomeSchemaOptions,
     outcomeSchemaPrompt,
     parseProviderOutcome,
-} from './resultSchema'
+} from './outcomeSchema'
 export type {
     InvestigationCannotDetermineOutcome,
     InvestigationErrorOutcome,

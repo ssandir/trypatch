@@ -3,7 +3,7 @@ import { validateAiInvestigationOptions } from './investigation/aiInvestigation/
 import { runInvestigation } from './investigation/runInvestigation'
 import { Logger } from './logger'
 import type { SchemaInfer, Schema } from './schema/types'
-import type { AnyMethod, AnyMethodContext, MethodDescriptor, TryPatchOptions } from './types'
+import type { AnyMethod, AnyMethodContext, MethodDescriptor, TrypatchOptions } from './types'
 
 type LegacyMethodDecorator = (
     target: object,
@@ -30,7 +30,7 @@ type Stage3MethodDecorator<S extends Schema> = <
 export function trypatch<
     S extends Schema,
     C = unknown,
-> (options: TryPatchOptions<S, C>): LegacyMethodDecorator & Stage3MethodDecorator<S> {
+> (options: TrypatchOptions<S, C>): LegacyMethodDecorator & Stage3MethodDecorator<S> {
     const logger = new Logger(options.logging)
     if ('aiInvestigation' in options) {
         validateAiInvestigationOptions(options.aiInvestigation)
@@ -56,7 +56,7 @@ function isStage3MethodContext (value: unknown): value is AnyMethodContext {
 }
 
 function applyStage3Decorator<S extends Schema, C> (
-    options: TryPatchOptions<S, C>,
+    options: TrypatchOptions<S, C>,
     logger: Logger,
     originalMethod: AnyMethod,
     context: AnyMethodContext,
@@ -78,7 +78,7 @@ function applyStage3Decorator<S extends Schema, C> (
 }
 
 function applyLegacyDecorator<S extends Schema, C> (
-    options: TryPatchOptions<S, C>,
+    options: TrypatchOptions<S, C>,
     logger: Logger,
     target: object,
     propertyKey: string | symbol,
@@ -107,7 +107,7 @@ function applyLegacyDecorator<S extends Schema, C> (
 
 function wrapMethod<S extends Schema, C> (
     originalMethod: AnyMethod,
-    options: TryPatchOptions<S, C>,
+    options: TrypatchOptions<S, C>,
     logger: Logger,
     methodDescriptor: MethodDescriptor,
 ): AnyMethod {

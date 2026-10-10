@@ -2,7 +2,7 @@ import { generateText, isLoopFinished, jsonSchema, Output, stepCountIs, type JSO
 import type { JSONSchema } from 'json-schema-to-ts'
 import { TrypatchConfigError } from '../../../../errors'
 import { Logger } from '../../../../logger'
-import { outcomeSchemaPrompt } from '../../resultSchema'
+import { outcomeSchemaPrompt } from '../../outcomeSchema'
 import { MAX_TOOL_NAME_LENGTH } from './constants'
 import { createLanguageModel } from './createLanguageModel'
 import { connectMcpTools } from './mcp'
@@ -56,7 +56,7 @@ export async function investigateWithLanguageModel<C> (
             // loop still ends once the model returns its outcome; generateText's own default would allow no tool rounds.
             stopWhen: maxToolIterations === undefined ? isLoopFinished() : stepCountIs(maxToolIterations + 1),
             ...options.signal ? { abortSignal: options.signal } : {},
-            ...options.maxTokens !== undefined ? { maxOutputTokens: options.maxTokens } : {},
+            ...config.maxTokens !== undefined ? { maxOutputTokens: config.maxTokens } : {},
             providerOptions: {
                 openai: { strictJsonSchema: true },
             },

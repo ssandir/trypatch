@@ -23,13 +23,13 @@ import { redactInvestigationPrompts, restoreInvestigationResponse } from './reda
 import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithLanguageModel } from './providers/languageModel/investigate'
 import type { LanguageModelInvestigationOptions } from './providers/languageModel/types'
-import type { InvestigationOutcome } from './resultSchema'
+import type { InvestigationOutcome } from './outcomeSchema'
 import {
-    buildInvestigationResultEnvelopeSchema,
-    buildInvestigationResultSchema,
+    buildOutcomeEnvelopeSchema,
+    buildOutcomeSchema,
     outcomeSchemaOptions,
     parseProviderOutcome,
-} from './resultSchema'
+} from './outcomeSchema'
 
 async function applyOutcome<S extends Schema, C> (
     outcome: InvestigationOutcome,
@@ -131,8 +131,7 @@ export async function runAiInvestigation<S extends Schema, C> (
     const schemaOptions = outcomeSchemaOptions(options)
     const builtPrompts = buildInvestigationPrompt(ctx, sanitizedArgs, investigationBehavior)
     const { prompts, vault } = redactInvestigationPrompts(builtPrompts, redactConfig)
-    const response = await callInvestigationProvider(investigationProvider, buildInvestigationResultSchema(schemaOptions), prompts, {
-        maxTokens: investigationBehavior.maxTokens,
+    const response = await callInvestigationProvider(investigationProvider, buildOutcomeSchema(schemaOptions), prompts, {
         investigationTools: withSafeToolbox({ error: ctx.error, args: sanitizedArgs }, investigationTools, investigationBehavior.allowSafeToolbox),
         toolContext,
         vault,
@@ -141,7 +140,7 @@ export async function runAiInvestigation<S extends Schema, C> (
         signal,
     })
 
-    const outcome = restoreInvestigationResponse(parseProviderOutcome(response, buildInvestigationResultEnvelopeSchema(schemaOptions)), vault)
+    const outcome = restoreInvestigationResponse(parseProviderOutcome(response, buildOutcomeEnvelopeSchema(schemaOptions)), vault)
     const resolved = await resolveOutcome(outcome, resultSchema, customErrors, resultTools, toolContext, signal)
     
     signal?.throwIfAborted()

@@ -3,14 +3,14 @@ import { z } from 'zod/v4'
 import { Logger } from '../../../../logger'
 import { mockTimeoutSignal } from '../../../../test/abort'
 import { jsonResponse, requestBody } from '../../../../test/fetch'
-import { buildInvestigationResultSchema, outcomeSchemaPrompt } from '../../resultSchema'
+import { buildOutcomeSchema, outcomeSchemaPrompt } from '../../outcomeSchema'
 import { CANCEL_TIMEOUT_MS } from './constants'
 import { investigateWithCursor } from './investigate'
 
 jest.mock('node:timers/promises', () => ({ setTimeout: jest.fn() }))
 
 describe('investigateWithCursor', () => {
-    const outcomeSchema = buildInvestigationResultSchema({
+    const outcomeSchema = buildOutcomeSchema({
         resultSchema: z.object({ inStock: z.boolean() }),
     })
 

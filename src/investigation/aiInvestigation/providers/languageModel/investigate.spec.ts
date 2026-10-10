@@ -13,7 +13,7 @@ import {
 } from '../../../../test/mockLanguageModel'
 import { Logger } from '../../../../logger'
 import { defineTool } from '../../tools'
-import { buildInvestigationResultSchema } from '../../resultSchema'
+import { buildOutcomeSchema } from '../../outcomeSchema'
 import { createLanguageModel } from './createLanguageModel'
 import { investigateWithLanguageModel } from './investigate'
 
@@ -22,7 +22,7 @@ jest.mock('@ai-sdk/mcp', () => ({ createMCPClient: jest.fn() }))
 jest.mock('@ai-sdk/mcp/mcp-stdio', () => ({ Experimental_StdioMCPTransport: jest.fn() }))
 
 describe('investigateWithLanguageModel', () => {
-    const outcomeSchema = buildInvestigationResultSchema({
+    const outcomeSchema = buildOutcomeSchema({
         resultSchema: z.object({ status: z.string() }),
     })
     const prompts = { systemPrompt: 'Investigate', userPrompt: 'Something failed' }

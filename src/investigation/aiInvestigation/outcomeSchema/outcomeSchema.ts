@@ -19,7 +19,7 @@ import type { InvestigationOutcome, OutcomeSchemaOptions } from './types'
  * under a property rather than at the schema root) describing the {@link InvestigationOutcome}
  * a provider's structured output must produce.
  */
-export function buildInvestigationResultSchema<C> ({
+export function buildOutcomeSchema<C> ({
     resultSchema,
     customErrors,
     resultTools,
@@ -54,12 +54,12 @@ export function buildInvestigationResultSchema<C> ({
 const ANY_PAYLOAD = {} as const satisfies JSONSchema
 
 /**
- * {@link buildInvestigationResultSchema} with every payload (`result`, `input`, `errorSchema`) accepting anything, for
+ * {@link buildOutcomeSchema} with every payload (`result`, `input`, `errorSchema`) accepting anything, for
  * validating a provider's response. Payloads are parsed with the consumer's own schemas when the outcome is applied, so a
  * Zod schema is never validated through its JSON Schema conversion, which Ajv can't compile (Zod emits `format`s).
  */
-export function buildInvestigationResultEnvelopeSchema<C> (options: OutcomeSchemaOptions<C>) {
-    return buildInvestigationResultSchema({
+export function buildOutcomeEnvelopeSchema<C> (options: OutcomeSchemaOptions<C>) {
+    return buildOutcomeSchema({
         ...options,
         resultSchema: ANY_PAYLOAD,
         resultTools: options.resultTools?.map(tool => ({ ...tool, parameters: ANY_PAYLOAD })),
@@ -90,7 +90,7 @@ export function outcomeSchemaPrompt (outcomeSchema: JSONSchema): string {
     return `Return JSON matching this schema:\n${JSON.stringify(outcomeSchema, null, 2)}`
 }
 
-/** Validates a provider's response against the {@link buildInvestigationResultEnvelopeSchema | envelope} and returns its {@link InvestigationOutcome}. */
+/** Validates a provider's response against the {@link buildOutcomeEnvelopeSchema | envelope} and returns its {@link InvestigationOutcome}. */
 export function parseProviderOutcome (response: unknown, envelopeSchema: JSONSchema): InvestigationOutcome {
     const parsed = parseWithSchema(envelopeSchema, response, 'investigation outcome') as { outcome: InvestigationOutcome }
     return parsed.outcome
