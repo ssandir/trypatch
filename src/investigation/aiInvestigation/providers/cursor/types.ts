@@ -1,12 +1,14 @@
 import type { Logger } from '../../../../logger'
 import type { McpServerConfig } from '../../mcp/types'
 
+/** @group Providers */
 export type CursorRepositoryConfig = {
     url: string
     startingRef?: string
     prUrl?: string
 }
 
+/** @group Providers */
 export type CursorInvestigationConfig = {
     provider: 'cursor'
     apiKey: string

@@ -18,18 +18,24 @@ export type {
     CallTiming,
     CustomErrorDefinition,
     CustomInvestigationErrorDefinition,
+    CustomInvestigationOptions,
     InvestigationBehavior,
     InvestigationContext,
     InvestigationProviderConfig,
     InvestigationTool,
+    LegacyMethodDecorator,
     ResolvedOutcome,
     ResultTool,
+    Stage3MethodDecorator,
     TrypatchOptions,
+    TrypatchOptionsBase,
 } from './types'
+/** @group Options */
 export type { VaultOptions } from 'flare-redact'
 export type { CursorInvestigationConfig, CursorRepositoryConfig } from './investigation/aiInvestigation/providers/cursor/types'
 export type {
     ClaudeInvestigationConfig,
+    LanguageModelInvestigationConfig,
     OpenAiCompatibleInvestigationConfig,
     OpenAiInvestigationConfig,
 } from './investigation/aiInvestigation/providers/languageModel/types'

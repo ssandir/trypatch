@@ -4,6 +4,7 @@ import type { Logger } from '../../../../logger'
 import type { McpServerConfig } from '../../mcp/types'
 import type { InvestigationTool } from '../../../../types'
 
+/** @group Providers */
 export type ClaudeInvestigationConfig = {
     provider: 'claude'
     apiKey: string
@@ -18,6 +19,7 @@ export type ClaudeInvestigationConfig = {
     fetch?: typeof fetch
 }
 
+/** @group Providers */
 export type OpenAiInvestigationConfig = {
     provider: 'openai'
     apiKey: string
@@ -33,7 +35,10 @@ export type OpenAiInvestigationConfig = {
     fetch?: typeof fetch
 }
 
-/** Any provider exposing an OpenAI-compatible Chat Completions API (Gemini, Mistral, Groq, Ollama, OpenRouter, vLLM, ...). */
+/**
+ * Any provider exposing an OpenAI-compatible Chat Completions API (Gemini, Mistral, Groq, Ollama, OpenRouter, vLLM, ...).
+ * @group Providers
+ */
 export type OpenAiCompatibleInvestigationConfig = {
     provider: 'openai-compatible'
     baseURL: string
@@ -42,8 +47,9 @@ export type OpenAiCompatibleInvestigationConfig = {
     /** Extra headers sent with every request. */
     headers?: Record<string, string>
     /**
-     * Whether the endpoint enforces JSON Schema structured output. When `false` (the default), the model
-     * is only asked for JSON and the outcome is validated after the fact.
+     * Whether the endpoint enforces JSON Schema structured output. When `false`, the model is only
+     * asked for JSON and the outcome is validated after the fact.
+     * @defaultValue `false`
      */
     supportsStructuredOutputs?: boolean
     /** Maximum model turns spent calling investigation and MCP tools before returning an outcome. Unlimited by default. */
@@ -54,6 +60,7 @@ export type OpenAiCompatibleInvestigationConfig = {
     fetch?: typeof fetch
 }
 
+/** @group Providers */
 export type LanguageModelInvestigationConfig
     = | ClaudeInvestigationConfig
         | OpenAiInvestigationConfig

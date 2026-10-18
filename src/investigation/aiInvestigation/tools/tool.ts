@@ -8,6 +8,7 @@ import type {
 } from './types'
 import type { Schema, SchemaInfer } from '../../../schema/types'
 
+/** @group Tools */
 export function defineTool<
     TSchema extends Schema = undefined,
     Context = unknown,

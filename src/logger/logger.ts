@@ -1,7 +1,10 @@
+/** @group Options */
 export type LoggingVerbosity = 'high' | 'low'
 
+/** @group Options */
 export type LoggerLike = Pick<Console, 'debug' | 'error' | 'info' | 'log' | 'warn'>
 
+/** @group Options */
 export type LoggingOptions = {
     logger?: LoggerLike
     verbosity?: LoggingVerbosity

@@ -3,6 +3,7 @@
     "entryPoints": ["src/index.ts"],
     "tsconfig": "tsconfig.json",
     "sort": ["source-order"],
+    "groupOrder": ["Decorator", "Options", "Providers", "Tools", "MCP", "Errors", "Types", "*"],
     "excludeInternal": true,
     "treatWarningsAsErrors": true,
     "validation": {

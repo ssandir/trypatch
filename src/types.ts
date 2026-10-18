@@ -36,10 +36,12 @@ export type MethodDescriptor =
         descriptor: PropertyDescriptor
     }
 
+/** @group Providers */
 export type InvestigationProviderConfig
     = | LanguageModelInvestigationConfig
         | CursorInvestigationConfig
 
+/** @group Types */
 export type InvestigationContext = {
     error: unknown
     methodName: string
@@ -59,11 +61,13 @@ export type InvestigationContext = {
     timing: CallTiming
 }
 
+/** @group Types */
 export type CallTiming = {
     startedAt: Date
     durationMs: number
 }
 
+/** @group Options */
 export type InvestigationBehavior = {
     /**
      * Replaces the default user prompt. A function receives the investigation context with `args`
@@ -76,51 +80,59 @@ export type InvestigationBehavior = {
     /**
      * Whether the default prompt includes the method's code ({@link InvestigationContext.methodSource}),
      * so the AI can see what the failed call was meant to do. It is sent to the provider (after
-     * `redactConfig`), so leave it off if your code must not leave your infrastructure. Defaults to `false`.
+     * `redactConfig`), so leave it off if your code must not leave your infrastructure.
+     * @defaultValue `false`
      */
     allowMethodSource?: boolean
     /**
      * Whether the AI may also call the tools in trypatch's built-in safe toolbox (waiting, reading truncated parts of the failed call, encoding/decoding) alongside
-     * {@link AiInvestigationOptions.investigationTools}. Defaults to `true`.
+     * {@link AiInvestigationOptions.investigationTools}.
+     * @defaultValue `true`
      */
     allowSafeToolbox?: boolean
     /**
      * Whether the AI may return a `result` directly, versus only via {@link AiInvestigationOptions.resultTools}/{@link AiInvestigationOptions.customErrors}.
-     * Defaults to `true`.
+     * @defaultValue `true`
      */
     allowDirectResultCreation?: boolean
     /**
      * Whether the AI may report that there isn't enough information to work out a correct return value.
      * Ends the investigation with {@link TrypatchCannotDetermineError}, which is logged; the method then
-     * rethrows its original error. Defaults to `true`.
+     * rethrows its original error.
+     * @defaultValue `true`
      */
     allowCannotDetermine?: boolean
     /**
      * Whether the AI may report that a plausible return value exists but its confidence in it is too low
      * to return it, instead of guessing. Ends the investigation with {@link TrypatchUncertainResultError},
-     * which is logged; the method then rethrows its original error. Defaults to `true`.
+     * which is logged; the method then rethrows its original error.
+     * @defaultValue `true`
      */
     allowUncertainResult?: boolean
     /**
      * Whether the AI may report that none of the configured outcomes actually fit the situation.
      * Ends the investigation with {@link TrypatchNoApplicableOutcomeError}, which is logged; the method
-     * then rethrows its original error. Defaults to `true`.
+     * then rethrows its original error.
+     * @defaultValue `true`
      */
     allowNoApplicableOutcome?: boolean
 }
 
 /**
  * Tool the AI may call while investigating. Prefer side-effect-free implementations.
+ * @group Tools
  */
 export type InvestigationTool<C = unknown> = Tool<Schema, C, unknown>
 
 /**
  * Tool the AI may pick as its outcome; trypatch calls it after the investigation and its return value
  * is returned from the decorated method in place of the error.
- * When {@link TrypatchOptions} includes {@link resultSchema}, execute must return {@link SchemaInfer} for that schema.
+ * When {@link AiInvestigationOptions.resultSchema} is set, execute must return {@link SchemaInfer} for that schema.
+ * @group Tools
  */
 export type ResultTool<S extends Schema = Schema, C = unknown> = Tool<Schema, C, SchemaInfer<S>>
 
+/** @group Options */
 export type CustomErrorDefinition<S extends Schema = Schema> = {
     /** Will be called with a parameter matching the errorParameterSchema. */
     errorConstructor: new (param: SchemaInfer<S>) => Error
@@ -129,12 +141,14 @@ export type CustomErrorDefinition<S extends Schema = Schema> = {
     /** Zod or JSON Schema describing the error constructor parameter type. Omit it for an error constructed without one. */
     errorParameterSchema?: S
     /**
-     * Whether this error propagates out of trypatch. Defaults to `false`: it is logged and the
-     * decorated method rethrows its original error instead.
+     * Whether this error propagates out of trypatch. When `false`, it is logged and the decorated
+     * method rethrows its original error instead.
+     * @defaultValue `false`
      */
     propagate?: boolean
 }
 
+/** @group Options */
 export type AiInvestigationOptions<
     S extends Schema = Schema,
     C = unknown,
@@ -187,16 +201,19 @@ export type AiInvestigationOptions<
 /**
  * The AI's findings: its `explanation` of why the call failed and why its outcome is correct, with either the
  * `result` the decorated method returns or the `error` the outcome ended with.
+ * @group Types
  */
 export type ResolvedOutcome<T = unknown>
     = | { type: 'result', result: T, explanation: string }
         | { type: 'error', error: Error, explanation: string }
 
+/** @group Options */
 export type CustomInvestigationErrorDefinition = {
     errorConstructor: new (...args: any[]) => Error
 }
 
-type CustomInvestigateTrypatchOptions = {
+/** @group Options */
+export type CustomInvestigationOptions = {
     /**
      * Custom investigation handler; replaces the built-in AI provider flow when provided. Its resolved
      * value is returned from the decorated method in place of the error.
@@ -206,7 +223,8 @@ type CustomInvestigateTrypatchOptions = {
     customErrors?: CustomInvestigationErrorDefinition[]
 }
 
-type TrypatchOptionsBase = {
+/** @group Options */
+export type TrypatchOptionsBase = {
     logging?: LoggingOptions
     /** Resolves an abort signal from the investigation context (including the call's arguments). Aborts the investigation when the signal fires. */
     getSignal?: (ctx: InvestigationContext) => AbortSignal | undefined
@@ -219,10 +237,28 @@ type TrypatchOptionsBase = {
     onInvestigationStart?: (ctx: InvestigationContext) => void | Promise<void>
 }
 
+/** @group Options */
 export type TrypatchOptions<
     S extends Schema = Schema,
     C = unknown,
 > = TrypatchOptionsBase & (
     | { aiInvestigation: AiInvestigationOptions<S, C>, customInvestigation?: never }
-    | { customInvestigation: CustomInvestigateTrypatchOptions, aiInvestigation?: never }
+    | { customInvestigation: CustomInvestigationOptions, aiInvestigation?: never }
 )
+
+/** @group Decorator */
+export type LegacyMethodDecorator = (
+    target: object,
+    propertyKey: string | symbol,
+    descriptor: PropertyDescriptor,
+) => PropertyDescriptor | void
+
+/** @group Decorator */
+export type Stage3MethodDecorator<S extends Schema> = <
+    This,
+    Args extends unknown[],
+    Return extends Promise<SchemaInfer<S>>,
+> (
+    originalMethod: (this: This, ...args: Args) => Return,
+    context: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Return>,
+) => (this: This, ...args: Args) => Return

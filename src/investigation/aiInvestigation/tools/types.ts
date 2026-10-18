@@ -1,5 +1,6 @@
 import type { Schema, SchemaInfer } from '../../../schema/types'
 
+/** @group Tools */
 export type ToolHandler<
     TSchema extends Schema,
     Context = unknown,
@@ -11,6 +12,7 @@ export type ToolHandler<
     options: { signal: AbortSignal },
 ) => Result | Promise<Result>
 
+/** @group Tools */
 export type ToolDefinition<
     TSchema extends Schema = undefined,
     Context = unknown,
@@ -24,7 +26,10 @@ export type ToolDefinition<
     timeoutMs?: number
 }
 
-/** A tool created by {@link defineTool}. */
+/**
+ * A tool created by {@link defineTool}.
+ * @group Tools
+ */
 export type Tool<
     TSchema extends Schema = Schema,
     Context = unknown,

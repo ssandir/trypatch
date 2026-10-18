@@ -1,6 +1,10 @@
-/** Static headers, or a function resolved once per investigation (short-lived tokens, secret managers, ...). */
+/**
+ * Static headers, or a function resolved once per investigation (short-lived tokens, secret managers, ...).
+ * @group MCP
+ */
 export type McpHeaders = Record<string, string> | (() => Record<string, string> | Promise<Record<string, string>>)
 
+/** @group MCP */
 export type McpRemoteServerConfig<THeaders = McpHeaders> = {
     /** Unique per investigation; letters, digits, `_` and `-`. Tools are exposed to the AI as `<name>__<tool>`. */
     name: string
@@ -13,6 +17,7 @@ export type McpRemoteServerConfig<THeaders = McpHeaders> = {
     fetch?: typeof fetch
 }
 
+/** @group MCP */
 export type McpStdioServerConfig = {
     /** Unique per investigation; letters, digits, `_` and `-`. Tools are exposed to the AI as `<name>__<tool>`. */
     name: string
@@ -26,6 +31,7 @@ export type McpStdioServerConfig = {
     allowedTools?: string[]
 }
 
+/** @group MCP */
 export type McpServerConfig<THeaders = McpHeaders> = McpRemoteServerConfig<THeaders> | McpStdioServerConfig
 
 /** A server whose `headers` function, if it had one, has been called for this investigation. */

@@ -1,4 +1,7 @@
-/** The investigation ran past `timeoutMs`. */
+/**
+ * The investigation ran past `timeoutMs`.
+ * @group Errors
+ */
 export class TrypatchTimeoutError extends Error {
     constructor (message: string, options?: ErrorOptions) {
         super(message, options)
