@@ -30,7 +30,10 @@ export type {
     TrypatchOptions,
     TrypatchOptionsBase,
 } from './types'
-/** @group Options */
+/**
+ * [flare-redact](https://www.npmjs.com/package/flare-redact) options for {@link AiInvestigationOptions.redactConfig}.
+ * @group Options
+ */
 export type { VaultOptions } from 'flare-redact'
 export type { CursorInvestigationConfig, CursorRepositoryConfig } from './investigation/aiInvestigation/providers/cursor/types'
 export type {

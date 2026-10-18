@@ -8,7 +8,11 @@ import type {
 } from './types'
 import type { Schema, SchemaInfer } from '../../../schema/types'
 
-/** @group Tools */
+/**
+ * Creates a tool for `investigationTools` or `resultTools`, inferring `execute`'s input type from `parameters`.
+ * Throws {@link TrypatchFatalError} if `parameters` isn't a valid object schema.
+ * @group Tools
+ */
 export function defineTool<
     TSchema extends Schema = undefined,
     Context = unknown,

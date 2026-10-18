@@ -7,7 +7,10 @@ import type { $ZodType, output as ZodOutput } from 'zod/v4/core'
  */
 export type Schema = JSONSchema | $ZodType | undefined
 
-/** @group Types */
+/**
+ * The TypeScript type a schema describes: inferred for Zod, `any` for JSON Schema (annotate it with `FromSchema`).
+ * @group Types
+ */
 export type SchemaInfer<S extends Schema>
     = S extends $ZodType ? ZodOutput<S>
         // FromSchema<S> triggers TS2589 (excessively deep instantiation) through our generic types.

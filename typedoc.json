@@ -10,6 +10,16 @@
         "notExported": true,
         "invalidLink": true,
         "rewrittenLink": true,
-        "notDocumented": false
-    }
+        "notDocumented": true
+    },
+    "intentionallyNotDocumented": [
+        "ClaudeInvestigationConfig.provider",
+        "OpenAiInvestigationConfig.provider",
+        "OpenAiCompatibleInvestigationConfig.provider",
+        "CursorInvestigationConfig.provider",
+        "McpStdioServerConfig.type",
+        "ResolvedOutcome.__type.type",
+        "CustomErrorDefinition.errorConstructor.__type",
+        "CustomInvestigationErrorDefinition.errorConstructor.__type"
+    ]
 }
