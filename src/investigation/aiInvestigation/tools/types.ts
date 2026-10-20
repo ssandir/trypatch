@@ -1,11 +1,20 @@
-import type { Schema, SchemaInfer } from '../../../schema/types'
+import type { JSONSchema } from 'json-schema-to-ts'
+import type { $ZodObject } from 'zod/v4/core'
+import type { SchemaInfer } from '../../../schema/types'
+
+/**
+ * A tool's input schema: a Zod object or a JSON Schema with `type: 'object'`, since providers require object input.
+ * Omit it for a tool that takes no input.
+ * @group Tools
+ */
+export type ToolParameters = $ZodObject | (Exclude<JSONSchema, boolean> & { readonly type: 'object' }) | undefined
 
 /**
  * A tool's `execute`: gets its validated input, the `toolContext`, and a signal.
  * @group Tools
  */
 export type ToolHandler<
-    TSchema extends Schema,
+    TSchema extends ToolParameters,
     Context = unknown,
     Result = unknown,
 > = (
@@ -20,7 +29,7 @@ export type ToolHandler<
  * @group Tools
  */
 export type ToolDefinition<
-    TSchema extends Schema = undefined,
+    TSchema extends ToolParameters = undefined,
     Context = unknown,
     Result = unknown,
 > = {
@@ -37,22 +46,11 @@ export type ToolDefinition<
 }
 
 /**
- * A tool created by {@link defineTool}.
+ * A tool for `investigationTools` or `resultTools`, usually created by {@link defineTool}.
  * @group Tools
  */
 export type Tool<
-    TSchema extends Schema = Schema,
+    TSchema extends ToolParameters = ToolParameters,
     Context = unknown,
     Result = unknown,
-> = {
-    /** {@link ToolDefinition.name}, with every character other than letters and digits replaced by `_`. */
-    readonly name: string
-    /** {@inheritDoc ToolDefinition.description} */
-    readonly description: string
-    /** {@inheritDoc ToolDefinition.parameters} */
-    readonly parameters?: TSchema
-    /** {@inheritDoc ToolDefinition.timeoutMs} */
-    readonly timeoutMs?: number
-    /** {@inheritDoc ToolDefinition.execute} */
-    readonly execute: ToolHandler<TSchema, Context, Result>
-}
+> = Readonly<ToolDefinition<TSchema, Context, Result>>

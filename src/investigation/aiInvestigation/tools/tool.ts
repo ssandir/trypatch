@@ -5,8 +5,9 @@ import { toInputJsonSchema, toFunctionToolName } from './schema'
 import type {
     Tool,
     ToolDefinition,
+    ToolParameters,
 } from './types'
-import type { Schema, SchemaInfer } from '../../../schema/types'
+import type { SchemaInfer } from '../../../schema/types'
 
 /**
  * Creates a tool for `investigationTools` or `resultTools`, inferring `execute`'s input type from `parameters`.
@@ -14,7 +15,7 @@ import type { Schema, SchemaInfer } from '../../../schema/types'
  * @group Tools
  */
 export function defineTool<
-    TSchema extends Schema = undefined,
+    TSchema extends ToolParameters = undefined,
     Context = unknown,
     Result = unknown,
 > (definition: ToolDefinition<TSchema, Context, Result>): Tool<TSchema, Context, Result> {
@@ -29,7 +30,7 @@ export function defineTool<
     return { ...definition, name: toFunctionToolName(definition.name) }
 }
 
-export async function callTool<TSchema extends Schema, Context, Result> (
+export async function callTool<TSchema extends ToolParameters, Context, Result> (
     tool: Tool<TSchema, Context, Result>,
     input: unknown,
     context: Context | undefined,

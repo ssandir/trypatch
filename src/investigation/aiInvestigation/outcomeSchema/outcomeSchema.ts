@@ -52,9 +52,11 @@ export function buildOutcomeSchema<C> ({
 }
 
 const ANY_PAYLOAD = {} as const satisfies JSONSchema
+// Tool input is always an object, and a valid ToolParameters keeps the copied result tools typed as ResultTool.
+const ANY_OBJECT_PAYLOAD = { type: 'object' } as const satisfies JSONSchema
 
 /**
- * {@link buildOutcomeSchema} with every payload (`result`, `input`, `errorSchema`) accepting anything, for
+ * {@link buildOutcomeSchema} with every payload (`result`, `errorSchema`, and any object as `input`) accepted, for
  * validating a provider's response. Payloads are parsed with the consumer's own schemas when the outcome is applied, so a
  * Zod schema is never validated through its JSON Schema conversion, which Ajv can't compile (Zod emits `format`s).
  */
@@ -62,7 +64,7 @@ export function buildOutcomeEnvelopeSchema<C> (options: OutcomeSchemaOptions<C>)
     return buildOutcomeSchema({
         ...options,
         resultSchema: ANY_PAYLOAD,
-        resultTools: options.resultTools?.map(tool => ({ ...tool, parameters: ANY_PAYLOAD })),
+        resultTools: options.resultTools?.map(tool => ({ ...tool, parameters: ANY_OBJECT_PAYLOAD })),
         customErrors: options.customErrors?.map(definition => ({ ...definition, errorParameterSchema: ANY_PAYLOAD })),
     })
 }

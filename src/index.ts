@@ -12,6 +12,7 @@ export type {
     Tool,
     ToolDefinition,
     ToolHandler,
+    ToolParameters,
 } from './investigation/aiInvestigation/tools'
 export type {
     AiInvestigationOptions,

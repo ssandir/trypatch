@@ -18,6 +18,7 @@
         "OpenAiCompatibleInvestigationConfig.provider",
         "CursorInvestigationConfig.provider",
         "McpStdioServerConfig.type",
+        "ToolParameters.__type.type",
         "ResolvedOutcome.__type.type",
         "CustomErrorDefinition.errorConstructor.__type",
         "CustomInvestigationErrorDefinition.errorConstructor.__type"
