@@ -41,10 +41,11 @@
         "lint": "eslint --max-warnings 0",
         "lint:fix": "eslint --max-warnings 0 --fix --no-warn-ignored",
         "lint:inspect": "eslint --inspect-config",
-        "type-check": "tsc --project tsconfig.json --pretty --noEmit",
+        "type-check": "tsc --project tsconfig.json --pretty --noEmit && tsc --project examples/tsconfig.json --pretty --noEmit",
         "prepare": "husky",
         "e2e:setup": "npm run build && npm --prefix e2e run setup",
-        "docs:check": "typedoc --emit none"
+        "docs:check": "typedoc --emit none",
+        "docs:json": "typedoc"
     },
     "dependencies": {
         "@ai-sdk/anthropic": "^4.0.70",

@@ -265,7 +265,7 @@ export type CustomInvestigationOptions = {
      * Custom investigation handler; replaces the built-in AI provider flow when provided. Its resolved
      * value is returned from the decorated method in place of the error.
      */
-    investigate: (ctx: InvestigationContext, options: { signal?: AbortSignal }) => Promise<unknown>
+    investigate: (ctx: InvestigationContext, options: { signal: AbortSignal }) => Promise<unknown>
     /** Error classes that, when thrown by {@link investigate}, propagate instead of the method's original error. */
     customErrors?: CustomInvestigationErrorDefinition[]
 }

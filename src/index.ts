@@ -1,3 +1,14 @@
+/**
+ * @packageDocumentation
+ * @document ../docs/recovery.md
+ * @document ../docs/tools.md
+ * @document ../docs/mcp-servers.md
+ * @document ../docs/redaction.md
+ * @document ../docs/cancellation.md
+ * @document ../docs/monitoring.md
+ * @document ../docs/schemas.md
+ * @document ../docs/providers.md
+ */
 export { trypatch } from './trypatch'
 export {
     TrypatchFatalError,
