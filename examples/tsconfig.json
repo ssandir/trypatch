@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true,
+    "declaration": false,
+    "types": ["node"],
+    "paths": {
+      "@ssandir/trypatch": ["../src/index.ts"]
+    }
+  },
+  "include": ["."]
+}

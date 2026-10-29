@@ -272,7 +272,7 @@ describe('trypatch', () => {
             additionalProperties: false,
         } as const satisfies JSONSchema
 
-        it('should apply CustomInvestigateTrypatchOptions via @trypatch when the method throws', async () => {
+        it('should apply CustomInvestigationOptions via @trypatch when the method throws', async () => {
             const investigate = jest.fn((): Promise<DecoratorResult> => Promise.resolve({ inStock: true }))
 
             const customOptions = {

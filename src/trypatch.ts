@@ -2,30 +2,21 @@ import { TrypatchFatalError } from './errors'
 import { validateAiInvestigationOptions } from './investigation/aiInvestigation/options/validateOptions'
 import { runInvestigation } from './investigation/runInvestigation'
 import { Logger } from './logger'
-import type { SchemaInfer, Schema } from './schema/types'
-import type { AnyMethod, AnyMethodContext, MethodDescriptor, TrypatchOptions } from './types'
-
-type LegacyMethodDecorator = (
-    target: object,
-    propertyKey: string | symbol,
-    descriptor: PropertyDescriptor,
-) => PropertyDescriptor | void
-
-type Stage3MethodDecorator<S extends Schema> = <
-    This,
-    Args extends unknown[],
-    Return extends Promise<SchemaInfer<S>>,
-> (
-    originalMethod: (this: This, ...args: Args) => Return,
-    context: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Return>,
-) => (this: This, ...args: Args) => Return
+import type { Schema } from './schema/types'
+import type {
+    AnyMethod,
+    AnyMethodContext,
+    LegacyMethodDecorator,
+    MethodDescriptor,
+    Stage3MethodDecorator,
+    TrypatchOptions,
+} from './types'
 
 /**
- * Consumers may compile with TypeScript's legacy `experimentalDecorators` (still the default for
- * NestJS, TypeORM, etc.) or with the standard stage-3 decorators TS 5 uses by default. The two
- * dialects call a method decorator with different argument shapes, so we detect which one is
- * calling at runtime and dispatch accordingly. The exported type is an intersection of both
- * decorator shapes so `tsc` accepts it under either `experimentalDecorators` setting.
+ * Method decorator that investigates a failed call (with an AI provider or your own handler) and returns the
+ * value it recovers in place of the error, or rejects with the original error when nothing is recovered.
+ * The decorated method must return a `Promise`; TC39 stage-3 and legacy `experimentalDecorators` both work.
+ * @group Decorator
  */
 export function trypatch<
     S extends Schema,
@@ -36,6 +27,8 @@ export function trypatch<
         validateAiInvestigationOptions(options.aiInvestigation)
     }
 
+    // The two dialects call a decorator with different argument shapes, so we detect the caller's at runtime.
+    // The return type intersects both shapes so `tsc` accepts it under either `experimentalDecorators` setting.
     return ((...args: unknown[]): unknown => {
         const [first, second, third] = args
 

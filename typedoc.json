@@ -1,0 +1,27 @@
+{
+    "$schema": "https://typedoc.org/schema.json",
+    "entryPoints": ["src/index.ts"],
+    "tsconfig": "tsconfig.json",
+    "outputs": [{ "name": "json", "path": "docs.json" }],
+    "sort": ["source-order"],
+    "groupOrder": ["Decorator", "Options", "Providers", "Tools", "MCP", "Errors", "Types", "*"],
+    "excludeInternal": true,
+    "treatWarningsAsErrors": true,
+    "validation": {
+        "notExported": true,
+        "invalidLink": true,
+        "rewrittenLink": true,
+        "notDocumented": true
+    },
+    "intentionallyNotDocumented": [
+        "ClaudeInvestigationConfig.provider",
+        "OpenAiInvestigationConfig.provider",
+        "OpenAiCompatibleInvestigationConfig.provider",
+        "CursorInvestigationConfig.provider",
+        "McpStdioServerConfig.type",
+        "ToolParameters.__type.type",
+        "ResolvedOutcome.__type.type",
+        "CustomErrorDefinition.errorConstructor.__type",
+        "CustomInvestigationErrorDefinition.errorConstructor.__type"
+    ]
+}

@@ -2,6 +2,7 @@ import type { FromSchema, JSONSchema } from 'json-schema-to-ts'
 import { z } from 'zod/v4'
 import { mockTimeoutSignal } from '../../../test/abort'
 import { callTool, defineTool } from './tool'
+import type { ToolParameters } from './types'
 import type { SchemaInfer } from '../../../schema/types'
 
 type TestContext = {
@@ -78,8 +79,8 @@ describe('defineTool and callTool', () => {
         expect(() => defineTool({
             name: 'lookup_order',
             description: 'Look up an order',
-            // A schema loaded at runtime, which the JSONSchema type can't check.
-            parameters: { type: 'object', properties: { orderId: { type: 'strnig' } } } as unknown as JSONSchema,
+            // A schema loaded at runtime, which the ToolParameters type can't check.
+            parameters: { type: 'object', properties: { orderId: { type: 'strnig' } } } as unknown as ToolParameters,
             execute: () => undefined,
         })).toThrow('Tool lookup_order parameters is not a valid JSON Schema')
     })
@@ -132,6 +133,7 @@ describe('defineTool and callTool', () => {
         expect(() => defineTool({
             name: 'string_input',
             description: 'String input',
+            // @ts-expect-error - only object schemas are tool parameters; the runtime check covers JavaScript callers
             parameters,
             execute: (): string => 'ok',
         })).toThrow('Tool string_input parameters must be an object schema')
