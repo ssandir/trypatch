@@ -3,6 +3,7 @@
     "version": "0.4.4",
     "description": "Production error investigation and automatic resolution with AI-powered diagnostics",
     "license": "Apache-2.0",
+    "homepage": "https://trypatch.dev",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/ssandir/trypatch.git"

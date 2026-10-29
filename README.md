@@ -61,4 +61,4 @@ When `getQuote` fails, the AI works out the `Quote` it should have returned. The
 - [Schemas](docs/schemas.md)
 - [Providers](docs/providers.md)
 
-Every option is documented on its type, so your editor shows it on hover.
+Every option is documented on its type, so your editor shows it on hover. Guides and the API reference are also on [trypatch.dev](https://trypatch.dev).
