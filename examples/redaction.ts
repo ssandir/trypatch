@@ -1,7 +1,7 @@
 import { db } from './shared'
 
 // #region redaction
-import { z } from 'zod'
+import { z } from 'zod/v4'
 import { trypatch } from '@ssandir/trypatch'
 
 const CustomerSchema = z.object({

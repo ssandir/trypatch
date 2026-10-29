@@ -8,7 +8,7 @@ title: Schemas
 
 ## Support
 
-- Zod schemas need Zod 4 (`zod` `^4.1.8`). On `zod` `^3.25.76`, import from `zod/v4`: classic Zod 3 schemas aren't supported.
+- Zod schemas work with `zod` `^3.25.76` and `^4.1.8`. Import them from `zod/v4`, which is Zod 4 in both; on `zod` 3, plain `zod` is the classic Zod 3 API, which isn't supported.
 - Every schema is sent to the AI as JSON Schema, so Zod types JSON Schema can't represent, like `.transform()`, aren't supported.
 - JSON Schemas can be draft-07, or draft 2020-12 with `$schema` set to it.
 - `format`s such as `email` are validated.

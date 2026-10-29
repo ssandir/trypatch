@@ -1,5 +1,5 @@
 // #region quick-start
-import { z } from 'zod'
+import { z } from 'zod/v4'
 import { trypatch } from '@ssandir/trypatch'
 
 export const QuoteSchema = z.object({

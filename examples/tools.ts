@@ -3,7 +3,7 @@ import { pricingClient } from './shared'
 
 // #region tools
 import { setTimeout as sleep } from 'node:timers/promises'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 import { defineTool, trypatch } from '@ssandir/trypatch'
 
 // Investigation tool: lets the AI see what the upstream actually sent

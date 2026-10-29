@@ -15,12 +15,12 @@
 npm install @ssandir/trypatch zod
 ```
 
-Requires Node.js 22.12 or later, and Zod 4 if you use Zod schemas.
+Requires Node.js 22.12 or later. Zod schemas work with `zod` `^3.25.76` or `^4.1.8`, imported from `zod/v4`. [Schemas](docs/schemas.md)
 
 ## Quick start
 
 ```typescript
-import { z } from 'zod'
+import { z } from 'zod/v4'
 import { trypatch } from '@ssandir/trypatch'
 
 export const QuoteSchema = z.object({
