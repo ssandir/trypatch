@@ -6,7 +6,7 @@
     "out": "docs-md",
     "docsRoot": "docs-md",
     "entryFileName": "index",
-    "pageTitleTemplates": { "member": "{rawName}" },
+    "pageTitleTemplates": { "member": "{name}" },
     "hidePageHeader": true,
     "hideBreadcrumbs": true,
     "disableSources": true,
