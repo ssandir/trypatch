@@ -14,12 +14,12 @@ export type ToolParameters = $ZodObject | (Exclude<JSONSchema, boolean> & { read
  * @group Tools
  */
 export type ToolHandler<
-    TSchema extends ToolParameters,
-    Context = unknown,
+    InputSchema extends ToolParameters,
+    ToolContext = unknown,
     Result = unknown,
 > = (
-    input: SchemaInfer<TSchema>,
-    context: Context | undefined,
+    input: SchemaInfer<InputSchema>,
+    context: ToolContext | undefined,
     /** `signal` fires on the tool's own `timeoutMs` or when the investigation is aborted, whichever comes first. */
     options: { signal: AbortSignal },
 ) => Result | Promise<Result>
@@ -29,8 +29,8 @@ export type ToolHandler<
  * @group Tools
  */
 export type ToolDefinition<
-    TSchema extends ToolParameters = undefined,
-    Context = unknown,
+    InputSchema extends ToolParameters = undefined,
+    ToolContext = unknown,
     Result = unknown,
 > = {
     /** Shown to the AI, with every character other than letters and digits replaced by `_`. */
@@ -38,9 +38,9 @@ export type ToolDefinition<
     /** Tells the AI what the tool does and when to use it. */
     description: string
     /** Schema of `execute`'s input. Omit it for a tool that takes no input: `execute` then receives `undefined`. */
-    parameters?: TSchema
+    parameters?: InputSchema
     /** Runs the tool; for a result tool, its return value becomes the decorated method's. */
-    execute: ToolHandler<TSchema, Context, Result>
+    execute: ToolHandler<InputSchema, ToolContext, Result>
     /** Deadline for one call, on top of the investigation's `timeoutMs`; the call fails with {@link TrypatchTimeoutError}. */
     timeoutMs?: number
 }
@@ -50,7 +50,7 @@ export type ToolDefinition<
  * @group Tools
  */
 export type Tool<
-    TSchema extends ToolParameters = ToolParameters,
-    Context = unknown,
+    InputSchema extends ToolParameters = ToolParameters,
+    ToolContext = unknown,
     Result = unknown,
-> = Readonly<ToolDefinition<TSchema, Context, Result>>
+> = Readonly<ToolDefinition<InputSchema, ToolContext, Result>>

@@ -92,9 +92,9 @@ export type CallTiming = {
  * @group Options
  */
 export type TrypatchOptions<
-    S extends Schema = Schema,
-    C = unknown,
-> = TrypatchAiOptions<S, C> | TrypatchCustomOptions
+    ResultSchema extends Schema = Schema,
+    ToolContext = unknown,
+> = TrypatchAiOptions<ResultSchema, ToolContext> | TrypatchCustomOptions
 
 /** Options shared by AI and custom investigations. */
 type TrypatchOptionsBase = {
@@ -123,11 +123,11 @@ type TrypatchOptionsBase = {
  * @interface
  */
 export type TrypatchAiOptions<
-    S extends Schema = Schema,
-    C = unknown,
+    ResultSchema extends Schema = Schema,
+    ToolContext = unknown,
 > = TrypatchOptionsBase & {
     /** Investigate with an AI provider. */
-    aiInvestigation: AiInvestigationOptions<S, C>
+    aiInvestigation: AiInvestigationOptions<ResultSchema, ToolContext>
     /**
      * Not allowed together with `aiInvestigation`.
      * @hidden
@@ -155,15 +155,15 @@ export type TrypatchCustomOptions = TrypatchOptionsBase & {
  * @group Options
  */
 export type AiInvestigationOptions<
-    S extends Schema = Schema,
-    C = unknown,
+    ResultSchema extends Schema = Schema,
+    ToolContext = unknown,
 > = {
     /**
      * JSON Schema or Zod schema of the decorated method's return value. A recovered value (a direct
      * `result` or a {@link resultTools} return value) is returned in place of the error, so it must
      * match what the method returns.
      */
-    resultSchema?: S
+    resultSchema?: ResultSchema
     /** External AI provider that runs the investigation. */
     investigationProvider: InvestigationProviderConfig
     /** Prompts, argument sanitization, and which built-in tools and outcomes the AI may use. */
@@ -176,11 +176,11 @@ export type AiInvestigationOptions<
      */
     redactConfig?: VaultOptions | false
     /** Context passed to {@link investigationTools} and {@link resultTools} execute handlers. */
-    toolContext?: C
+    toolContext?: ToolContext
     /**
      * Tools the AI may call while investigating. Strongly recommended to be read-only — no mutations or side effects; ignored by `cursor`.
      */
-    investigationTools?: InvestigationTool<C>[]
+    investigationTools?: InvestigationTool<ToolContext>[]
     /**
      * MCP servers whose tools the AI may call while investigating, alongside {@link investigationTools}.
      * Connected once per investigation and closed afterwards. A server that can't be reached is logged
@@ -193,14 +193,14 @@ export type AiInvestigationOptions<
      * Tools the AI may pick as its outcome. trypatch calls the picked tool once the investigation
      * completes, and its return value is returned from the decorated method in place of the error.
      */
-    resultTools?: ResultTool<S, C>[]
+    resultTools?: ResultTool<ResultSchema, ToolContext>[]
     /** Custom error classes the AI can throw during investigation. */
     customErrors?: CustomErrorDefinition[]
     /**
      * Called with the AI's outcome before the decorated method returns or rejects, but not when the investigation fails
      * before the AI picks an outcome. If it throws, the decorated method rejects with its original error.
      */
-    onAiInvestigationEnd?: (ctx: InvestigationContext, outcome: ResolvedOutcome<SchemaInfer<S>>) => void | Promise<void>
+    onAiInvestigationEnd?: (ctx: InvestigationContext, outcome: ResolvedOutcome<SchemaInfer<ResultSchema>>) => void | Promise<void>
 }
 
 /**
@@ -262,7 +262,7 @@ export type InvestigationBehavior = {
  * Tool the AI may call while investigating. Prefer side-effect-free implementations.
  * @group Tools
  */
-export type InvestigationTool<C = unknown> = Tool<ToolParameters, C, unknown>
+export type InvestigationTool<ToolContext = unknown> = Tool<ToolParameters, ToolContext, unknown>
 
 /**
  * Tool the AI may pick as its outcome; trypatch calls it after the investigation and its return value
@@ -270,19 +270,19 @@ export type InvestigationTool<C = unknown> = Tool<ToolParameters, C, unknown>
  * When {@link AiInvestigationOptions.resultSchema} is set, execute must return {@link SchemaInfer} for that schema.
  * @group Tools
  */
-export type ResultTool<S extends Schema = Schema, C = unknown> = Tool<ToolParameters, C, SchemaInfer<S>>
+export type ResultTool<ResultSchema extends Schema = Schema, ToolContext = unknown> = Tool<ToolParameters, ToolContext, SchemaInfer<ResultSchema>>
 
 /**
  * An error the AI may pick as its outcome, constructed from a parameter it supplies.
  * @group Options
  */
-export type CustomErrorDefinition<S extends Schema = Schema> = {
+export type CustomErrorDefinition<ParameterSchema extends Schema = Schema> = {
     /** Will be called with a parameter matching the errorParameterSchema. */
-    errorConstructor: new (param: SchemaInfer<S>) => Error
+    errorConstructor: new (param: SchemaInfer<ParameterSchema>) => Error
     /** Optional description for the AI to understand when to return this error. */
     description?: string
     /** Zod or JSON Schema describing the error constructor parameter type. Omit it for an error constructed without one. */
-    errorParameterSchema?: S
+    errorParameterSchema?: ParameterSchema
     /**
      * Whether this error propagates out of trypatch. When `false`, it is logged and the decorated
      * method rethrows its original error instead.
@@ -296,11 +296,11 @@ export type CustomErrorDefinition<S extends Schema = Schema> = {
  * `result` the decorated method returns or the `error` the outcome ended with.
  * @group Types
  */
-export type ResolvedOutcome<T = unknown>
+export type ResolvedOutcome<Result = unknown>
     = | {
         type: 'result'
         /** The value the decorated method returns. */
-        result: T
+        result: Result
         /** Why the call failed and why this value is correct; redaction placeholders are restored. */
         explanation: string
     }
@@ -349,10 +349,10 @@ export type LegacyMethodDecorator = (
  * The shape {@link trypatch} returns under stage-3 decorators; it requires the method to return `Promise` of the `resultSchema` type.
  * @group Decorator
  */
-export type Stage3MethodDecorator<S extends Schema> = <
+export type Stage3MethodDecorator<ResultSchema extends Schema> = <
     This,
     Args extends unknown[],
-    Return extends Promise<SchemaInfer<S>>,
+    Return extends Promise<SchemaInfer<ResultSchema>>,
 > (
     originalMethod: (this: This, ...args: Args) => Return,
     context: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Return>,
