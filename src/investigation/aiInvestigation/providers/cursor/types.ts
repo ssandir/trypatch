@@ -4,6 +4,7 @@ import type { McpServerConfig } from '../../mcp/types'
 /**
  * Repository the Cursor agent checks out, so it can read your code while investigating.
  * @group Providers
+ * @inline
  */
 export type CursorRepositoryConfig = {
     /** Repository URL, e.g. `'https://github.com/acme/payments'`. */

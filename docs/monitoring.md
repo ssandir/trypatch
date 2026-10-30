@@ -8,7 +8,7 @@ When trypatch recovers a call, the caller sees a success, so the failure behind 
 
 ## `onInvestigationStart`
 
-{@link TrypatchOptionsBase.onInvestigationStart | `onInvestigationStart`} runs when the method fails, before the investigation. It gets the {@link InvestigationContext}, with the original error as `ctx.error`.
+{@link TrypatchAiOptions.onInvestigationStart | `onInvestigationStart`} runs when the method fails, before the investigation. It gets the {@link InvestigationContext}, with the original error as `ctx.error`.
 
 {@includeCode ../examples/monitoring.ts#investigation-start}
 
@@ -26,7 +26,7 @@ When trypatch recovers a call, the caller sees a success, so the failure behind 
 
 ## Logging
 
-trypatch logs through {@link TrypatchOptionsBase.logging | `logging.logger`} and logs nothing without one.
+trypatch logs through {@link TrypatchAiOptions.logging | `logging.logger`} and logs nothing without one.
 
 - Investigations that end without a value are logged at `error` level, including those that fail before the AI picks an outcome (provider error, timeout, invalid response), when `onAiInvestigationEnd` isn't called. Forward `error` to your monitoring to catch them.
 - Unavailable MCP servers and failed Cursor cancellations are logged at `warn` level.

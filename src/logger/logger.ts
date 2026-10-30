@@ -13,11 +13,13 @@ export type LoggerLike = Pick<Console, 'debug' | 'error' | 'info' | 'log' | 'war
 /**
  * Where trypatch logs and how much.
  * @group Options
+ * @inline
  */
 export type LoggingOptions = {
     /** Nothing is logged without one. */
     logger?: LoggerLike
-    /** @defaultValue `'high'` */
+    // In the summary, not `@defaultValue`: inlined option rows don't show defaults.
+    /** Defaults to `'high'`. */
     verbosity?: LoggingVerbosity
 }
 

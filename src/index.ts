@@ -39,8 +39,9 @@ export type {
     ResolvedOutcome,
     ResultTool,
     Stage3MethodDecorator,
+    TrypatchAiOptions,
+    TrypatchCustomOptions,
     TrypatchOptions,
-    TrypatchOptionsBase,
 } from './types'
 /**
  * [flare-redact](https://www.npmjs.com/package/flare-redact) options for {@link AiInvestigationOptions.redactConfig}.

@@ -77,6 +77,7 @@ export type InvestigationContext = {
 /**
  * When the failed call started and how long it ran before failing.
  * @group Types
+ * @inline
  */
 export type CallTiming = {
     /** When the decorated method was called. */
@@ -270,11 +271,8 @@ export type CustomInvestigationOptions = {
     customErrors?: CustomInvestigationErrorDefinition[]
 }
 
-/**
- * Options shared by AI and custom investigations.
- * @group Options
- */
-export type TrypatchOptionsBase = {
+/** Options shared by AI and custom investigations. */
+type TrypatchOptionsBase = {
     /** Where trypatch logs and how much; nothing is logged without a `logger`. */
     logging?: LoggingOptions
     /**
@@ -295,26 +293,46 @@ export type TrypatchOptionsBase = {
 }
 
 /**
- * Options for {@link trypatch}: the shared options plus exactly one of `aiInvestigation` or `customInvestigation`.
+ * Options for {@link trypatch} that investigate with an AI provider.
+ * @group Options
+ * @interface
+ */
+export type TrypatchAiOptions<
+    S extends Schema = Schema,
+    C = unknown,
+> = TrypatchOptionsBase & {
+    /** Investigate with an AI provider. */
+    aiInvestigation: AiInvestigationOptions<S, C>
+    /**
+     * Not allowed together with `aiInvestigation`.
+     * @hidden
+     */
+    customInvestigation?: never
+}
+
+/**
+ * Options for {@link trypatch} that investigate with your own handler.
+ * @group Options
+ * @interface
+ */
+export type TrypatchCustomOptions = TrypatchOptionsBase & {
+    /** Investigate with your own handler. */
+    customInvestigation: CustomInvestigationOptions
+    /**
+     * Not allowed together with `customInvestigation`.
+     * @hidden
+     */
+    aiInvestigation?: never
+}
+
+/**
+ * Options for {@link trypatch}: an AI or a custom investigation.
  * @group Options
  */
 export type TrypatchOptions<
     S extends Schema = Schema,
     C = unknown,
-> = TrypatchOptionsBase & (
-    | {
-        /** Investigate with an AI provider. */
-        aiInvestigation: AiInvestigationOptions<S, C>
-        /** Not allowed together with `aiInvestigation`. */
-        customInvestigation?: never
-    }
-    | {
-        /** Investigate with your own handler. */
-        customInvestigation: CustomInvestigationOptions
-        /** Not allowed together with `customInvestigation`. */
-        aiInvestigation?: never
-    }
-)
+> = TrypatchAiOptions<S, C> | TrypatchCustomOptions
 
 /**
  * The shape {@link trypatch} returns under TypeScript's `experimentalDecorators`.
