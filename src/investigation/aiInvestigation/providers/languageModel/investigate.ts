@@ -7,7 +7,8 @@ import { MAX_TOOL_NAME_LENGTH } from './constants'
 import { createLanguageModel } from './createLanguageModel'
 import { connectMcpTools } from './mcp'
 import { guardMcpTools, toolsToAiSdkTools } from './toolAdapter'
-import type { LanguageModelInvestigationConfig, LanguageModelInvestigationOptions } from './types'
+import type { LanguageModelInvestigationConfig } from '../types'
+import type { LanguageModelInvestigationOptions } from './types'
 
 function mergeTools (investigationTools: ToolSet | undefined, mcpTools: ToolSet): ToolSet | undefined {
     for (const name of Object.keys(mcpTools)) {

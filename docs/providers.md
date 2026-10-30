@@ -4,23 +4,23 @@ title: Providers
 
 # Providers
 
-{@link AiInvestigationOptions.investigationProvider | `investigationProvider`} picks the AI that investigates. Every provider config takes its API key directly; resolve it however you like (env var, secret manager, ...).
+{@linkcode AiInvestigationOptions.investigationProvider | investigationProvider} picks the AI that investigates. Every provider config takes its API key directly; resolve it however you like (env var, secret manager, ...).
 
 ## OpenAI
 
-{@link OpenAiInvestigationConfig | `provider: 'openai'`} calls OpenAI's Responses API with strict JSON Schema output.
+{@linkcode OpenAiInvestigationConfig | provider: 'openai'} calls OpenAI's Responses API with strict JSON Schema output.
 
 {@includeCode ../examples/providers.ts#openai}
 
 ## Claude (Anthropic)
 
-{@link ClaudeInvestigationConfig | `provider: 'claude'`} calls Anthropic's Messages API with JSON Schema output.
+{@linkcode ClaudeInvestigationConfig | provider: 'claude'} calls Anthropic's Messages API with JSON Schema output.
 
 {@includeCode ../examples/providers.ts#claude}
 
 ## OpenAI-compatible endpoints
 
-{@link OpenAiCompatibleInvestigationConfig | `provider: 'openai-compatible'`} works with anything that exposes an OpenAI-compatible Chat Completions API: Gemini, Mistral, Groq, Ollama, OpenRouter, vLLM, and more.
+{@linkcode OpenAiCompatibleInvestigationConfig | provider: 'openai-compatible'} works with anything that exposes an OpenAI-compatible Chat Completions API: Gemini, Mistral, Groq, Ollama, OpenRouter, vLLM, and more.
 
 {@includeCode ../examples/providers.ts#openai-compatible}
 
@@ -28,7 +28,7 @@ Set `supportsStructuredOutputs: true` if the endpoint enforces JSON Schema outpu
 
 ## Cursor Cloud Agents
 
-{@link CursorInvestigationConfig | `provider: 'cursor'`} starts a Cursor cloud agent and polls its run until it finishes.
+{@linkcode CursorInvestigationConfig | provider: 'cursor'} starts a Cursor cloud agent and polls its run until it finishes.
 
 {@includeCode ../examples/providers.ts#cursor}
 

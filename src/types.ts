@@ -1,8 +1,7 @@
 import type { VaultOptions } from 'flare-redact'
 import type { LoggingOptions } from './logger'
 import type { Tool, ToolParameters } from './investigation/aiInvestigation/tools'
-import type { CursorInvestigationConfig } from './investigation/aiInvestigation/providers/cursor/types'
-import type { LanguageModelInvestigationConfig } from './investigation/aiInvestigation/providers/languageModel/types'
+import type { InvestigationProviderConfig } from './investigation/aiInvestigation/providers/types'
 import type { McpServerConfig } from './investigation/aiInvestigation/mcp/types'
 import type { Schema, SchemaInfer } from './schema/types'
 
@@ -35,14 +34,6 @@ export type MethodDescriptor =
         target: object
         descriptor: PropertyDescriptor
     }
-
-/**
- * Provider config, picked by its `provider` field.
- * @group Providers
- */
-export type InvestigationProviderConfig
-    = | LanguageModelInvestigationConfig
-        | CursorInvestigationConfig
 
 /**
  * The failed call, as passed to callbacks, custom prompts, `getSignal` and `investigate`.

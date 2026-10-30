@@ -4,14 +4,14 @@ title: MCP servers
 
 # MCP servers
 
-{@link AiInvestigationOptions.mcpServers | `mcpServers`} connects the investigation to [MCP](https://modelcontextprotocol.io) servers, and the AI calls their tools like `investigationTools`. You define the servers; trypatch ships no presets.
+{@linkcode AiInvestigationOptions.mcpServers | mcpServers} connects the investigation to [MCP](https://modelcontextprotocol.io) servers, and the AI calls their tools like `investigationTools`. You define the servers; trypatch ships no presets.
 
 {@includeCode ../examples/mcp-servers.ts#mcp-servers}
 
 ## Behavior
 
 - **Recommended: read-only tools.** The AI decides which tools to call, and MCP servers often expose tools that change things (`delete_*`, `create_*`). Narrow each server with `allowedTools`; trypatch doesn't enforce it.
-- **Auth** goes in {@link McpRemoteServerConfig.headers | `headers`} (static, or a function for short-lived tokens or client-credentials OAuth) or a stdio server's `env`. Interactive OAuth isn't supported: nobody is around to complete a browser login when an error fires on a server.
+- **Auth** goes in {@linkcode McpRemoteServerConfig.headers | headers} (static, or a function for short-lived tokens or client-credentials OAuth) or a stdio server's `env`. Interactive OAuth isn't supported: nobody is around to complete a browser login when an error fires on a server.
 - **Connection lifetime:** servers connect when an investigation starts and close when it ends, so a stdio server is a new process per investigated failure.
 - **Unavailable servers don't fail the investigation.** A server that won't connect, or whose `headers` function throws, is logged as a warning and skipped. The AI works with the tools it has, and can pick a fallback outcome if they aren't enough.
 - MCP tools share `maxToolIterations`, `timeoutMs` (which also covers connecting) and redaction with `investigationTools`. Tool descriptions are sent unredacted.

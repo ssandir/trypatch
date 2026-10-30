@@ -8,7 +8,6 @@ import type {
     AiInvestigationOptions,
     CustomErrorDefinition,
     InvestigationContext,
-    InvestigationProviderConfig,
     ResolvedOutcome,
     ResultTool,
 } from '../../types'
@@ -23,6 +22,7 @@ import { redactInvestigationPrompts, restoreInvestigationResponse } from './reda
 import { investigateWithCursor } from './providers/cursor/investigate'
 import { investigateWithLanguageModel } from './providers/languageModel/investigate'
 import type { LanguageModelInvestigationOptions } from './providers/languageModel/types'
+import type { InvestigationProviderConfig } from './providers/types'
 import type { InvestigationOutcome } from './outcomeSchema'
 import {
     buildOutcomeEnvelopeSchema,

@@ -3,7 +3,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { LanguageModel } from 'ai'
 import { DEFAULT_CLAUDE_BASE_URL, DEFAULT_CLAUDE_MODEL, DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL } from './constants'
-import type { LanguageModelInvestigationConfig } from './types'
+import type { LanguageModelInvestigationConfig } from '../types'
 
 // Maps our own provider configs onto AI SDK models so no AI SDK type leaks into the public API —
 // AI SDK major upgrades stay an internal change. baseURL is always passed: without one, the AI SDK

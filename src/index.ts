@@ -33,7 +33,6 @@ export type {
     CustomInvestigationOptions,
     InvestigationBehavior,
     InvestigationContext,
-    InvestigationProviderConfig,
     InvestigationTool,
     LegacyMethodDecorator,
     ResolvedOutcome,
@@ -48,13 +47,15 @@ export type {
  * @group Options
  */
 export type { VaultOptions } from 'flare-redact'
-export type { CursorInvestigationConfig, CursorRepositoryConfig } from './investigation/aiInvestigation/providers/cursor/types'
 export type {
     ClaudeInvestigationConfig,
+    CursorInvestigationConfig,
+    CursorRepositoryConfig,
+    InvestigationProviderConfig,
     LanguageModelInvestigationConfig,
     OpenAiCompatibleInvestigationConfig,
     OpenAiInvestigationConfig,
-} from './investigation/aiInvestigation/providers/languageModel/types'
+} from './investigation/aiInvestigation/providers/types'
 export type {
     McpHeaders,
     McpRemoteServerConfig,

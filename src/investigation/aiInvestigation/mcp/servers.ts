@@ -1,6 +1,6 @@
 import { TrypatchConfigError } from '../../../errors'
 import type { Logger } from '../../../logger'
-import type { InvestigationProviderConfig } from '../../../types'
+import type { InvestigationProviderConfig } from '../providers/types'
 import type { McpServerConfig, ResolvedMcpServerConfig } from './types'
 
 const SERVER_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/
