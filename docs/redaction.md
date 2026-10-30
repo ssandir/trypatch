@@ -4,7 +4,7 @@ title: Redaction
 
 # Redaction
 
-API keys, tokens and PII are redacted before they leave your process, on by default. {@link AiInvestigationOptions.redactConfig | `redactConfig`} adds your own `terms` or tunes [flare-redact](https://www.npmjs.com/package/flare-redact)'s detectors, and `redactConfig: false` turns redaction off.
+API keys, tokens and PII are redacted before they leave your process, on by default. {@linkcode AiInvestigationOptions.redactConfig | redactConfig} adds your own `terms` or tunes [flare-redact](https://www.npmjs.com/package/flare-redact)'s detectors, and `redactConfig: false` turns redaction off.
 
 {@includeCode ../examples/redaction.ts#redaction}
 
@@ -24,4 +24,4 @@ Redaction only covers what goes to the provider:
 - Callbacks get raw values: `ctx.error` and `ctx.args` as they were, and the AI's `explanation` with placeholders restored. Scrub them before they reach a third party.
 - Tool and MCP tool descriptions are sent as written.
 - With `cursor`, MCP traffic runs inside Cursor, out of redaction's reach. See [MCP servers](./mcp-servers.md).
-- To keep values out of the prompt entirely, use {@link InvestigationBehavior.sanitizeArgs | `sanitizeArgs`}.
+- To keep values out of the prompt entirely, use {@linkcode InvestigationBehavior.sanitizeArgs | sanitizeArgs}.

@@ -15,10 +15,10 @@ import type { SchemaInfer } from '../../../schema/types'
  * @group Tools
  */
 export function defineTool<
-    TSchema extends ToolParameters = undefined,
-    Context = unknown,
+    InputSchema extends ToolParameters = undefined,
+    ToolContext = unknown,
     Result = unknown,
-> (definition: ToolDefinition<TSchema, Context, Result>): Tool<TSchema, Context, Result> {
+> (definition: ToolDefinition<InputSchema, ToolContext, Result>): Tool<InputSchema, ToolContext, Result> {
     // Reject an invalid schema when the tool is defined rather than on its first call.
     const schema = toInputJsonSchema(definition.parameters, `Tool ${definition.name} parameters`)
     // Providers require tool input to be an object schema.
@@ -30,13 +30,13 @@ export function defineTool<
     return { ...definition, name: toFunctionToolName(definition.name) }
 }
 
-export async function callTool<TSchema extends ToolParameters, Context, Result> (
-    tool: Tool<TSchema, Context, Result>,
+export async function callTool<InputSchema extends ToolParameters, ToolContext, Result> (
+    tool: Tool<InputSchema, ToolContext, Result>,
     input: unknown,
-    context: Context | undefined,
+    context: ToolContext | undefined,
     options: { signal: AbortSignal | undefined },
 ): Promise<Awaited<Result>> {
-    const parsed = parseParameter(tool.parameters, input, `parameters for tool ${tool.name}`) as SchemaInfer<TSchema>
+    const parsed = parseParameter(tool.parameters, input, `parameters for tool ${tool.name}`) as SchemaInfer<InputSchema>
 
     return await withDeadline(async (signal): Promise<Awaited<Result>> => {
         return await tool.execute(parsed, context, { signal })

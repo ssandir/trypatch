@@ -33,27 +33,29 @@ export type {
     CustomInvestigationOptions,
     InvestigationBehavior,
     InvestigationContext,
-    InvestigationProviderConfig,
     InvestigationTool,
     LegacyMethodDecorator,
     ResolvedOutcome,
     ResultTool,
     Stage3MethodDecorator,
+    TrypatchAiOptions,
+    TrypatchCustomOptions,
     TrypatchOptions,
-    TrypatchOptionsBase,
 } from './types'
 /**
  * [flare-redact](https://www.npmjs.com/package/flare-redact) options for {@link AiInvestigationOptions.redactConfig}.
  * @group Options
  */
 export type { VaultOptions } from 'flare-redact'
-export type { CursorInvestigationConfig, CursorRepositoryConfig } from './investigation/aiInvestigation/providers/cursor/types'
 export type {
     ClaudeInvestigationConfig,
+    CursorInvestigationConfig,
+    CursorRepositoryConfig,
+    InvestigationProviderConfig,
     LanguageModelInvestigationConfig,
     OpenAiCompatibleInvestigationConfig,
     OpenAiInvestigationConfig,
-} from './investigation/aiInvestigation/providers/languageModel/types'
+} from './investigation/aiInvestigation/providers/types'
 export type {
     McpHeaders,
     McpRemoteServerConfig,

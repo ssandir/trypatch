@@ -11,20 +11,20 @@ When a decorated method throws or rejects, `@trypatch` investigates the failure 
 ## The investigation
 
 - trypatch passes the failure to the investigation as an {@link InvestigationContext}: the error, the method's name, arguments and source, and the call's timing.
-- {@link AiInvestigationOptions | `aiInvestigation`} asks an AI provider for an outcome; [`customInvestigation`](#custom-investigation) runs your own handler instead.
+- {@linkcode AiInvestigationOptions | aiInvestigation} asks an AI provider for an outcome; [`customInvestigation`](#custom-investigation) runs your own handler instead.
 - Options that could never produce an outcome throw when the decorator is applied, not on the first failure.
 
 ## Outcomes the AI can pick
 
 Every outcome comes with an `explanation`: why the call failed and why the AI picked that outcome.
 
-- **A value**, returned to the caller as if the method had succeeded. It's validated against {@link AiInvestigationOptions.resultSchema | `resultSchema`} first; {@link InvestigationBehavior.allowDirectResultCreation | `allowDirectResultCreation: false`} removes this outcome.
+- **A value**, returned to the caller as if the method had succeeded. It's validated against {@linkcode AiInvestigationOptions.resultSchema | resultSchema} first; {@linkcode InvestigationBehavior.allowDirectResultCreation | allowDirectResultCreation: false} removes this outcome.
 - **A result tool**, which trypatch runs and whose return value it returns. See [Tools](./tools.md).
-- **A custom error** from {@link AiInvestigationOptions.customErrors | `customErrors`}, constructed with a parameter the AI supplies.
+- **A custom error** from {@linkcode AiInvestigationOptions.customErrors | customErrors}, constructed with a parameter the AI supplies.
 - **A fallback outcome**, when it has no correct value to offer instead of guessing one. The AI supplies a short `reason`, which becomes the error's message:
-  - {@link InvestigationBehavior.allowCannotDetermine | `allowCannotDetermine`}: not enough information to work out the value → {@link TrypatchCannotDetermineError}
-  - {@link InvestigationBehavior.allowUncertainResult | `allowUncertainResult`}: a candidate exists, but confidence is too low → {@link TrypatchUncertainResultError}
-  - {@link InvestigationBehavior.allowNoApplicableOutcome | `allowNoApplicableOutcome`}: none of the configured outcomes fit → {@link TrypatchNoApplicableOutcomeError}
+  - {@linkcode InvestigationBehavior.allowCannotDetermine | allowCannotDetermine}: not enough information to work out the value → {@link TrypatchCannotDetermineError}
+  - {@linkcode InvestigationBehavior.allowUncertainResult | allowUncertainResult}: a candidate exists, but confidence is too low → {@link TrypatchUncertainResultError}
+  - {@linkcode InvestigationBehavior.allowNoApplicableOutcome | allowNoApplicableOutcome}: none of the configured outcomes fit → {@link TrypatchNoApplicableOutcomeError}
 
 The explanation is logged at `info` level, so only with `verbosity: 'high'`, and passed to [`onAiInvestigationEnd`](./monitoring.md). Redaction placeholders in it are restored, so treat it as sensitive.
 
@@ -36,11 +36,11 @@ Only three errors replace the original:
 
 - the abort reason of the signal from `getSignal` (see [Cancellation](./cancellation.md))
 - {@link TrypatchFatalError}
-- a `customErrors` entry with {@link CustomErrorDefinition.propagate | `propagate: true`}
+- a `customErrors` entry with {@linkcode CustomErrorDefinition.propagate | propagate: true}
 
 ## Showing the AI the method's code
 
-{@link InvestigationBehavior.allowMethodSource | `allowMethodSource`} adds the method's code to the prompt, so the AI knows what the call was meant to return:
+{@linkcode InvestigationBehavior.allowMethodSource | allowMethodSource} adds the method's code to the prompt, so the AI knows what the call was meant to return:
 
 {@includeCode ../examples/quick-start.ts#method-source}
 
@@ -49,11 +49,11 @@ Only three errors replace the original:
 
 ## Custom investigation
 
-`customInvestigation` replaces the AI with your own {@link CustomInvestigationOptions.investigate | `investigate`} handler. Its resolved value is returned in place of the error:
+`customInvestigation` replaces the AI with your own {@linkcode CustomInvestigationOptions.investigate | investigate} handler. Its resolved value is returned in place of the error:
 
 {@includeCode ../examples/custom-investigation.ts#custom-investigation}
 
-- An error from its {@link CustomInvestigationOptions.customErrors | `customErrors`} reaches the caller; anything else it throws is logged, and the method rethrows its original error.
+- An error from its {@linkcode CustomInvestigationOptions.customErrors | customErrors} reaches the caller; anything else it throws is logged, and the method rethrows its original error.
 - It gets a signal that fires on `timeoutMs` or the caller's abort; an `investigate` that ignores it is abandoned.
 
 ## Return types and decorator dialects

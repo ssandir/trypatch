@@ -6,9 +6,9 @@ import { resolveMcpServers } from '../../mcp/servers'
 import type { ResolvedMcpServerConfig } from '../../mcp/types'
 import { outcomeSchemaPrompt } from '../../outcomeSchema'
 import { CANCEL_TIMEOUT_MS, DEFAULT_BASE_URL, DEFAULT_POLL_INTERVAL_MS, TERMINAL_RUN_STATUSES } from './constants'
+import type { CursorInvestigationConfig } from '../types'
 import type {
     CursorCreateAgentResponse,
-    CursorInvestigationConfig,
     CursorInvestigationOptions,
     CursorRunResponse,
 } from './types'

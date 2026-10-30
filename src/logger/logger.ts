@@ -1,23 +1,26 @@
 /**
  * `'low'` logs only each message; `'high'` adds error objects and details such as the AI's explanation.
- * @group Options
+ * @group Types
  */
 export type LoggingVerbosity = 'high' | 'low'
 
 /**
  * A console-like logger, e.g. `console`.
- * @group Options
+ * @group Types
  */
 export type LoggerLike = Pick<Console, 'debug' | 'error' | 'info' | 'log' | 'warn'>
 
 /**
  * Where trypatch logs and how much.
  * @group Options
+ * @inline
+ * @hidden
  */
 export type LoggingOptions = {
     /** Nothing is logged without one. */
     logger?: LoggerLike
-    /** @defaultValue `'high'` */
+    // In the summary, not `@defaultValue`: inlined option rows don't show defaults.
+    /** Defaults to `'high'`. */
     verbosity?: LoggingVerbosity
 }
 

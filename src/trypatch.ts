@@ -19,9 +19,9 @@ import type {
  * @group Decorator
  */
 export function trypatch<
-    S extends Schema,
-    C = unknown,
-> (options: TrypatchOptions<S, C>): LegacyMethodDecorator & Stage3MethodDecorator<S> {
+    ResultSchema extends Schema,
+    ToolContext = unknown,
+> (options: TrypatchOptions<ResultSchema, ToolContext>): LegacyMethodDecorator & Stage3MethodDecorator<ResultSchema> {
     const logger = new Logger(options.logging)
     if ('aiInvestigation' in options) {
         validateAiInvestigationOptions(options.aiInvestigation)
@@ -41,7 +41,7 @@ export function trypatch<
         }
 
         throw new TrypatchFatalError('trypatch can only decorate methods')
-    }) as LegacyMethodDecorator & Stage3MethodDecorator<S>
+    }) as LegacyMethodDecorator & Stage3MethodDecorator<ResultSchema>
 }
 
 function isStage3MethodContext (value: unknown): value is AnyMethodContext {

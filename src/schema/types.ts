@@ -11,9 +11,9 @@ export type Schema = JSONSchema | $ZodType | undefined
  * The TypeScript type a schema describes: inferred for Zod, `any` for JSON Schema (annotate it with `FromSchema`).
  * @group Types
  */
-export type SchemaInfer<S extends Schema>
-    = S extends $ZodType ? ZodOutput<S>
-        // FromSchema<S> triggers TS2589 (excessively deep instantiation) through our generic types.
+export type SchemaInfer<TSchema extends Schema>
+    = TSchema extends $ZodType ? ZodOutput<TSchema>
+        // FromSchema<TSchema> triggers TS2589 (excessively deep instantiation) through our generic types.
         // `any` lets callers annotate the value, e.g. with FromSchema<typeof schema>.
-        : S extends JSONSchema ? any
+        : TSchema extends JSONSchema ? any
             : undefined
