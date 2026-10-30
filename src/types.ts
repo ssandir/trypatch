@@ -78,12 +78,129 @@ export type InvestigationContext = {
  * When the failed call started and how long it ran before failing.
  * @group Types
  * @inline
+ * @hidden
  */
 export type CallTiming = {
     /** When the decorated method was called. */
     startedAt: Date
     /** Milliseconds from the call to its failure, measured with a monotonic clock. */
     durationMs: number
+}
+
+/**
+ * Options for {@link trypatch}: an AI or a custom investigation.
+ * @group Options
+ */
+export type TrypatchOptions<
+    S extends Schema = Schema,
+    C = unknown,
+> = TrypatchAiOptions<S, C> | TrypatchCustomOptions
+
+/** Options shared by AI and custom investigations. */
+type TrypatchOptionsBase = {
+    /** Where trypatch logs and how much; nothing is logged without a `logger`. */
+    logging?: LoggingOptions
+    /**
+     * Resolves an abort signal from the investigation context (including the call's arguments), once per call. When it
+     * fires, the investigation stops and the decorated method rejects with the signal's `reason`.
+     */
+    getSignal?: (ctx: InvestigationContext) => AbortSignal | undefined
+    /**
+     * Deadline for the whole investigation: tool rounds, MCP connections, the picked result tool and `onAiInvestigationEnd`.
+     * When it passes, the failure is logged and the method rethrows its original error; no deadline when unset.
+     */
+    timeoutMs?: number
+    /**
+     * Called before the investigation starts, e.g. to report `ctx.error`. If it throws, the investigation is skipped
+     * and the decorated method rejects with its original error.
+     */
+    onInvestigationStart?: (ctx: InvestigationContext) => void | Promise<void>
+}
+
+/**
+ * Options for {@link trypatch} that investigate with an AI provider.
+ * @group Options
+ * @interface
+ */
+export type TrypatchAiOptions<
+    S extends Schema = Schema,
+    C = unknown,
+> = TrypatchOptionsBase & {
+    /** Investigate with an AI provider. */
+    aiInvestigation: AiInvestigationOptions<S, C>
+    /**
+     * Not allowed together with `aiInvestigation`.
+     * @hidden
+     */
+    customInvestigation?: never
+}
+
+/**
+ * Options for {@link trypatch} that investigate with your own handler.
+ * @group Options
+ * @interface
+ */
+export type TrypatchCustomOptions = TrypatchOptionsBase & {
+    /** Investigate with your own handler. */
+    customInvestigation: CustomInvestigationOptions
+    /**
+     * Not allowed together with `customInvestigation`.
+     * @hidden
+     */
+    aiInvestigation?: never
+}
+
+/**
+ * Options for investigating a failure with an AI provider.
+ * @group Options
+ */
+export type AiInvestigationOptions<
+    S extends Schema = Schema,
+    C = unknown,
+> = {
+    /**
+     * JSON Schema or Zod schema of the decorated method's return value. A recovered value (a direct
+     * `result` or a {@link resultTools} return value) is returned in place of the error, so it must
+     * match what the method returns.
+     */
+    resultSchema?: S
+    /** External AI provider that runs the investigation. */
+    investigationProvider: InvestigationProviderConfig
+    /** Prompts, argument sanitization, and which built-in tools and outcomes the AI may use. */
+    investigationBehavior?: InvestigationBehavior
+    /**
+     * flare-redact vault options. Investigation prompts and tool output are always redacted reversibly
+     * before they reach the provider (flare-redact's default detectors: API keys, tokens, emails, card
+     * numbers, …), and placeholders are restored in the response and in tool input. Use this to add
+     * `terms` or tune detectors, or set it to `false` to send everything unredacted.
+     */
+    redactConfig?: VaultOptions | false
+    /** Context passed to {@link investigationTools} and {@link resultTools} execute handlers. */
+    toolContext?: C
+    /**
+     * Tools the AI may call while investigating. Strongly recommended to be read-only — no mutations or side effects; ignored by `cursor`.
+     */
+    investigationTools?: InvestigationTool<C>[]
+    /**
+     * MCP servers whose tools the AI may call while investigating, alongside {@link investigationTools}.
+     * Connected once per investigation and closed afterwards. A server that can't be reached is logged
+     * as a warning and skipped.
+     *
+     * Recommended: expose only read-only tools (narrow them with `allowedTools`), since the AI decides what to call.
+     */
+    mcpServers?: McpServerConfig[]
+    /**
+     * Tools the AI may pick as its outcome. trypatch calls the picked tool once the investigation
+     * completes, and its return value is returned from the decorated method in place of the error.
+     */
+    resultTools?: ResultTool<S, C>[]
+    /** Custom error classes the AI can throw during investigation. */
+    customErrors?: CustomErrorDefinition[]
+    /**
+     * Called with the AI's outcome before the decorated method returns or rejects, but not when the investigation fails
+     * before the AI picks an outcome. If it throws, the decorated method rejects with its original error.
+     */
+    onAiInvestigationEnd?: (ctx: InvestigationContext, outcome: ResolvedOutcome<SchemaInfer<S>>) => void | Promise<void>
 }
 
 /**
@@ -175,59 +292,6 @@ export type CustomErrorDefinition<S extends Schema = Schema> = {
 }
 
 /**
- * Options for investigating a failure with an AI provider.
- * @group Options
- */
-export type AiInvestigationOptions<
-    S extends Schema = Schema,
-    C = unknown,
-> = {
-    /**
-     * JSON Schema or Zod schema of the decorated method's return value. A recovered value (a direct
-     * `result` or a {@link resultTools} return value) is returned in place of the error, so it must
-     * match what the method returns.
-     */
-    resultSchema?: S
-    /** External AI provider that runs the investigation. */
-    investigationProvider: InvestigationProviderConfig
-    /** Prompts, argument sanitization, and which built-in tools and outcomes the AI may use. */
-    investigationBehavior?: InvestigationBehavior
-    /**
-     * flare-redact vault options. Investigation prompts and tool output are always redacted reversibly
-     * before they reach the provider (flare-redact's default detectors: API keys, tokens, emails, card
-     * numbers, …), and placeholders are restored in the response and in tool input. Use this to add
-     * `terms` or tune detectors, or set it to `false` to send everything unredacted.
-     */
-    redactConfig?: VaultOptions | false
-    /** Context passed to {@link investigationTools} and {@link resultTools} execute handlers. */
-    toolContext?: C
-    /**
-     * Tools the AI may call while investigating. Strongly recommended to be read-only — no mutations or side effects; ignored by `cursor`.
-     */
-    investigationTools?: InvestigationTool<C>[]
-    /**
-     * MCP servers whose tools the AI may call while investigating, alongside {@link investigationTools}.
-     * Connected once per investigation and closed afterwards. A server that can't be reached is logged
-     * as a warning and skipped.
-     *
-     * Recommended: expose only read-only tools (narrow them with `allowedTools`), since the AI decides what to call.
-     */
-    mcpServers?: McpServerConfig[]
-    /**
-     * Tools the AI may pick as its outcome. trypatch calls the picked tool once the investigation
-     * completes, and its return value is returned from the decorated method in place of the error.
-     */
-    resultTools?: ResultTool<S, C>[]
-    /** Custom error classes the AI can throw during investigation. */
-    customErrors?: CustomErrorDefinition[]
-    /**
-     * Called with the AI's outcome before the decorated method returns or rejects, but not when the investigation fails
-     * before the AI picks an outcome. If it throws, the decorated method rejects with its original error.
-     */
-    onAiInvestigationEnd?: (ctx: InvestigationContext, outcome: ResolvedOutcome<SchemaInfer<S>>) => void | Promise<void>
-}
-
-/**
  * The AI's findings: its `explanation` of why the call failed and why its outcome is correct, with either the
  * `result` the decorated method returns or the `error` the outcome ended with.
  * @group Types
@@ -270,69 +334,6 @@ export type CustomInvestigationOptions = {
     /** Error classes that, when thrown by {@link investigate}, propagate instead of the method's original error. */
     customErrors?: CustomInvestigationErrorDefinition[]
 }
-
-/** Options shared by AI and custom investigations. */
-type TrypatchOptionsBase = {
-    /** Where trypatch logs and how much; nothing is logged without a `logger`. */
-    logging?: LoggingOptions
-    /**
-     * Resolves an abort signal from the investigation context (including the call's arguments), once per call. When it
-     * fires, the investigation stops and the decorated method rejects with the signal's `reason`.
-     */
-    getSignal?: (ctx: InvestigationContext) => AbortSignal | undefined
-    /**
-     * Deadline for the whole investigation: tool rounds, MCP connections, the picked result tool and `onAiInvestigationEnd`.
-     * When it passes, the failure is logged and the method rethrows its original error; no deadline when unset.
-     */
-    timeoutMs?: number
-    /**
-     * Called before the investigation starts, e.g. to report `ctx.error`. If it throws, the investigation is skipped
-     * and the decorated method rejects with its original error.
-     */
-    onInvestigationStart?: (ctx: InvestigationContext) => void | Promise<void>
-}
-
-/**
- * Options for {@link trypatch} that investigate with an AI provider.
- * @group Options
- * @interface
- */
-export type TrypatchAiOptions<
-    S extends Schema = Schema,
-    C = unknown,
-> = TrypatchOptionsBase & {
-    /** Investigate with an AI provider. */
-    aiInvestigation: AiInvestigationOptions<S, C>
-    /**
-     * Not allowed together with `aiInvestigation`.
-     * @hidden
-     */
-    customInvestigation?: never
-}
-
-/**
- * Options for {@link trypatch} that investigate with your own handler.
- * @group Options
- * @interface
- */
-export type TrypatchCustomOptions = TrypatchOptionsBase & {
-    /** Investigate with your own handler. */
-    customInvestigation: CustomInvestigationOptions
-    /**
-     * Not allowed together with `customInvestigation`.
-     * @hidden
-     */
-    aiInvestigation?: never
-}
-
-/**
- * Options for {@link trypatch}: an AI or a custom investigation.
- * @group Options
- */
-export type TrypatchOptions<
-    S extends Schema = Schema,
-    C = unknown,
-> = TrypatchAiOptions<S, C> | TrypatchCustomOptions
 
 /**
  * The shape {@link trypatch} returns under TypeScript's `experimentalDecorators`.

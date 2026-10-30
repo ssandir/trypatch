@@ -31,4 +31,4 @@ trypatch logs through {@link TrypatchAiOptions.logging | `logging.logger`} and l
 - Investigations that end without a value are logged at `error` level, including those that fail before the AI picks an outcome (provider error, timeout, invalid response), when `onAiInvestigationEnd` isn't called. Forward `error` to your monitoring to catch them.
 - Unavailable MCP servers and failed Cursor cancellations are logged at `warn` level.
 - Each outcome and its explanation are logged at `info` level.
-- {@link LoggingOptions.verbosity | `verbosity: 'low'`} logs each message only, without error objects or the explanation.
+- {@link TrypatchAiOptions.logging | `verbosity: 'low'`} logs each message only, without error objects or the explanation.
